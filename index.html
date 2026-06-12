@@ -793,6 +793,9 @@ async function renderSongList(){
   });
 }
 const DIFFCOL={EASY:"var(--green)",NORMAL:"var(--yellow)",HARD:"var(--pink)"};
+// ★잠금 난이도(아직 미완성 → 플레이 불가). 완성되면 해당 이름을 지우세요. 예: {diamond:["HARD"]}
+const LOCKED_DIFFS={diamond:["NORMAL","HARD"]};
+function diffLocked(songId,name){const a=LOCKED_DIFFS[songId];return !!(a&&a.indexOf(name)>=0);}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
   $("#diffView").classList.remove("hidden");
@@ -801,10 +804,18 @@ function openDiffs(song){
   const list=$("#diffList");list.innerHTML="";
   song.difficulties.forEach(d=>{
     const col=DIFFCOL[d.name]||"var(--blue)";
-    const card=document.createElement("div");card.className="diffcard";card.style.borderColor=col;
-    card.innerHTML=`<span class="lv" style="color:${col}">${d.name}</span>
-      <span class="cnt">노트 ${d.chart.notes.length}개</span>`;
-    card.onclick=()=>playEmbedded(song,d);
+    const card=document.createElement("div");card.className="diffcard";
+    if(diffLocked(song.id,d.name)){
+      card.style.borderColor="#3a3f5c";card.style.opacity="0.5";card.style.cursor="not-allowed";
+      card.innerHTML=`<span class="lv" style="color:#7b82a8">🔒 ${d.name}</span>
+        <span class="cnt"></span>`;
+      card.onclick=()=>toast("🔒");
+    }else{
+      card.style.borderColor=col;
+      card.innerHTML=`<span class="lv" style="color:${col}">${d.name}</span>
+        <span class="cnt">노트 ${d.chart.notes.length}개</span>`;
+      card.onclick=()=>playEmbedded(song,d);
+    }
     list.appendChild(card);
   });
 }
