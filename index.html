@@ -1448,17 +1448,25 @@ function _briC(c){return [Math.min(255,c[0]+110),Math.min(255,c[1]+110),Math.min
 function spaceGeom(){const W=pcanvas.width,H=pcanvas.height,r=noteR();
   const myt=clamp(H*0.17,64,150),myb=Math.max(myt+60,horizonY()-r-12);
   return {cx:W/2,cy:(myt+myb)/2,R:clamp(Math.min(W,H)*0.17,70,150),maxR:Math.hypot(W,H)*0.6};}
+function _bkNoise(ctx,dur,curve){const n=Math.floor(ctx.sampleRate*dur),b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,curve);return b;}
+// 비트킬링 — 웅장 + 타격감: 깊은 서브 드롭 + 펀치 바디 + 어택 클릭 + 슬램 노이즈 + 큰 리버브
 function beatKill(){ if(!settings.sfxOn)return; try{
   const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
-  if(!_irBuf){const ln=Math.floor(ctx.sampleRate*1.1),b=ctx.createBuffer(1,ln,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/ln,2.6);_irBuf=b;}
-  const conv=ctx.createConvolver();conv.buffer=_irBuf;const wet=ctx.createGain();wet.gain.value=0.5*V;conv.connect(wet).connect(ctx.destination);
+  if(!_irBuf){const ln=Math.floor(ctx.sampleRate*1.5),b=ctx.createBuffer(2,ln,ctx.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/ln,2.6);}_irBuf=b;}
+  const conv=ctx.createConvolver();conv.buffer=_irBuf;const wet=ctx.createGain();wet.gain.value=0.6*V;conv.connect(wet).connect(ctx.destination);
   const send=node=>{node.connect(ctx.destination);node.connect(conv);};
-  const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(38,t+0.5);
-  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.6*V,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+0.6);o.connect(g);send(g);o.start(t);o.stop(t+0.66);
-  const dur=0.45,n=Math.floor(ctx.sampleRate*dur),buf=ctx.createBuffer(1,n,ctx.sampleRate),dd=buf.getChannelData(0);for(let i=0;i<n;i++)dd[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.4);
-  const ns=ctx.createBufferSource();ns.buffer=buf;const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.setValueAtTime(1800,t);lp.frequency.exponentialRampToValueAtTime(180,t+0.4);
-  const ng=ctx.createGain();ng.gain.setValueAtTime(0.38*V,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.45);ns.connect(lp).connect(ng);send(ng);ns.start(t);
-  setTimeout(()=>{try{conv.disconnect();wet.disconnect();}catch(e){}},2000);
+  // 1) 깊은 서브 드롭 (165→32Hz, 길고 묵직)
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.setValueAtTime(165,t);o.frequency.exponentialRampToValueAtTime(32,t+0.7);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.82*V,t+0.014);g.gain.exponentialRampToValueAtTime(0.0001,t+0.82);o.connect(g);send(g);o.start(t);o.stop(t+0.86);
+  // 2) 펀치 바디 (타격감)
+  const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="triangle";o2.frequency.setValueAtTime(330,t);o2.frequency.exponentialRampToValueAtTime(70,t+0.16);
+  g2.gain.setValueAtTime(0.0001,t);g2.gain.exponentialRampToValueAtTime(0.34*V,t+0.006);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.2);o2.connect(g2);send(g2);o2.start(t);o2.stop(t+0.22);
+  // 3) 어택 클릭
+  const cl=ctx.createBufferSource();cl.buffer=_bkNoise(ctx,0.05,1);const hp=ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=2600;const cg=ctx.createGain();cg.gain.value=0.5*V;cl.connect(hp).connect(cg).connect(ctx.destination);cl.start(t);
+  // 4) 슬램 노이즈 (로우패스 스윕)
+  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,0.5,1.3);const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.setValueAtTime(2600,t);lp.frequency.exponentialRampToValueAtTime(170,t+0.42);
+  const ng=ctx.createGain();ng.gain.setValueAtTime(0.42*V,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.46);ns.connect(lp).connect(ng);send(ng);ns.start(t);
+  setTimeout(()=>{try{conv.disconnect();wet.disconnect();}catch(e){}},2600);
 }catch(e){} }
 function badThud(){ if(!settings.sfxOn)return; try{
   const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
