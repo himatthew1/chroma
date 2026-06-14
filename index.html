@@ -386,10 +386,14 @@
       <div class="songcard" id="hubSync" style="cursor:default">
         <div class="cover" style="background:#1c3a66">🌐</div>
         <div class="meta"><div class="nm">온라인 자동반영 (모두에게 즉시) <span id="syncState" class="muted" style="font-size:12px"></span></div>
-          <div class="ar">한 번만 설정해두면, 이후엔 <b>여기서 채보를 만들어 Gist에 붙여넣기만</b> 하면 모든 사람(인터넷 연결 시)에게 자동 반영됩니다. 재배포가 필요 없어요. (설정법: README의 [자동반영])</div>
-          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="tb-btn diffchip" id="hubExportOv">📤 자동반영용 채보 만들기 (Gist에 붙여넣기)</button>
+          <div class="ar">GitHub 토큰을 한 번만 넣어두면, 에디터에서 <b>저장할 때마다 자동으로 모든 사람에게 업데이트</b>됩니다. (붙여넣기 필요 없음)</div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <input type="password" id="ghToken" placeholder="GitHub 토큰 (gist 권한)" autocomplete="off" style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid #2a3158;background:var(--panel2);color:var(--text);font-size:13px">
+            <button class="tb-btn diffchip" id="ghTokenSave">토큰 저장</button>
+            <button class="tb-btn diffchip" id="hubUploadNow">⬆ 지금 업로드</button>
+            <button class="tb-btn diffchip" id="hubExportOv">📤 파일로 받기</button>
           </div>
+          <div class="ar" style="font-size:11px;margin-top:6px;color:#7b82a8">토큰 만드는 법: 터미널에서 <b>gh auth token</b> 실행 → 나온 값 붙여넣기 (또는 github.com → Settings → Developer settings → Tokens, gist 권한). 토큰은 이 브라우저에만 저장되고 배포본엔 안 들어갑니다.</div>
         </div>
       </div>
       <h2 style="font-size:20px;margin-top:20px">기존 곡 수정</h2>
@@ -497,6 +501,8 @@
 //    설정 방법은 README.txt 의 [자동반영] 항목 참고.
 //    예: const REMOTE_CHARTS_URL = "https://gist.githubusercontent.com/내이름/아이디/raw/charts.json";
 const REMOTE_CHARTS_URL = "https://gist.githubusercontent.com/himatthew1/40bc7cb513bb003e6bbd28fc70278121/raw/charts.json";
+// ★ 위 Gist의 ID (에디터 저장 시 자동 업로드용). REMOTE_CHARTS_URL 의 raw/ 앞 숫자와 동일.
+const GIST_ID = "40bc7cb513bb003e6bbd28fc70278121";
 // ════════════════════════════════════════════════════════════════════════
 const $=s=>document.querySelector(s);
 const COLHEX=["#ff2e97","#22a7ff","#39e36b","#ffd23f"];  // 핑크 블루 그린 옐로우 (좌→우)
@@ -1927,8 +1933,7 @@ $("#edAudio").onchange=async e=>{
 function builtinById(id){return ((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).find(s=>s.id===id);}
 async function openEdHub(){
   show("edhub");
-  const urlSet=(typeof REMOTE_CHARTS_URL==="string"&&REMOTE_CHARTS_URL.trim());
-  $("#syncState").textContent=urlSet?"· 켜짐 (주소 설정됨)":"· 꺼짐 (주소 미설정 — README 참고)";
+  {const tok=ghToken();$("#ghToken").value=tok;$("#syncState").textContent=tok?"· 켜짐 (저장 시 자동 업로드)":"· 토큰 없음 (저장해도 자동 업로드 안 됨)";}
   const list=$("#hubSongList");list.innerHTML='<div class="muted">불러오는 중…</div>';
   let user=[];try{user=await dbAll();}catch{}
   const userIds=new Set(user.map(s=>s.id));
@@ -2020,7 +2025,9 @@ async function editorSave(silent){
   }
   const i=song.difficulties.findIndex(d=>d.name===diff);
   if(i>=0)song.difficulties[i].chart=chart;else song.difficulties.push({name:diff,chart});
-  try{await dbPut(song);edSeedDiffs=null;if(!silent)toast("✅ 저장됨: "+title+" ["+diff+"]  (플레이 곡 목록에 등록)");return true;}
+  try{await dbPut(song);edSeedDiffs=null;
+    if(ghToken())uploadOverridesToGist(false);   // ★토큰 있으면 저장 시 자동으로 모두에게 업로드
+    if(!silent)toast("✅ 저장됨: "+title+" ["+diff+"]"+(ghToken()?" · 자동반영 업로드 중…":"  (플레이 곡 목록에 등록)"));return true;}
   catch(e){toast("저장 실패: "+e.message);return false;}
 }
 $("#edSave").onclick=editorSave;
@@ -2126,6 +2133,26 @@ async function exportOverrides(){
   toast((copied?"📋 클립보드 복사 + ":"")+"charts.json 받음 ("+ov.length+"개) — Gist 내용으로 붙여넣고 저장하세요");
 }
 $("#hubExportOv").onclick=exportOverrides;
+
+// 토큰 기반 자동 업로드 (에디터 저장 시 Gist를 갱신 → 모두에게 즉시 반영)
+function ghToken(){return (localStorage.getItem("chroma_gh_token")||"").trim();}
+async function uploadOverridesToGist(silent){
+  const tok=ghToken();
+  if(!tok){if(!silent)toast("GitHub 토큰을 먼저 저장하세요");return false;}
+  if(!GIST_ID){if(!silent)toast("GIST_ID 미설정");return false;}
+  const ov=await buildRemoteOverrides();
+  try{
+    const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
+      headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
+      body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
+    if(res.ok){if(!silent)toast("✅ 자동반영 업로드 완료 — 모든 사람에게 적용됩니다 ("+ov.length+"개)");return true;}
+    if(res.status===401||res.status===404){toast("토큰/Gist 권한 오류 ("+res.status+") — 토큰의 gist 권한 확인");return false;}
+    toast("업로드 실패: HTTP "+res.status);return false;
+  }catch(e){toast("업로드 오류: "+(e.message||e));return false;}
+}
+$("#ghTokenSave").onclick=()=>{const v=($("#ghToken").value||"").trim();localStorage.setItem("chroma_gh_token",v);
+  $("#syncState").textContent=v?"· 켜짐 (저장 시 자동 업로드)":"· 토큰 없음";toast(v?"토큰 저장됨 — 이제 저장 시 자동 업로드":"토큰 비움");};
+$("#hubUploadNow").onclick=()=>uploadOverridesToGist(false);
 
 $("#genBtn").onclick=()=>{
   if(!edBuffer){toast("먼저 곡을 불러오세요");return;}
