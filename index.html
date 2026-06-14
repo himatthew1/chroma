@@ -743,6 +743,16 @@ $("#coach").onclick=closeCoach;
 // ---------- 곡 / 난이도 선택 ----------
 // 온라인 자동반영: 실행 시 1회 원격 채보(JSON)를 받아옴. 오프라인/미설정이면 null → 내장 채보 사용.
 let _remoteOv=null,_remoteDone=false;
+// ★Gist(온라인 최신본)에서 해당 곡/난이도의 노트를 가져온다. 없으면 fallback(내장/로컬).
+function gistNotesFor(songId,diffName,fallback){
+  if(_remoteOv&&_remoteOv.length){
+    const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);
+    if(o){ if(o.chart&&o.chart.notes)return o.chart.notes; if(o.notes)return o.notes; }
+  }
+  return fallback;
+}
+// ★캐시 무시하고 Gist 최신본을 다시 받는다 (에디터 진입 시 = 어느 브라우저에서든 최신 확보).
+async function refetchRemote(){ _remoteDone=false; _remoteOv=null; return await fetchRemoteOverrides(); }
 async function fetchRemoteOverrides(){
   if(_remoteDone)return _remoteOv; _remoteDone=true;
   const url=(typeof REMOTE_CHARTS_URL==="string"?REMOTE_CHARTS_URL:"").trim();
@@ -763,19 +773,20 @@ async function allSongsForPlay(){
     .filter(b=>!userIds.has(b.id))   // 내 로컬 수정본(같은 id)이 있으면 그게 우선
     // 난이도는 복제(원격 덮어쓰기가 window.SONGS 원본을 건드리지 않게)
     .map(s=>({id:s.id,title:s.title,artist:"내장곡",audio:s.audio,difficulties:s.difficulties.map(d=>({name:d.name,chart:d.chart}))}));
-  // ★온라인 최신 채보로 내장곡 덮어쓰기 (모두에게 자동 반영). 내 로컬 수정본은 건드리지 않음.
+  const user=userRaw.map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
+  const result=built.concat(user);
+  // ★온라인 최신 채보(Gist)를 권위로 덮어쓰기 — 내장곡이든 로컬 사본이든 같은 곡이면 Gist 최신본이 이김
+  //   (옛 로컬 사본이 남아 최신을 가리는 문제 방지: "어디서든 최신"이 보장됨)
   const ov=await fetchRemoteOverrides();
   if(ov&&ov.length){
     for(const o of ov){
-      if(userIds.has(o.song))continue;                 // 내가 직접 수정한 곡은 내 것 우선
-      const s=built.find(b=>b.id===o.song); if(!s)continue;
+      const s=result.find(b=>b.id===o.song); if(!s)continue;
       const d=s.difficulties.find(x=>x.name===o.diff); if(!d)continue;
       if(o.chart)d.chart=o.chart;
       else if(o.notes)d.chart=Object.assign({},d.chart,{notes:o.notes});
     }
   }
-  const user=userRaw.map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
-  return built.concat(user);
+  return result;
 }
 async function openSongSelect(){
   show("songsel");
@@ -1973,18 +1984,20 @@ function builtinById(id){return ((typeof window.SONGS!=="undefined"&&window.SONG
 async function openEdHub(){
   show("edhub");
   {const tok=ghToken();$("#ghToken").value=tok;$("#syncState").textContent=tok?"· 켜짐 (저장 시 자동 업로드)":"· 토큰 없음 (저장해도 자동 업로드 안 됨)";}
-  const list=$("#hubSongList");list.innerHTML='<div class="muted">불러오는 중…</div>';
+  const list=$("#hubSongList");list.innerHTML='<div class="muted">온라인 최신 채보 불러오는 중…</div>';
+  await refetchRemote();   // ★어느 브라우저에서든 항상 Gist 최신본 기준으로 편집
   let user=[];try{user=await dbAll();}catch{}
   const userIds=new Set(user.map(s=>s.id));
   const built=(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).filter(b=>!userIds.has(b.id)));
+  const cnt=(song,d)=>gistNotesFor(song.id,d.name,d.chart.notes).length;   // 최신(Gist) 노트 수 표시
   list.innerHTML="";
   if(!built.length&&!user.length){list.innerHTML='<div class="muted">곡이 없습니다. 위 "신규 곡 등록"으로 만들어보세요.</div>';return;}
   // 내장곡 (수정 시 사본 저장)
   built.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
-    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-bsong="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${d.chart.notes.length})</button>`).join(" ");
-    card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· 내장곡</span></div>
-      <div class="ar muted">난이도 클릭 = 수정 (저장하면 내 라이브러리에 사본으로 저장)</div>
+    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-bsong="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button>`).join(" ");
+    card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· 내장곡 · 온라인 최신</span></div>
+      <div class="ar muted">난이도 클릭 = 수정 (저장하면 온라인에 자동 반영)</div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips}
       <button class="tb-btn diffchip" data-badd="${song.id}">➕ 난이도 추가</button></div></div>`;
     list.appendChild(card);
@@ -1992,7 +2005,7 @@ async function openEdHub(){
   // 내가 등록한 곡
   user.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
-    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-song="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${d.chart.notes.length})</button>`).join(" ");
+    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-song="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button>`).join(" ");
     card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· 내 라이브러리</span></div>
       <div class="ar muted">난이도 클릭 = 수정</div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips}
@@ -2010,8 +2023,8 @@ async function editorEditBuiltin(id,diffName){
   const song=builtinById(id);if(!song){toast("곡을 찾을 수 없음");return;}
   const d=song.difficulties.find(x=>x.name===diffName);if(!d){toast("난이도를 찾을 수 없음");return;}
   resetEditorState();edSongId=song.id;edSeedDiffs=song.difficulties.map(x=>({name:x.name,chart:x.chart}));
-  $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ 내장곡 수정 (사본 저장)";
-  edNotes=(d.chart.notes||[]).map(n=>({...n}));
+  $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ 채보 수정 (온라인 최신본)";
+  edNotes=(gistNotesFor(song.id,d.name,d.chart.notes)||[]).map(n=>({...n}));   // ★항상 Gist 최신본을 편집
   show("editor");edInit();updateSelPanel();
   try{const blob=await (await fetch(song.audio)).blob();edAudioFile=blob;await loadEditorAudioBlob(blob);}catch(e){toast("음원 로드 실패");}
 }
@@ -2034,7 +2047,7 @@ async function editorEdit(songId,diffName){
   const d=song.difficulties.find(x=>x.name===diffName);if(!d){toast("난이도를 찾을 수 없음");return;}
   resetEditorState();edSongId=song.id;
   $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ 기존 곡 수정";
-  edNotes=(d.chart.notes||[]).map(n=>({...n}));
+  edNotes=(gistNotesFor(song.id,d.name,d.chart.notes)||[]).map(n=>({...n}));   // ★온라인 최신본 우선
   show("editor");edInit();updateSelPanel();
   await loadEditorAudioBlob(song.audio);
 }
@@ -2184,7 +2197,7 @@ async function uploadOverridesToGist(silent){
     const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
       headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
       body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
-    if(res.ok){if(!silent)toast("✅ 자동반영 업로드 완료 — 모든 사람에게 적용됩니다 ("+ov.length+"개)");return true;}
+    if(res.ok){_remoteOv=ov;_remoteDone=true;if(!silent)toast("✅ 자동반영 업로드 완료 — 모든 사람에게 적용됩니다 ("+ov.length+"개)");return true;}
     if(res.status===401||res.status===404){toast("토큰/Gist 권한 오류 ("+res.status+") — 토큰의 gist 권한 확인");return false;}
     toast("업로드 실패: HTTP "+res.status);return false;
   }catch(e){toast("업로드 오류: "+(e.message||e));return false;}
