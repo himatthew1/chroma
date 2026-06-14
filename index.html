@@ -1481,51 +1481,70 @@ function applySpaceScore(kind){
   else{state.combo++;state.maxCombo=Math.max(state.maxCombo,state.combo);state.score+=SCOREMAP[kind]+state.combo;}
   updateHUD();
 }
-function spaceBurst(weak){const G=spaceGeom(),n=weak?16:46;
+function spaceBurst(weak){const G=spaceGeom(),n=weak?18:54;
   for(let i=0;i<n;i++)state.spaceParts.push({a:Math.random()*6.283,r:G.R*(0.9+Math.random()*0.3),
-    spd:(weak?2.5:4)+Math.random()*(weak?3:8),life:1,dec:0.01+Math.random()*0.022,
+    spd:(weak?3:6)+Math.random()*(weak?3:9),life:1,dec:0.006+Math.random()*0.012,
     col:(Math.random()<0.5?null:SP_AUR[i%5]),w:0.7+Math.random()*2.2,lf:0.4+Math.random()*2.0});}
+function _spConic(x,y,spin){const cg=pctx.createConicGradient(-1.5708+spin,x,y);const s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;}
+function _spShape(x,y,r,hold){if(hold)hexPath(pctx,x,y,r);else{pctx.beginPath();pctx.arc(x,y,r,0,6.2832);}}
 function pressSpace(){
   const now=gameNow();let best=null,bd=1e9;
   for(const n of state.notes){ if(n.type!=="space"||n.done||n.headJudged)continue;
     const dt=n.time-now,ad=Math.abs(dt);
     if((ad<=JW.good||(dt<0&&ad<=JW.good+LATEGRACE))&&ad<bd){best=n;bd=ad;} }
   if(!best)return;
-  const dt=best.time-now,kind=Math.abs(dt)<=JW.good?(judgeOf(dt)||"good"):"bad";
-  best.headJudged=true;best.spState=kind;best.spT0=now;
-  applySpaceScore(kind);const G=spaceGeom();spawnJudge(kind,G.cx,G.cy);
-  if(kind==="bad"){badThud();spaceBurst(true);}else{beatKill();spaceBurst(false);}
+  const dt=best.time-now,kind=Math.abs(dt)<=JW.good?(judgeOf(dt)||"good"):"bad",G=spaceGeom();
+  best.headJudged=true;
+  if((best.duration||0)>0){                       // 홀드: 헤드 판정 후 잡기 시작 (점수는 완료 시)
+    if(kind==="bad"){best.spState="bad";best.spT0=now;applySpaceScore("bad");spawnJudge("bad",G.cx,G.cy);badThud();spaceBurst(true);}
+    else{best.holding=true;best.spHead=kind;}
+  }else{                                          // 일반: 즉시 해결
+    best.spState=kind;best.spT0=now;applySpaceScore(kind);spawnJudge(kind,G.cx,G.cy);
+    if(kind==="bad"){badThud();spaceBurst(true);}else{beatKill();spaceBurst(false);}
+  }
+}
+function releaseSpace(){
+  const now=gameNow(),G=spaceGeom();
+  for(const n of state.notes){ if(n.type==="space"&&(n.duration||0)>0&&n.holding&&!n.spState){
+    if(now>=n.time+n.duration-0.12){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,G.cx,G.cy);beatKill();spaceBurst(false);}
+    else{n.holding=false;n.spState="break";n.spT0=now;applySpaceScore("miss");badThud();}
+  }}
 }
 function drawSpaceNote(n,now,AR){
-  const G=spaceGeom(),cx=G.cx,cy=G.cy,R=G.R,appear=n.time-AR;
+  const G=spaceGeom(),cx=G.cx,cy=G.cy,R=G.R,appear=n.time-AR,hold=(n.duration||0)>0;
   if(now<appear)return;
   if(!n.headJudged&&now>n.time+JW.good+LATEGRACE){n.headJudged=true;n.spState="miss";n.spT0=now;applySpaceScore("miss");}
-  let al,ringAl,ap=-1,gl=1.2,bloom=0,rs,spin=now*0.6,lwm=1;
+  if(hold&&n.holding&&!n.spState&&now>=n.time+n.duration){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,cx,cy);beatKill();spaceBurst(false);}
+  let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
   if(!n.spState){
-    const p=now-appear,pr=clamp(p/AR,0,1);   // 생성~접근: 끊김 없이 일정하게 커지며 접근(뜸들임 제거)
+    const p=now-appear,pr=clamp(p/AR,0,1);
     rs=0.45+0.55*pr; al=clamp(p/0.18,0,1); ringAl=al; gl=1.2*al; ap=pr;
+    if(hold&&n.holding){charge=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);rs=1;al=1;ringAl=1;ap=-1;gl=1.2+charge*0.7;}
   }else{
-    const r=clamp((now-n.spT0)/0.7,0,1),eo=1-(1-r)*(1-r);
+    const big=(n.spState!=="bad"&&n.spState!=="miss"&&n.spState!=="break");
+    const r=clamp((now-n.spT0)/(big?0.6:0.45),0,1),eo=1-(1-r)*(1-r);
     if(r>=1){n.done=true;return;}
-    if(n.spState==="bad"){rs=1+1.0*eo;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.6;spin+=(1-r)*r*2;}
-    else if(n.spState==="miss"){rs=1+0.4*r;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.5;}
-    else{rs=1+4.8*eo;al=1-r;ringAl=1-r*0.9;gl=1.2*(1-r*0.55);lwm=1+(rs-1)*0.1;spin+=(1-r)*r*3;}
+    if(n.spState==="bad"){rs=1+1.0*eo;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.6;}
+    else if(n.spState==="miss"||n.spState==="break"){rs=1+0.35*r;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.45;}
+    else{rs=1+6.8*eo;al=1-r;ringAl=Math.max(0,1-r*1.5);gl=1.2*Math.max(0,1-r*0.9);lwm=1+(rs-1)*0.08;flash=Math.max(0,1-r/0.28);}
   }
   const rr=R*rs;
-  pctx.save();pctx.globalCompositeOperation="lighter";pctx.lineCap="butt";
-  const N=64;for(let i=0;i<N;i++){const a0=i/N*6.283+spin,a1=(i+1.2)/N*6.283+spin;const hf=(i/N*5)%5,ci=Math.floor(hf),col=_lerpC(SP_AUR[ci%5],SP_AUR[(ci+1)%5],hf-ci),sh=0.78+0.22*Math.sin(now*2.8+i*0.5);
-    pctx.globalAlpha=0.16*gl*sh;pctx.strokeStyle=_rgba(col,1);pctx.lineWidth=R*0.36*lwm;pctx.beginPath();pctx.arc(cx,cy,rr,a0,a1);pctx.stroke();
-    pctx.globalAlpha=0.5*gl*sh;pctx.lineWidth=R*0.14*lwm;pctx.beginPath();pctx.arc(cx,cy,rr,a0,a1);pctx.stroke();}
-  pctx.restore();
-  pctx.save();
-  pctx.globalAlpha=0.96*ringAl;pctx.strokeStyle="#f2f6ff";pctx.lineWidth=R*0.085*lwm;pctx.beginPath();pctx.arc(cx,cy,rr,0,6.2832);pctx.stroke();
-  pctx.globalAlpha=0.4*ringAl;pctx.lineWidth=2;pctx.beginPath();pctx.arc(cx,cy,rr+9,0,6.2832);pctx.stroke();
-  pctx.globalAlpha=0.85*ringAl;pctx.lineWidth=R*0.05;pctx.beginPath();pctx.arc(cx,cy,rr*0.58,0,6.2832);pctx.stroke();
-  pctx.restore();
-  if(al>0||bloom>0){const cr=Math.max(1,R*0.18*rs);pctx.save();pctx.globalCompositeOperation="lighter";const rg=pctx.createRadialGradient(cx,cy,0,cx,cy,cr);rg.addColorStop(0,"rgba(242,246,255,"+Math.min(1,0.16*al+bloom*0.7)+")");rg.addColorStop(1,"rgba(242,246,255,0)");pctx.fillStyle=rg;pctx.beginPath();pctx.arc(cx,cy,cr,0,6.2832);pctx.fill();pctx.restore();}
-  if(ap>=0&&ap<1){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;pctx.save();
-    pctx.globalAlpha=aa*0.6;pctx.strokeStyle=_rgba(SP_AUR[Math.floor(now*0.7)%5],1);pctx.lineWidth=3;pctx.beginPath();pctx.arc(cx,cy,radius+3,0,6.2832);pctx.stroke();
-    pctx.globalAlpha=aa;pctx.strokeStyle="#e6efff";pctx.lineWidth=2+2.5*ap;pctx.beginPath();pctx.arc(cx,cy,radius,0,6.2832);pctx.stroke();pctx.restore();}
+  // 홀드 충전: 내부 색상환 에너지가 시계방향 게이지로 채워짐
+  if(charge>0){pctx.save();_spShape(cx,cy,rr,true);pctx.clip();
+    pctx.beginPath();pctx.moveTo(cx,cy);pctx.arc(cx,cy,rr*2,-1.5708,-1.5708+charge*6.2832);pctx.closePath();pctx.clip();
+    pctx.globalCompositeOperation="lighter";pctx.fillStyle=_spConic(cx,cy,spin*1.7);pctx.globalAlpha=0.42;_spShape(cx,cy,rr*0.98,true);pctx.fill();pctx.restore();
+    pctx.save();pctx.globalCompositeOperation="lighter";const er=rr*(0.2+charge*0.45),rg=pctx.createRadialGradient(cx,cy,0,cx,cy,er);rg.addColorStop(0,"rgba(242,246,255,"+(0.4+charge*0.4)+")");rg.addColorStop(1,"rgba(242,246,255,0)");pctx.fillStyle=rg;pctx.beginPath();pctx.arc(cx,cy,er,0,6.2832);pctx.fill();pctx.restore();}
+  // 매끈한 색상환 림 (conic, 회전)
+  pctx.save();pctx.globalCompositeOperation="lighter";pctx.strokeStyle=_spConic(cx,cy,spin);
+  pctx.globalAlpha=0.2*gl;pctx.lineWidth=R*0.2*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();
+  pctx.globalAlpha=0.85*gl;pctx.lineWidth=R*0.085*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();pctx.restore();
+  // 흰 이중 링
+  pctx.save();pctx.globalAlpha=0.95*ringAl;pctx.strokeStyle="#f2f6ff";pctx.lineWidth=R*0.06*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();
+  pctx.globalAlpha=0.78*ringAl;pctx.lineWidth=R*0.04;_spShape(cx,cy,rr*0.6,hold);pctx.stroke();pctx.restore();
+  // 섬광 (빠르게 사라짐)
+  if(flash>0){pctx.save();pctx.globalCompositeOperation="lighter";const fr=rr*1.15,rg=pctx.createRadialGradient(cx,cy,0,cx,cy,fr);rg.addColorStop(0,"rgba(255,255,255,"+(flash*0.55)+")");rg.addColorStop(1,"rgba(255,255,255,0)");pctx.fillStyle=rg;pctx.beginPath();pctx.arc(cx,cy,fr,0,6.2832);pctx.fill();pctx.restore();}
+  // 어프로치
+  if(ap>=0&&ap<1){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;pctx.save();pctx.globalAlpha=aa;pctx.strokeStyle="#e6efff";pctx.lineWidth=2+2.5*ap;_spShape(cx,cy,radius,hold);pctx.stroke();pctx.restore();}
 }
 function drawSpaceParts(){ if(!state.spaceParts||!state.spaceParts.length)return;
   const G=spaceGeom(),cx=G.cx,cy=G.cy,maxR=G.maxR;
@@ -1571,7 +1590,9 @@ document.addEventListener("keydown",e=>{
   }
 });
 document.addEventListener("keyup",e=>{
-  if(state){const col=KEYS.indexOf(e.key.toLowerCase());if(col>=0){state.held[col]=false;if(state.started&&!state.readyGate)releaseCol(col);}}
+  if(state){
+    if(e.code==="Space"){if(state.started&&!state.readyGate)releaseSpace();return;}
+    const col=KEYS.indexOf(e.key.toLowerCase());if(col>=0){state.held[col]=false;if(state.started&&!state.readyGate)releaseCol(col);}}
 });
 window.addEventListener("blur",()=>{if(state)state.held=[false,false,false,false];});  // 포커스 이탈 시 키 고정 해제
 let _ptrCol=-1;
@@ -1744,11 +1765,9 @@ function loop(){
     pctx.restore();
   }
   pctx.restore();  // end play-zone clip
-  // ★스페이스 노트 패스 — 플레이 존에만 클립(버튼 존 안 가림, 위/옆으로 퇴장)
-  pctx.save();pctx.beginPath();pctx.rect(0,0,W,horizonY());pctx.clip();
+  // ★스페이스 노트 패스 — 클립 없음: 방출 링·입자가 화면 밖으로 완전히 퇴장
   for(const n of state.notes){ if(n.type==="space"&&!n.done)drawSpaceNote(n,now,AR); }
   drawSpaceParts();
-  pctx.restore();
   }
 
   // 시작 게이트 UI (패드보다 먼저 → 패드는 위에 밝게)
@@ -1889,7 +1908,7 @@ function makeGroupFromSel(){const set=selList();if(!set.length){toast("노트를
 function ungroupSel(){const set=selList();if(!set.length){toast("선택된 노트가 없습니다");return;}
   pushUndo();set.forEach(n=>{delete n.g;});updateGrpPanel();toast("그룹 해제됨");}
 let edSongId=null,edAudioFile=null,edSeedDiffs=null;   // 라이브러리 편집 컨텍스트
-let recOn=false, recNotes=[null,null,null,null];       // 라이브 입력 녹음
+let recOn=false, recNotes=[null,null,null,null], recSpaceNote=null;       // 라이브 입력 녹음
 function recStart(lane){
   if(!edAudio)return;
   if(!recNotes.some(Boolean))pushUndo();        // 연속 녹음은 한 번만 스냅샷
@@ -1898,9 +1917,15 @@ function recStart(lane){
   edNotes.push(n); layoutPositions(edNotes,'x','y',true);
   recNotes[lane]={n,t0:edAudio.currentTime};
 }
-function recSpace(){               // 녹음 중 스페이스바 → 스페이스 노트 (홀드 없음, 1회성)
-  if(!edAudio)return; pushUndo();
-  edNotes.push({time:+edAudio.currentTime.toFixed(3),type:"space"});
+function recSpaceStart(){           // 녹음 중 스페이스바 누름 → 스페이스 노트 시작 (길게 누르면 홀드)
+  if(!edAudio||recSpaceNote)return; pushUndo();
+  const n={time:+edAudio.currentTime.toFixed(3),type:"space"};
+  edNotes.push(n); recSpaceNote={n,t0:edAudio.currentTime};
+}
+function recSpaceEnd(){
+  if(!recSpaceNote)return; const d=edAudio.currentTime-recSpaceNote.t0;
+  if(d>=0.18)recSpaceNote.n.duration=+d.toFixed(3);   // 0.18s 이상 누르면 홀드
+  recSpaceNote=null;
 }
 function recEnd(lane){
   const r=recNotes[lane]; if(!r)return; recNotes[lane]=null;
@@ -2230,7 +2255,7 @@ document.addEventListener("keydown",e=>{
   if(ctrl&&k==="x"){e.preventDefault();copySel();deleteSelection();return;}
   if(ctrl&&k==="a"){e.preventDefault();edSelSet=edNotes.slice();edSel=edSelSet[edSelSet.length-1]||null;updateSelPanel();updateGrpPanel();return;}
   if(e.code==="Space"){e.preventDefault();
-    if(recOn&&edPlaying){if(!e.repeat)recSpace();return;}                 // ★녹음 중엔 스페이스=스페이스 노트 입력
+    if(recOn&&edPlaying){if(!e.repeat)recSpaceStart();return;}            // ★녹음 중엔 스페이스=스페이스 노트(길게=홀드)
     if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return;}        // 평소엔 스페이스=이동(팬) 모드
   if(e.key==="Enter"){e.preventDefault();toggleEdPlay();return;}                                           // 엔터=재생/정지
   if(e.key==="Escape"){selClear();updateSelPanel();updateGrpPanel();return;}
@@ -2239,7 +2264,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("keyup",e=>{
   if(screens.editor.classList.contains("hidden"))return;
-  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;return;}
+  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;if(recSpaceNote)recSpaceEnd();return;}
   const lane=KEYS.indexOf(e.key.toLowerCase());if(lane>=0)recEnd(lane);
 });
 
@@ -2297,7 +2322,7 @@ tl.addEventListener("mousedown",e=>{
   const t=clamp(tOf(x),0,edDur());
   if(edTool==="add"){pushUndo();const n={time:+t.toFixed(3),type:"normal",lane:laneOf(y)};edNotes.push(n);layoutPositions(edNotes,'x','y',true);selSetTo(n);updateSelPanel();updateGrpPanel();return;}
   if(edTool==="press"){pushUndo();const n={time:+t.toFixed(3),type:"press",duration:0.3,lane:laneOf(y)};edNotes.push(n);layoutPositions(edNotes,'x','y',true);selSetTo(n);edDrag={mode:"resize",n};updateSelPanel();updateGrpPanel();return;}
-  if(edTool==="space"){pushUndo();const n={time:+t.toFixed(3),type:"space"};edNotes.push(n);selSetTo(n);updateSelPanel();updateGrpPanel();return;}
+  if(edTool==="space"){pushUndo();const n={time:+t.toFixed(3),type:"space"};edNotes.push(n);selSetTo(n);edDrag={mode:"spacedrag",n};updateSelPanel();updateGrpPanel();return;}
   if(edTool==="group"){grpDrag={x0:x,y0:y,x1:x,y1:y,add:e.shiftKey,prev:edSelSet.slice()};if(!e.shiftKey)edSelSet=[];updateGrpPanel();return;}
   // ── 선택/이동 도구 ──
   const hit=noteAtX(x,y);
@@ -2331,6 +2356,7 @@ tl.addEventListener("mousemove",e=>{
     edDrag.moved=true;
   }
   else if(edDrag.mode==="resize"){edDrag.n.duration=+Math.max(0.1,t-edDrag.n.time).toFixed(3);if($("#selDur"))$("#selDur").value=edDrag.n.duration;}
+  else if(edDrag.mode==="spacedrag"){const d=t-edDrag.n.time;if(d>0.12)edDrag.n.duration=+d.toFixed(3);else delete edDrag.n.duration;}   // 드래그하면 스페이스 홀드
 });
 window.addEventListener("mouseup",()=>{
   if(edDrag){
@@ -2419,10 +2445,11 @@ function edLoop(){
   for(const n of edNotes){
     const x=xOf(n.time);if(x<-20||x>W2+20)continue;
     if(n.type==="space"){const sel=n===edSel||selSet.has(n);
+      if(n.duration){const x2=xOf(n.time+n.duration);tctx.fillStyle=sel?"#ffffff33":"#9fe0ff22";tctx.fillRect(x,0,Math.max(x2-x,3),H);tctx.strokeStyle=sel?"#ffffff":"#9fe0ff";tctx.globalAlpha=0.6;tctx.lineWidth=1;tctx.strokeRect(x,0,Math.max(x2-x,3),H);tctx.globalAlpha=1;}
       tctx.strokeStyle=sel?"#ffffff":"#9fe0ff";tctx.globalAlpha=sel?0.95:0.7;tctx.lineWidth=sel?3:2;
       tctx.beginPath();tctx.moveTo(x,0);tctx.lineTo(x,H);tctx.stroke();tctx.globalAlpha=1;
       tctx.fillStyle=sel?"#ffffff":"#9fe0ff";tctx.font="13px Segoe UI";tctx.textAlign="center";tctx.textBaseline="top";
-      tctx.fillText("✦SPACE",x,3);tctx.textBaseline="alphabetic";continue;}
+      tctx.fillText(n.duration?"✦HOLD":"✦SPACE",x,3);tctx.textBaseline="alphabetic";continue;}
     const yy=laneY(n.lane||0);
     const base=typeof n.g==="number"?grpColor(n.g):(n.type==="press"?"#ffd54f":"#4f9bff");
     if(n.type==="press"){const x2=xOf(n.time+n.duration);tctx.fillStyle=base+"55";tctx.fillRect(x,yy-10,Math.max(x2-x,4),20);}
@@ -2452,7 +2479,7 @@ function currentChart(){
   const t=($("#edSongTitle").value||"무제")+($("#edDiffName").value?" ["+$("#edDiffName").value+"]":"");
   return{title:t,notes:edNotes.slice().sort((a,b)=>a.time-b.time)
     .map(n=>{
-      if(n.type==="space")return {time:n.time,type:"space"};   // 스페이스: 중앙 고정, 좌표·레인 불필요
+      if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=n.type==="press"?{time:n.time,type:"press",duration:n.duration||0.3}:{time:n.time,type:"normal"};
       o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;if(n.lane)o.lane=n.lane;return o;})};
 }
