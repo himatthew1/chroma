@@ -1528,8 +1528,8 @@ function drawSpaceNote(n,now,AR){
   if(hold&&n.holding&&!n.spState&&now>=n.time+n.duration){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,cx,cy);beatKill();spaceBurst(false);}
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
   if(!n.spState){
-    const p=now-appear,pr=clamp(p/AR,0,1);
-    rs=0.45+0.55*pr; al=clamp(p/0.18,0,1); ringAl=al; gl=1.2*al; ap=pr;
+    const p=now-appear,pr=clamp(p/AR,0,1),gp=Math.pow(pr,0.5); // ★빠른 등장: 앞부분 급성장(멈칫 없이 끝까지 증가)
+    rs=0.5+0.5*gp; al=clamp(p/0.1,0,1); ringAl=al; gl=1.2*al; ap=pr;
     if(hold&&n.holding){charge=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);rs=1;al=1;ringAl=1;ap=-1;gl=1.2+charge*0.7;}
   }else{
     const big=(n.spState!=="bad"&&n.spState!=="miss"&&n.spState!=="break");
