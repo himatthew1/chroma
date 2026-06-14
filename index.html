@@ -1888,6 +1888,10 @@ function recStart(lane){
   edNotes.push(n); layoutPositions(edNotes,'x','y',true);
   recNotes[lane]={n,t0:edAudio.currentTime};
 }
+function recSpace(){               // 녹음 중 스페이스바 → 스페이스 노트 (홀드 없음, 1회성)
+  if(!edAudio)return; pushUndo();
+  edNotes.push({time:+edAudio.currentTime.toFixed(3),type:"space"});
+}
 function recEnd(lane){
   const r=recNotes[lane]; if(!r)return; recNotes[lane]=null;
   const dur=edAudio.currentTime-r.t0;
@@ -2203,7 +2207,7 @@ function toggleEdPlay(){
   else{edAudio.currentTime=clamp(edTime,0,edDur());try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}edAudio.play();edPlaying=true;}
 }
 $("#edSpeed").onchange=()=>{if(edAudio){try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}}};
-$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L로 노트 입력 (누르면 프레스)");};
+$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
 document.addEventListener("keydown",e=>{
   if(screens.editor.classList.contains("hidden"))return;
   const tag=e.target.tagName;
@@ -2215,7 +2219,9 @@ document.addEventListener("keydown",e=>{
   if(ctrl&&k==="v"){e.preventDefault();pasteClip();return;}
   if(ctrl&&k==="x"){e.preventDefault();copySel();deleteSelection();return;}
   if(ctrl&&k==="a"){e.preventDefault();edSelSet=edNotes.slice();edSel=edSelSet[edSelSet.length-1]||null;updateSelPanel();updateGrpPanel();return;}
-  if(e.code==="Space"){e.preventDefault();if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return;}   // 스페이스=이동(팬) 모드
+  if(e.code==="Space"){e.preventDefault();
+    if(recOn&&edPlaying){if(!e.repeat)recSpace();return;}                 // ★녹음 중엔 스페이스=스페이스 노트 입력
+    if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return;}        // 평소엔 스페이스=이동(팬) 모드
   if(e.key==="Enter"){e.preventDefault();toggleEdPlay();return;}                                           // 엔터=재생/정지
   if(e.key==="Escape"){selClear();updateSelPanel();updateGrpPanel();return;}
   if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSelection();return;}
