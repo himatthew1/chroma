@@ -1985,6 +1985,7 @@ async function loadEditorAudioBlob(blob){
 $("#edAudio").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   edAudioFile=f;
+  if(!$("#edSongTitle").value.trim())$("#edSongTitle").value=f.name.replace(/\.[^.]+$/,"");  // ★제목 비어있으면 파일명으로 자동 채움
   const ok=await loadEditorAudioBlob(f);
   if(ok)toast("곡 로드됨 ("+edBuffer.duration.toFixed(1)+"s) — 자동생성 가능");
 };
@@ -2092,7 +2093,7 @@ async function editorSave(silent){
     if(!silent)toast("✅ 저장됨: "+title+" ["+diff+"]"+(ghToken()?" · 자동반영 업로드 중…":"  (플레이 곡 목록에 등록)"));return true;}
   catch(e){toast("저장 실패: "+e.message);return false;}
 }
-$("#edSave").onclick=editorSave;
+$("#edSave").onclick=()=>editorSave();   // ★이벤트가 silent 인자로 새는 것 방지(저장 결과 토스트가 반드시 뜨게)
 
 // ---------- 내 채보 전체 백업 / 복원 (폴더 이동·업데이트에도 안전) ----------
 function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(r.error);r.readAsDataURL(b);});}
