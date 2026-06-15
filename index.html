@@ -833,7 +833,7 @@ async function renderSongList(){
 }
 const DIFFCOL={EASY:"var(--green)",NORMAL:"var(--yellow)",HARD:"var(--pink)"};
 // ★잠금 난이도(아직 미완성 → 플레이 불가). 완성되면 해당 이름을 지우세요. 예: {diamond:["HARD"]}
-const LOCKED_DIFFS={diamond:["HARD"],backinmybed:["HARD"],ilikeurlook:["EASY","HARD"]};
+const LOCKED_DIFFS={diamond:["HARD"],backinmybed:["HARD"],ilikeurlook:["EASY","HARD"],jetadore:["EASY","HARD"]};
 function diffLocked(songId,name){const a=LOCKED_DIFFS[songId];return !!(a&&a.indexOf(name)>=0);}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
