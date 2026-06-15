@@ -777,7 +777,7 @@ function pickChart(songId,diffName,builtinChart,localSong){
   if(localSong){const d=localSong.difficulties.find(x=>x.name===diffName);if(d&&d.chart&&d.chart.notes&&d.chart.notes.length)localC=d.chart;}
   let gistC=null;
   if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o)gistC=o.chart?o.chart:(o.notes?Object.assign({},builtinChart,{notes:o.notes,mtime:o.mtime||0}):null);}
-  if(localC&&gistC)return (gistC.mtime||0)>(localC.mtime||0)?gistC:localC;   // ★더 최근에 편집된 쪽이 이김
+  if(localC&&gistC)return (localC.mtime||0)>(gistC.mtime||0)?localC:gistC;   // ★로컬이 '확실히 더 최신'일 때만 로컬, 무승부/동률은 온라인(Gist)이 권위
   return localC||gistC||builtinChart;                                        // 편집본은 내장(자동생성)을 절대 안 덮임
 }
 async function allSongsForPlay(){
@@ -2297,12 +2297,22 @@ $("#hubSaveFolder").onclick=saveSongsToFolder;
 
 // 온라인 자동반영용 채보(JSON) 만들기 — 내장곡을 수정한 것만 가볍게(노트만) 추출 → Gist에 붙여넣기
 async function buildRemoteOverrides(){
+  // ★"효과적 최신본"(pickChart 승자)만 업로드 → 스테일 로컬이 Gist의 더 최신본을 덮어쓰지 못함.
+  //   난이도 목록은 내장 기준(삭제한 NORMAL은 안 올라감).
   let userRaw=[];try{userRaw=await dbAll();}catch{}
-  const builtIds=new Set(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).map(s=>s.id));
+  const userById={};userRaw.forEach(s=>userById[s.id]=s);
+  const SONGS=((typeof window.SONGS!=="undefined"&&window.SONGS)||[]);
+  await fetchRemoteOverrides();
   const out=[];
-  for(const s of userRaw){
-    if(!builtIds.has(s.id))continue;            // 내장곡 수정본만 (새 곡은 오디오 호스팅이 따로 필요)
-    for(const d of s.difficulties)out.push({song:s.id,diff:d.name,notes:d.chart.notes,mtime:d.chart.mtime||0});
+  for(const s of SONGS){
+    for(const d of s.difficulties){
+      const lib=userById[s.id];
+      const hasLocal=lib&&lib.difficulties.find(x=>x.name===d.name&&x.chart&&x.chart.notes&&x.chart.notes.length);
+      const hasGist=_remoteOv&&_remoteOv.find(x=>x.song===s.id&&x.diff===d.name);
+      if(!hasLocal&&!hasGist)continue;          // 편집/오버라이드 있는 난이도만
+      const ch=pickChart(s.id,d.name,d.chart,lib);
+      out.push({song:s.id,diff:d.name,notes:ch.notes,mtime:ch.mtime||0});
+    }
   }
   return out;
 }
