@@ -1416,7 +1416,7 @@ function layoutPlayPositions(notes){
       // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
       let best=null,bestScore=-1;
       for(let k=0;k<30;k++){
-        const ang=Math.random()*6.2832, f=0.55+Math.random()*0.35;
+        const ang=Math.random()*6.2832, f=0.38+Math.random()*0.24;   // 중앙에서 적당히 떨어진 곳(외곽 과다 방지)
         let ax=clamp(scx+Math.cos(ang)*hx*f, marginX+radPx*0.4, W-marginX-radPx*0.4);
         let ay=clamp(scy+Math.sin(ang)*hy*f, marginYt+radPx*0.4, marginYb-radPx*0.4);
         const distC=Math.hypot(ax-scx,ay-scy);
