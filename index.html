@@ -1432,12 +1432,12 @@ function showCountdown(txt,green){const el=$("#countdown");el.textContent=txt;el
 function hideCountdown(){$("#countdown").classList.add("hidden");}
 function runIntro(){
   if(!state)return;state.introTimers=[];
-  const seq=[["R U RED E?",1000,false],["3",560,false],["2",560,false],["1",560,false],["START!",700,true]];
+  const seq=[["3",560,false],["2",560,false],["1",560,false],["START!",700,true]];
   let i=0;
   const step=()=>{
     if(!state)return;
     if(i>=seq.length){hideCountdown();beginPlay();return;}
-    if(seq[i][0]==="START!")playStartSound();   // ★게임 개시 순간 = 펼쳐지는 개시음
+    countBeep(seq[i][0]==="START!");   // ★카운트다운 효과음
     showCountdown(seq[i][0],seq[i][2]);
     state.introTimers.push(setTimeout(()=>{i++;step();},seq[i][1]));
   };
@@ -1546,6 +1546,16 @@ function playStartSound(){ if(!settings.sfxOn)return; try{
   // 벨(탑) — 0.12s 늦게 얹혀 '탁'
   const tb=t+0.12;[523,659,784,1047,1319].forEach((f,i)=>{const tt=tb+i*0.05;[1,2.01].forEach((m,k)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=f*m;g.gain.setValueAtTime(0.0001,tt);g.gain.exponentialRampToValueAtTime((k?0.042:0.115)*V,tt+0.005);g.gain.exponentialRampToValueAtTime(0.0001,tt+1.05);o.connect(g);send(g,k===0);o.start(tt);o.stop(tt+1.1);});});
   setTimeout(()=>{try{rv.disconnect();wet.disconnect();dl.disconnect();}catch(e){}},3200);
+}catch(e){} }
+// 카운트다운 효과음 — 3/2/1=삡, START=더 밝게
+function countBeep(big){ if(!settings.sfxOn)return; try{
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type="triangle";
+  if(big){o.frequency.setValueAtTime(740,t);o.frequency.exponentialRampToValueAtTime(1180,t+0.12);}
+  else o.frequency.setValueAtTime(680,t);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime((big?0.3:0.22)*V,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+(big?0.3:0.16));
+  o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+(big?0.32:0.18));
+  const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=big?1760:1320;g2.gain.setValueAtTime(0.12*V,t);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);o2.connect(g2).connect(ctx.destination);o2.start(t);o2.stop(t+0.07);
 }catch(e){} }
 function applySpaceScore(kind){
   state.counts[kind]=(state.counts[kind]||0)+1;
@@ -1729,7 +1739,7 @@ function loop(){
     if(allHeld){
       if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();}
       const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el/1.5,0,1);
-      if(el>=1.5){state.readyGate=false;state.holdStart=0;ignitionStop();runIntro();}
+      if(el>=1.5){state.readyGate=false;state.holdStart=0;ignitionStop();playStartSound();runIntro();}  // ★충전 끝=개시음 즉시
     }else{if(state.holdStart)ignitionStop();state.holdStart=0;state.readyProg=0;}
   }
   const W=pcanvas.width,H=pcanvas.height;
