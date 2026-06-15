@@ -448,13 +448,16 @@
           <span id="selCount">선택됨:</span>
           <button class="tb-btn" id="selToggle">타입전환</button>
           <span class="field">길이 <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
-          <button class="tb-btn" id="selGroup" title="선택한 노트를 한 색으로 통일">🎨 묶기</button>
+          <button class="tb-btn" id="selGroup" title="선택한 노트를 한 색으로 통일">🎨 색묶기</button>
+          <button class="tb-btn" id="selPosGroup" title="선택한 노트의 생성 위치를 한 곳 근처로 몰기">📍 위치묶기</button>
+          <span class="field" id="selSpreadWrap" style="display:none">이격 <input type="range" id="selSpread" min="0.02" max="0.35" step="0.01" value="0.12" style="width:84px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span></span>
           <button class="tb-btn" id="selUngroup">해제</button>
           <button class="tb-btn" id="selDel">삭제(Del)</button>
         </div>
         <div id="grpPanel" class="hidden">
           <span id="grpCount" style="color:var(--yellow)">구간을 드래그하세요</span>
-          <button class="tb-btn primary" id="grpMake">묶어서 컬러군 만들기</button>
+          <button class="tb-btn primary" id="grpMake">🎨 컬러군으로 묶기</button>
+          <button class="tb-btn primary" id="grpMakePos">📍 위치군으로 묶기</button>
           <button class="tb-btn" id="grpClear">그룹 해제</button>
         </div>
         <span id="ed-help">빈곳 드래그=박스선택 · Shift/Ctrl+클릭=선택추가 · 스페이스+드래그=화면이동 · Enter=재생 · Ctrl+Z 취소 / Ctrl+Shift+Z 복구 · Ctrl+C/V 복사·붙여넣기 · 휠=스크롤 · Ctrl+휠=확대 · 우클릭=삭제</span>
@@ -1254,6 +1257,21 @@ function fmtTime(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+String(s%60).p
 function rankOf(a){return a>=98?"S+":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"D";}
 
 // 정규화 좌표(0~1) 배치: 시간상 가까운 노트끼리 안 겹치게. onlyMissing=true면 좌표 없는 것만 채움.
+// 위치군: 같은 pg끼리 매판 한 랜덤 앵커 근처로 몰아서 배치 (노트별 이격 거리 랜덤 → 몰린 정도 제각각)
+function assignPosGroups(notes){
+  const groups={};
+  for(const n of notes){ if(n.pg!=null){ (groups[n.pg]||(groups[n.pg]=[])).push(n); } }
+  for(const g in groups){
+    const mem=groups[g], spread=clamp(mem[0].pgs||0.12,0.02,0.4);
+    const m=0.05+spread;                                  // 앵커를 가장자리에서 띄워 군집이 화면 안에 들어오게
+    const ax=m+Math.random()*(1-2*m), ay=m+Math.random()*(1-2*m);
+    for(const n of mem){
+      const ang=Math.random()*6.2832, dist=Math.random()*spread;   // ★이격 거리 노트마다 랜덤
+      n.nx=clamp(ax+Math.cos(ang)*dist,0.03,0.97);
+      n.ny=clamp(ay+Math.sin(ang)*dist,0.03,0.97);
+    }
+  }
+}
 function layoutPositions(notes,kx,ky,onlyMissing){
   const arr=[...notes].sort((a,b)=>a.time-b.time);
   for(let i=0;i<arr.length;i++){
@@ -1277,7 +1295,10 @@ function buildPlayNotes(chart){
   const notes=chart.notes.map(n=>({time:n.time,type:n.type||"normal",duration:n.duration||0,
     nx:(typeof n.x==="number"?n.x:null),ny:(typeof n.y==="number"?n.y:null),
     g:(typeof n.g==="number"?n.g:null),
+    pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
     done:false,missed:false,holding:false,headJudged:false})).sort((a,b)=>a.time-b.time);
+  // ★위치군: 묶인 노트들은 매판 "공유 랜덤 앵커 + 노트별 랜덤 이격"으로 몰려서 생성 (앵커 위치는 매판 랜덤)
+  assignPosGroups(notes);
   // 위치는 채보 고정값 사용(없으면 1회 생성). ★색만 매판 랜덤.
   layoutPositions(notes,'nx','ny',true);
   // ★색 배정: 매판 랜덤 + "직전 판과 반드시 다른 색"으로 모든 노트가 바뀌게.
@@ -1926,8 +1947,13 @@ function makeGroupFromSel(){const set=selList();if(!set.length){toast("노트를
   pushUndo();let maxg=0;edNotes.forEach(n=>{if(typeof n.g==="number"&&n.g>maxg)maxg=n.g;});
   const ng=maxg+1;set.forEach(n=>n.g=ng);updateGrpPanel();
   toast(set.length+"개를 컬러군 G"+ng+"으로 묶음 (한 판 동안 같은 색)");}
+function makePosGroupFromSel(){const set=selList().filter(n=>n.type!=="space");if(!set.length){toast("노트를 선택하세요 (스페이스 제외)");return;}
+  pushUndo();let maxg=0;edNotes.forEach(n=>{if(typeof n.pg==="number"&&n.pg>maxg)maxg=n.pg;});
+  const ng=maxg+1,spread=parseFloat($("#selSpread").value)||0.12;
+  set.forEach(n=>{n.pg=ng;n.pgs=spread;});updateSelPanel();updateGrpPanel();
+  toast(set.length+"개를 위치군 P"+ng+"으로 묶음 (매판 한 곳 근처에 몰려 생성 · 이격 "+spread.toFixed(2)+")");}
 function ungroupSel(){const set=selList();if(!set.length){toast("선택된 노트가 없습니다");return;}
-  pushUndo();set.forEach(n=>{delete n.g;});updateGrpPanel();toast("그룹 해제됨");}
+  pushUndo();set.forEach(n=>{delete n.g;delete n.pg;delete n.pgs;});updateSelPanel();updateGrpPanel();toast("색·위치군 해제됨");}
 let edSongId=null,edAudioFile=null,edSeedDiffs=null;   // 라이브러리 편집 컨텍스트
 let recOn=false, recNotes=[null,null,null,null], recSpaceNote=null;       // 라이브 입력 녹음
 function recStart(lane){
@@ -2311,9 +2337,13 @@ function setTool(t){edTool=t;
 function updateGrpPanel(){const el=$("#grpCount");if(!el)return;
   el.textContent=edSelSet.length?(edSelSet.length+"개 노트 선택됨 (드래그는 라인별로 가능)"):"라인 위를 가로로 드래그해 묶을 노트를 선택";}
 $("#grpMake").onclick=makeGroupFromSel;
+$("#grpMakePos").onclick=makePosGroupFromSel;
 $("#grpClear").onclick=ungroupSel;
 $("#selGroup").onclick=makeGroupFromSel;
+$("#selPosGroup").onclick=makePosGroupFromSel;
 $("#selUngroup").onclick=ungroupSel;
+$("#selSpread").oninput=()=>{$("#selSpreadVal").textContent=(parseFloat($("#selSpread").value)||0.12).toFixed(2);};
+$("#selSpread").onchange=()=>{const v=parseFloat($("#selSpread").value)||0.12;const pgs=new Set(selList().map(n=>n.pg).filter(x=>typeof x==="number"));if(!pgs.size)return;pushUndo();edNotes.forEach(n=>{if(pgs.has(n.pg))n.pgs=v;});toast("위치군 이격 "+v.toFixed(2)+"로 조정");};
 
 function noteAtX(x,y){
   const lane=laneOf(y);let best=null,bd=14;
@@ -2324,6 +2354,17 @@ function noteAtX(x,y){
     let d=Math.abs(nx-x);
     if(n.type==="press"){const x2=xOf(n.time+n.duration);if(x>=nx-12&&x<=x2+12)d=0;}
     if(d<bd){bd=d;best=n;}
+  }
+  return best;
+}
+// 롱노트(프레스/스페이스홀드)의 "끝" 핸들을 잡았는지 — 길이 조절용
+function longNoteEndAt(x,y){
+  let best=null,bd=8;
+  for(const n of edNotes){
+    const dur=n.duration||0; if(dur<=0)continue;
+    if(n.type==="press"&&(n.lane||0)!==laneOf(y))continue;   // 프레스는 같은 줄에서만
+    const ex=xOf(n.time+dur), d=Math.abs(ex-x);
+    if(d<bd && x>xOf(n.time)+3){bd=d;best=n;}
   }
   return best;
 }
@@ -2350,6 +2391,12 @@ tl.addEventListener("mousedown",e=>{
   if(edTool==="space"){pushUndo();const n={time:+t.toFixed(3),type:"space"};edNotes.push(n);selSetTo(n);edDrag={mode:"spacedrag",n};updateSelPanel();updateGrpPanel();return;}
   if(edTool==="group"){grpDrag={x0:x,y0:y,x1:x,y1:y,add:e.shiftKey,prev:edSelSet.slice()};if(!e.shiftKey)edSelSet=[];updateGrpPanel();return;}
   // ── 선택/이동 도구 ──
+  // ★롱노트 끝 핸들 잡기 → 길이 조절 (프레스=길이, 스페이스홀드=길이/0.12미만이면 일반화)
+  if(!(e.shiftKey||e.ctrlKey||e.metaKey)){
+    const endHit=longNoteEndAt(x,y);
+    if(endHit){pushUndo();selSetTo(endHit);updateSelPanel();updateGrpPanel();
+      edDrag={mode:endHit.type==="space"?"spacedrag":"resize",n:endHit};return;}
+  }
   const hit=noteAtX(x,y);
   if(hit){
     if(e.shiftKey||e.ctrlKey||e.metaKey){selToggle(hit);updateSelPanel();updateGrpPanel();return;}   // 선택 추가/해제
@@ -2363,6 +2410,11 @@ tl.addEventListener("mousedown",e=>{
     edDrag={mode:"box",x0:x,y0:y,x1:x,y1:y,add:e.shiftKey,prev:edSelSet.slice()};
     if(!e.shiftKey){selClear();updateSelPanel();updateGrpPanel();}
   }
+});
+tl.addEventListener("mousemove",e=>{   // 끝 핸들 위 hover → ↔ 커서
+  if(edDrag||grpDrag||spaceHeld)return;
+  const r=tl.getBoundingClientRect();
+  tl.style.cursor=longNoteEndAt(e.clientX-r.left,e.clientY-r.top)?"ew-resize":"";
 });
 window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 캔버스를 벗어나도 드래그가 계속됨
   if(!edDrag&&!grpDrag)return;
@@ -2416,6 +2468,10 @@ function updateSelPanel(){
   $("#selToggle").style.display=single?"":"none";
   $("#selDur").parentElement.style.display=(single&&edSel.type==="press")?"":"none";
   if(single&&edSel.type==="press")$("#selDur").value=edSel.duration||0.3;
+  // 위치군 이격 슬라이더: 선택에 위치군 노트가 있으면 표시
+  const pgSel=selList().filter(n=>typeof n.pg==="number");
+  $("#selSpreadWrap").style.display=pgSel.length?"":"none";
+  if(pgSel.length){const v=pgSel[0].pgs||0.12;$("#selSpread").value=v;$("#selSpreadVal").textContent=(+v).toFixed(2);}
 }
 $("#selToggle").onclick=()=>{if(!edSel)return;pushUndo();edSel.type=edSel.type==="press"?"normal":"press";if(edSel.type==="press"&&!edSel.duration)edSel.duration=0.3;updateSelPanel();};
 $("#selDur").onchange=()=>{if(edSel&&edSel.type==="press"){pushUndo();edSel.duration=Math.max(0.1,parseFloat($("#selDur").value)||0.3);}};
@@ -2466,19 +2522,27 @@ function edLoop(){
   for(const g in gspan){const a=xOf(gspan[g].min),b=xOf(gspan[g].max);if(b<-20||a>W2+20)continue;
     tctx.strokeStyle=grpColor(+g);tctx.lineWidth=3;tctx.beginPath();tctx.moveTo(a,26);tctx.lineTo(b,26);tctx.stroke();
     tctx.fillStyle=grpColor(+g);tctx.fillText("G"+g,a,22);}
+  // position-group brackets (청록 점선, 색묶음 아래에)
+  const pgspan={};
+  for(const n of edNotes){if(typeof n.pg==="number"){if(!pgspan[n.pg])pgspan[n.pg]={min:n.time,max:n.time};else{pgspan[n.pg].min=Math.min(pgspan[n.pg].min,n.time);pgspan[n.pg].max=Math.max(pgspan[n.pg].max,n.time);}}}
+  for(const g in pgspan){const a=xOf(pgspan[g].min),b=xOf(pgspan[g].max);if(b<-20||a>W2+20)continue;
+    tctx.strokeStyle="#6ff0a0";tctx.lineWidth=2;tctx.setLineDash([5,4]);tctx.beginPath();tctx.moveTo(a,40);tctx.lineTo(b,40);tctx.stroke();tctx.setLineDash([]);
+    tctx.fillStyle="#6ff0a0";tctx.fillText("📍P"+g,a,38);}
   // notes
   const selSet=new Set(edSelSet);
   for(const n of edNotes){
     const x=xOf(n.time);if(x<-20||x>W2+20)continue;
     if(n.type==="space"){const sel=n===edSel||selSet.has(n);
-      if(n.duration){const x2=xOf(n.time+n.duration);tctx.fillStyle=sel?"#ffffff33":"#9fe0ff22";tctx.fillRect(x,0,Math.max(x2-x,3),H);tctx.strokeStyle=sel?"#ffffff":"#9fe0ff";tctx.globalAlpha=0.6;tctx.lineWidth=1;tctx.strokeRect(x,0,Math.max(x2-x,3),H);tctx.globalAlpha=1;}
+      if(n.duration){const x2=xOf(n.time+n.duration);tctx.fillStyle=sel?"#ffffff33":"#9fe0ff22";tctx.fillRect(x,0,Math.max(x2-x,3),H);tctx.strokeStyle=sel?"#ffffff":"#9fe0ff";tctx.globalAlpha=0.6;tctx.lineWidth=1;tctx.strokeRect(x,0,Math.max(x2-x,3),H);tctx.globalAlpha=1;
+        tctx.fillStyle=sel?"#ffffff":"#9fe0ff";tctx.fillRect(x2-3,0,6,H);}   // 끝 핸들(잡아서 길이조절)
       tctx.strokeStyle=sel?"#ffffff":"#9fe0ff";tctx.globalAlpha=sel?0.95:0.7;tctx.lineWidth=sel?3:2;
       tctx.beginPath();tctx.moveTo(x,0);tctx.lineTo(x,H);tctx.stroke();tctx.globalAlpha=1;
       tctx.fillStyle=sel?"#ffffff":"#9fe0ff";tctx.font="13px Segoe UI";tctx.textAlign="center";tctx.textBaseline="top";
       tctx.fillText(n.duration?"✦HOLD":"✦SPACE",x,3);tctx.textBaseline="alphabetic";continue;}
     const yy=laneY(n.lane||0);
     const base=typeof n.g==="number"?grpColor(n.g):(n.type==="press"?"#ffd54f":"#4f9bff");
-    if(n.type==="press"){const x2=xOf(n.time+n.duration);tctx.fillStyle=base+"55";tctx.fillRect(x,yy-10,Math.max(x2-x,4),20);}
+    if(n.type==="press"){const x2=xOf(n.time+n.duration);tctx.fillStyle=base+"55";tctx.fillRect(x,yy-10,Math.max(x2-x,4),20);
+      tctx.fillStyle=base;tctx.fillRect(x2-2,yy-11,4,22);}   // 끝 핸들(잡아서 길이조절)
     const sel=n===edSel||selSet.has(n);
     tctx.fillStyle=base;
     tctx.beginPath();tctx.arc(x,yy,sel?11:8,0,Math.PI*2);tctx.fill();
@@ -2507,7 +2571,9 @@ function currentChart(){
     .map(n=>{
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=n.type==="press"?{time:n.time,type:"press",duration:n.duration||0.3}:{time:n.time,type:"normal"};
-      o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;if(n.lane)o.lane=n.lane;return o;})};
+      o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;
+      if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(n.pgs||0.12)).toFixed(3);}
+      if(n.lane)o.lane=n.lane;return o;})};
 }
 $("#edExport").onclick=()=>{const data=JSON.stringify(currentChart(),null,2);const b=new Blob([data],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=(($("#edSongTitle").value||"chart"))+".json";a.click();toast("JSON 내보냄");};
