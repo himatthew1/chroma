@@ -2339,6 +2339,7 @@ function notesInBox(x0,y0,x1,y1){
 }
 tl.addEventListener("contextmenu",e=>e.preventDefault());
 tl.addEventListener("mousedown",e=>{
+  if(e.button===0)e.preventDefault();   // 드래그 중 페이지 텍스트선택이 끼어드는 것 방지
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
   // 스페이스 누른 채 드래그 = 화면 이동(팬/스크롤)
   if(spaceHeld&&e.button===0){edDrag={mode:"pan",x0:x,scroll0:view.scroll};tl.style.cursor="grabbing";return;}
@@ -2363,7 +2364,8 @@ tl.addEventListener("mousedown",e=>{
     if(!e.shiftKey){selClear();updateSelPanel();updateGrpPanel();}
   }
 });
-tl.addEventListener("mousemove",e=>{
+window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 캔버스를 벗어나도 드래그가 계속됨
+  if(!edDrag&&!grpDrag)return;
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,t=clamp(tOf(x),0,edDur());
   if(grpDrag){grpDrag.x1=x;grpDrag.y1=y;
     const inb=notesInBox(grpDrag.x0,grpDrag.y0,grpDrag.x1,grpDrag.y1);
