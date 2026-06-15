@@ -174,6 +174,7 @@
     font-weight:200;letter-spacing:8px;color:#fff;text-shadow:0 0 34px #22a7ffaa;pointer-events:none;z-index:14;}
   #countdown.pop{animation:cdpop .5s cubic-bezier(.2,1.4,.4,1);}
   @keyframes cdpop{0%{transform:scale(.4);opacity:0;}45%{transform:scale(1.18);opacity:1;}100%{transform:scale(1);opacity:1;}}
+  @keyframes resIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
 
   #result{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
   #result h2{font-size:42px;margin:0 0 6px;}
@@ -413,7 +414,8 @@
         <button class="tb-btn" id="edPlay" title="재생/정지 (Enter)">▶/❚❚</button>
         <select id="edSpeed" title="재생 속도"><option value="1">1x</option><option value="0.75">0.75x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option></select>
         <button class="tb-btn" id="edRec" title="재생 중 A·D·J·L로 노트 찍기 (누르면 프레스)">🔴 라이브 입력</button>
-        <button class="tb-btn primary" id="edTestPlay">▶ 테스트 플레이</button>
+        <button class="tb-btn primary" id="edTestPlay">▶ 처음부터</button>
+        <button class="tb-btn primary" id="edTestHere" title="현재 재생위치(빨간 선)부터 테스트">▶ 이 위치부터</button>
         <div class="spacer"></div>
         <span id="genStatus"></span>
         <span class="field">곡 <input type="text" id="edSongTitle" placeholder="곡 제목" style="width:118px"></span>
@@ -450,7 +452,7 @@
           <span class="field">길이 <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
           <button class="tb-btn" id="selGroup" title="선택한 노트를 한 색으로 통일">🎨 색묶기</button>
           <button class="tb-btn" id="selPosGroup" title="선택한 노트의 생성 위치를 한 곳 근처로 몰기">📍 위치묶기</button>
-          <span class="field" id="selSpreadWrap" style="display:none">이격 <input type="range" id="selSpread" min="0.02" max="0.35" step="0.01" value="0.12" style="width:84px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span></span>
+          <span class="field" id="selSpreadWrap" style="display:none">이격 <input type="range" id="selSpread" min="0.02" max="0.35" step="0.01" value="0.12" style="width:84px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="이 위치군의 몰림 정도 미리보기 (점=노트, 원=이격범위)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
           <button class="tb-btn" id="selUngroup">해제</button>
           <button class="tb-btn" id="selDel">삭제(Del)</button>
         </div>
@@ -816,7 +818,7 @@ async function renderSongList(){
 }
 const DIFFCOL={EASY:"var(--green)",NORMAL:"var(--yellow)",HARD:"var(--pink)"};
 // ★잠금 난이도(아직 미완성 → 플레이 불가). 완성되면 해당 이름을 지우세요. 예: {diamond:["HARD"]}
-const LOCKED_DIFFS={diamond:["HARD"],backinmybed:["HARD"],ilikeurlook:["HARD"]};
+const LOCKED_DIFFS={diamond:["HARD"],backinmybed:["HARD"],ilikeurlook:["EASY","HARD"]};
 function diffLocked(songId,name){const a=LOCKED_DIFFS[songId];return !!(a&&a.indexOf(name)>=0);}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
@@ -1236,7 +1238,7 @@ function hexPath(c,x,y,R){c.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+
 // 게임 시계: 오디오 currentTime을 고해상도 시계로 보간 → 판정이 안 느려짐
 function gameNow(){
   if(!state||!state.started)return 0;
-  if(!state.audioStarted)return ((performance.now()/1000)-state.t0-state.leadIn)+playOffset;
+  if(!state.audioStarted)return ((performance.now()/1000)-state.t0-state.leadIn)+(state.startAt||0)+playOffset;
   const ct=playAudio.currentTime,pn=performance.now()/1000;
   if(state._lastCt===undefined||ct!==state._lastCt){state._lastCt=ct;state._lastCtPerf=pn;}
   return ct+Math.min(pn-state._lastCtPerf,0.05)+playOffset;   // 다음 갱신까지 보간(최대 50ms)
@@ -1393,7 +1395,8 @@ function layoutPlayPositions(notes){
   }
 }
 
-function startPlay(){
+function startPlay(startAt){
+  startAt=Math.max(0,startAt||0);
   fitCanvas(pcanvas);
   $("#playUI").classList.remove("hidden");$("#playBack").style.display="flex";
   $("#hudSongTitle").textContent=curSongMeta.title||"—";
@@ -1405,14 +1408,15 @@ function startPlay(){
   for(let i=0;i<150;i++)bg.push({ang:Math.random()*Math.PI*2,rad:Math.random()*_maxR,spd:0.4+Math.random()*1.0});
   const notes=buildPlayNotes(playChart);
   const lastT=notes.length?Math.max(...notes.map(n=>n.time+(n.duration||0))):0;
+  if(startAt>0)notes.forEach(n=>{if(n.time<startAt-0.001){n.done=true;n.headJudged=true;}});  // 구간 앞 노트는 건너뜀
   state={notes,score:0,combo:0,maxCombo:0,counts:{perfect:0,great:0,good:0,bad:0,miss:0},
     held:[false,false,false,false],padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,
-    started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:approachSec(),
+    started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:approachSec(),startAt:startAt,
     readyGate:false,holdStart:0,readyProg:0};
   updateHUD();
   playAudio.currentTime=0;
   cancelAnimationFrame(raf);loop();
-  startReadyGate();                 // 4개 키 모두 2초 홀드 → 시작
+  startReadyGate();                 // 4개 키 모두 1초 홀드(시동) → 카운트다운 → 시작
 }
 function startReadyGate(){
   if(!state)return;
@@ -1506,6 +1510,34 @@ function badThud(){ if(!settings.sfxOn)return; try{
   o.type="sine";o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(58,t+0.17);
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.2*V,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
   o.connect(lp).connect(g).connect(ctx.destination);o.start(t);o.stop(t+0.24);
+}catch(e){} }
+// 우주선 시동: 4키 홀드 동안 상승하는 엔진 럼블 (1초). 완료 시 추력 액센트.
+let _ign=null;
+function ignitionStart(){ if(!settings.sfxOn||_ign)return; try{
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+  const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";
+  o.type="sawtooth";o.frequency.setValueAtTime(38,t);o.frequency.exponentialRampToValueAtTime(150,t+1.0);
+  lp.frequency.setValueAtTime(180,t);lp.frequency.exponentialRampToValueAtTime(1500,t+1.0);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.24*V,t+1.0);
+  o.connect(lp).connect(g).connect(ctx.destination);o.start(t);
+  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,1.4,0.15);const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.Q.value=0.7;
+  bp.frequency.setValueAtTime(450,t);bp.frequency.exponentialRampToValueAtTime(3200,t+1.0);
+  const ng=ctx.createGain();ng.gain.setValueAtTime(0.0001,t);ng.gain.exponentialRampToValueAtTime(0.13*V,t+1.0);
+  ns.connect(bp).connect(ng).connect(ctx.destination);ns.start(t);
+  _ign={o,ns,g,ng};
+}catch(e){} }
+function ignitionStop(){ if(!_ign)return; try{const ctx=getCtx(),tt=ctx.currentTime;
+  for(const gg of [_ign.g,_ign.ng]){gg.gain.cancelScheduledValues(tt);gg.gain.setValueAtTime(Math.max(0.0001,gg.gain.value),tt);gg.gain.exponentialRampToValueAtTime(0.0001,tt+0.12);}
+  _ign.o.stop(tt+0.16);_ign.ns.stop(tt+0.16);
+}catch(e){} _ign=null; }
+function ignitionTakeoff(){ ignitionStop(); if(!settings.sfxOn)return; try{
+  const ctx=getCtx();const t=ctx.currentTime,V=settings.sfxVol;
+  const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=950;
+  o.type="sawtooth";o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(60,t+0.55);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.32*V,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.62);
+  o.connect(lp).connect(g).connect(ctx.destination);o.start(t);o.stop(t+0.64);
+  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,0.6,0.9);const hp=ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=500;
+  const ng=ctx.createGain();ng.gain.setValueAtTime(0.26*V,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.5);ns.connect(hp).connect(ng).connect(ctx.destination);ns.start(t);
 }catch(e){} }
 function applySpaceScore(kind){
   state.counts[kind]=(state.counts[kind]||0)+1;
@@ -1679,18 +1711,18 @@ function loop(){
   // 리드인 종료 시 오디오 시작
   if(state.started&&!state.audioStarted){
     const el=(performance.now()/1000)-state.t0;
-    if(el>=state.leadIn){try{playAudio.currentTime=0;playAudio.play().catch(()=>{});}catch(e){}state.audioStarted=true;state._lastCt=undefined;}
+    if(el>=state.leadIn){try{playAudio.currentTime=state.startAt||0;playAudio.play().catch(()=>{});}catch(e){}state.audioStarted=true;state._lastCt=undefined;}
   }
   const now=gameNow();
   const AR=state.ar,r=noteR();
-  // 시작 게이트: 4개 키 모두 2초 유지
+  // 시작 게이트: 4개 키 모두 1초 유지 (우주선 시동) → 카운트다운
   if(state.readyGate){
     const allHeld=state.held.every(Boolean);
     if(allHeld){
-      if(!state.holdStart)state.holdStart=performance.now()/1000;
-      const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el/2,0,1);
-      if(el>=2){state.readyGate=false;state.holdStart=0;beginPlay();}
-    }else{state.holdStart=0;state.readyProg=0;}
+      if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();}
+      const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el,0,1);
+      if(el>=1){state.readyGate=false;state.holdStart=0;ignitionTakeoff();runIntro();}
+    }else{if(state.holdStart)ignitionStop();state.holdStart=0;state.readyProg=0;}
   }
   const W=pcanvas.width,H=pcanvas.height;
   // background
@@ -1819,7 +1851,7 @@ function loop(){
     pctx.textAlign="center";
     pctx.fillStyle="#22a7ff";pctx.font="600 14px Segoe UI";pctx.fillText("R U RED E?",W/2,H*0.30);
     pctx.fillStyle="#eef1ff";pctx.font="600 23px Segoe UI";
-    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  모두 누른 채 2초 유지",W/2,H*0.365);
+    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  모두 누른 채 1초 유지 (시동)",W/2,H*0.365);
     const cx=W/2,cy=H*0.5,R=66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
     pctx.strokeStyle="#2a3158";pctx.lineWidth=8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
     pctx.strokeStyle="#22a7ff";pctx.lineWidth=8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
@@ -1897,7 +1929,7 @@ function loop(){
   $("#progTime").textContent=fmtTime(now)+" / "+fmtTime(dur);
 
   if(state.started&&!state.ended){
-    if((playAudio.ended)||(now>state.lastT+1.3)){state.ended=true;setTimeout(endPlay,250);}
+    if((playAudio.ended)||(now>state.lastT+1.3)){state.ended=true;setTimeout(endPlay,1000);}  // 노래 끝나고 1초 뒤 결과창
   }
 }
 function endPlay(){
@@ -1911,6 +1943,7 @@ function endPlay(){
   $("#toEditor").classList.toggle("hidden",!playFromEditor);   // 테스트 플레이면 '에디터로'
   $("#toSongSel").classList.toggle("hidden",playFromEditor);   //   대신 '곡 선택' 숨김
   show("result");
+  const rs=screens.result;rs.style.animation="none";void rs.offsetWidth;rs.style.animation="resIn .7s ease both";  // 부드러운 페이드인
 }
 
 //============================================================
@@ -2273,7 +2306,7 @@ $("#posShuffle").onclick=()=>{
   toast("노트 위치를 새로 배치했습니다 (이 배치가 채보에 고정 저장됩니다)");
 };
 $("#edHelpBtn").onclick=()=>openCoach();
-$("#edTestPlay").onclick=async()=>{
+async function runTestPlay(startAt){
   if(!edAudio){toast("곡을 먼저 불러오세요");return;}
   if(!edNotes.length){toast("노트가 없습니다 — 자동생성하거나 추가하세요");return;}
   if(edPlaying){edAudio.pause();edPlaying=false;}
@@ -2284,8 +2317,10 @@ $("#edTestPlay").onclick=async()=>{
   playAudio=edAudio; playChart=currentChart();
   curSongMeta={title:title||"테스트",artist:"내 채보",diff:diff||"TEST"};
   playFromEditor=true;            // 뒤로가기 시 에디터로 복귀
-  show("play"); startPlay();
-};
+  show("play"); startPlay(startAt||0);
+}
+$("#edTestPlay").onclick=()=>runTestPlay(0);
+$("#edTestHere").onclick=()=>runTestPlay(Math.max(0,(edPlaying&&edAudio?edAudio.currentTime:edTime)-0.3));  // 현재 위치 살짝 앞부터
 $("#edPlay").onclick=toggleEdPlay;
 function toggleEdPlay(){
   if(!edAudio){toast("곡을 먼저 불러오세요");return;}
@@ -2343,7 +2378,7 @@ $("#grpClear").onclick=ungroupSel;
 $("#selGroup").onclick=makeGroupFromSel;
 $("#selPosGroup").onclick=makePosGroupFromSel;
 $("#selUngroup").onclick=ungroupSel;
-$("#selSpread").oninput=()=>{$("#selSpreadVal").textContent=(parseFloat($("#selSpread").value)||0.12).toFixed(2);};
+$("#selSpread").oninput=()=>{const v=parseFloat($("#selSpread").value)||0.12;$("#selSpreadVal").textContent=v.toFixed(2);const pg=selList().filter(n=>typeof n.pg==="number");drawPgPreview(v,pg.length?edNotes.filter(n=>n.pg===pg[0].pg).length:6);};
 $("#selSpread").onchange=()=>{const v=parseFloat($("#selSpread").value)||0.12;const pgs=new Set(selList().map(n=>n.pg).filter(x=>typeof x==="number"));if(!pgs.size)return;pushUndo();edNotes.forEach(n=>{if(pgs.has(n.pg))n.pgs=v;});toast("위치군 이격 "+v.toFixed(2)+"로 조정");};
 
 function noteAtX(x,y){
@@ -2469,10 +2504,22 @@ function updateSelPanel(){
   $("#selToggle").style.display=single?"":"none";
   $("#selDur").parentElement.style.display=(single&&edSel.type==="press")?"":"none";
   if(single&&edSel.type==="press")$("#selDur").value=edSel.duration||0.3;
-  // 위치군 이격 슬라이더: 선택에 위치군 노트가 있으면 표시
+  // 위치군 이격 슬라이더 + 밀집도 미리보기: 선택에 위치군 노트가 있으면 표시
   const pgSel=selList().filter(n=>typeof n.pg==="number");
   $("#selSpreadWrap").style.display=pgSel.length?"":"none";
-  if(pgSel.length){const v=pgSel[0].pgs||0.12;$("#selSpread").value=v;$("#selSpreadVal").textContent=(+v).toFixed(2);}
+  if(pgSel.length){const v=pgSel[0].pgs||0.12;$("#selSpread").value=v;$("#selSpreadVal").textContent=(+v).toFixed(2);
+    const cnt=edNotes.filter(n=>n.pg===pgSel[0].pg).length;drawPgPreview(v,cnt);}
+}
+// 위치군 몰림 정도 미리보기 (점=노트, 점선원=이격 범위) — 슬라이더와 연동해 육안 확인
+function drawPgPreview(spread,count){
+  const cv=$("#pgPreview");if(!cv)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2-4;
+  c.clearRect(0,0,W,H);c.fillStyle="#0a0d1c";c.fillRect(0,0,W,H);
+  const rr=R*clamp(spread/0.35,0.12,1);
+  c.strokeStyle="rgba(111,240,160,0.45)";c.setLineDash([3,3]);c.beginPath();c.arc(cx,cy,rr,0,6.2832);c.stroke();c.setLineDash([]);
+  c.fillStyle="#6ff0a0";c.beginPath();c.arc(cx,cy,1.6,0,6.2832);c.fill();  // 앵커
+  const n=Math.max(3,Math.min(count||6,12));
+  for(let i=0;i<n;i++){const ang=i*2.39996, dist=rr*(0.15+((i*0.61803)%1)*0.85);  // 노트별 다른 이격(육안용 의사난수)
+    c.fillStyle="#9fe0ff";c.beginPath();c.arc(cx+Math.cos(ang)*dist,cy+Math.sin(ang)*dist,2.3,0,6.2832);c.fill();}
 }
 $("#selToggle").onclick=()=>{if(!edSel)return;pushUndo();edSel.type=edSel.type==="press"?"normal":"press";if(edSel.type==="press"&&!edSel.duration)edSel.duration=0.3;updateSelPanel();};
 $("#selDur").onchange=()=>{if(edSel&&edSel.type==="press"){pushUndo();edSel.duration=Math.max(0.1,parseFloat($("#selDur").value)||0.3);}};
