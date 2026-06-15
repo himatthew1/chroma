@@ -764,7 +764,8 @@ async function fetchRemoteOverrides(){
   if(!url)return null;
   try{
     const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),4500);
-    const r=await fetch(url,{cache:"no-store",signal:ctl.signal}); clearTimeout(to);
+    const bust=url+(url.indexOf("?")>=0?"&":"?")+"cb="+Date.now();   // ★GitHub CDN 캐시 우회 → 항상 최신 Gist
+    const r=await fetch(bust,{cache:"no-store",signal:ctl.signal}); clearTimeout(to);
     if(!r.ok)return null;
     const j=await r.json();
     _remoteOv=Array.isArray(j)?j:(Array.isArray(j&&j.overrides)?j.overrides:null);
