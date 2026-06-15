@@ -1369,25 +1369,39 @@ function layoutPlayPositions(notes){
     n.x=marginX+ctr(n.nx==null?0.5:n.nx,0.5)*(W-2*marginX);
     n.y=marginYt+ctr(n.ny==null?0.5:n.ny,0.62)*(marginYb-marginYt);
   }
-  // ★위치군: 픽셀 공간에서 "노트 크기 기준" 안 겹치게 재배치. 이격값=픽셀 반경(넓을수록 더 벌어짐, 좁으면 같은 지점).
+  // ★위치군: ①앵커(소환 스팟)를 화면 중앙에서 '먼 가장자리'에 ②동시에 뜨는 다른 위치군과 안 겹치게 ③멤버끼리도 안 겹치게
   {
     const pgM={};for(const n of notes){if(n.pg!=null)(pgM[n.pg]||(pgM[n.pg]=[])).push(n);}
-    const playW=W-2*marginX, playH=marginYb-marginYt, minSep=r*2.15;
-    for(const g in pgM){const mem=pgM[g];
-      let ax=0,ay=0;for(const n of mem){ax+=n.x;ay+=n.y;}ax/=mem.length;ay/=mem.length;   // 앵커=ctr 매핑 평균
-      const spread=clamp(mem[0].pgs||0.12,0.02,0.4), radPx=spread*Math.min(playW,playH)*0.95;
+    const scx=W/2, scy=(marginYt+marginYb)/2, hx=(W-2*marginX)/2, hy=(marginYb-marginYt)/2, minSep=r*2.15;
+    const anchors=[];   // {x,y,rad,a,e} — 시간이 겹치는 그룹끼리만 분리
+    for(const g in pgM){
+      const mem=pgM[g], spread=clamp(mem[0].pgs||0.12,0.02,0.4), radPx=spread*Math.min(hx*2,hy*2)*0.95;
+      let ga=Infinity,ge=-Infinity; for(const n of mem){ga=Math.min(ga,n._a);ge=Math.max(ge,n._e);}   // 그룹 시간 구간
+      // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
+      let best=null,bestScore=-1;
+      for(let k=0;k<30;k++){
+        const ang=Math.random()*6.2832, f=0.55+Math.random()*0.35;
+        let ax=clamp(scx+Math.cos(ang)*hx*f, marginX+radPx*0.4, W-marginX-radPx*0.4);
+        let ay=clamp(scy+Math.sin(ang)*hy*f, marginYt+radPx*0.4, marginYb-radPx*0.4);
+        const distC=Math.hypot(ax-scx,ay-scy);
+        let gap=1e9;
+        for(const o of anchors){ if(o.e<ga||ge<o.a)continue; const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep); if(d<gap)gap=d; }
+        const score=distC*1.0 + Math.min(gap,500)*2.0;     // 중앙에서 멀고 + 동시 그룹과 안 겹침
+        if(score>bestScore){bestScore=score;best={x:ax,y:ay,rad:radPx,a:ga,e:ge};}
+      }
+      anchors.push(best);
+      // 멤버: 앵커 주변, 서로 안 겹치게 (best-candidate + 완화)
       const placed=[];
-      for(const n of mem){let bx=ax,by=ay,bd=-1;
+      for(const n of mem){let bx=best.x,by=best.y,bd=-1;
         for(let k=0;k<24;k++){const a2=Math.random()*6.2832,rr2=radPx*Math.sqrt(Math.random()),
-          x=clamp(ax+Math.cos(a2)*rr2,marginX,W-marginX), y=clamp(ay+Math.sin(a2)*rr2,marginYt,marginYb);
+          x=clamp(best.x+Math.cos(a2)*rr2,marginX,W-marginX), y=clamp(best.y+Math.sin(a2)*rr2,marginYt,marginYb);
           if(!placed.length){bx=x;by=y;break;}
           let md=1e9;for(const p of placed){const d=Math.hypot(p.x-x,p.y-y);if(d<md)md=d;}
           if(md>bd){bd=md;bx=x;by=y;}}
-        n.x=bx;n.y=by;placed.push({x:bx,y:by});}
-      // 영역이 충분하면 노트 크기만큼 확실히 벌리는 완화 패스(좁으면 그대로 뭉침)
+        placed.push({x:bx,y:by});}
       for(let it=0;it<6;it++)for(let a=0;a<placed.length;a++)for(let b=a+1;b<placed.length;b++){
         let dx=placed[b].x-placed[a].x,dy=placed[b].y-placed[a].y,d=Math.hypot(dx,dy)||0.01;
-        const lim=Math.min(minSep,radPx*1.1);                 // 영역(radPx) 한도 내에서만 벌림
+        const lim=Math.min(minSep,radPx*1.1);
         if(d<lim){const pu=(lim-d)/2,ux=dx/d,uy=dy/d;
           placed[a].x=clamp(placed[a].x-ux*pu,marginX,W-marginX);placed[a].y=clamp(placed[a].y-uy*pu,marginYt,marginYb);
           placed[b].x=clamp(placed[b].x+ux*pu,marginX,W-marginX);placed[b].y=clamp(placed[b].y+uy*pu,marginYt,marginYb);}}
