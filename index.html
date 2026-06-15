@@ -771,12 +771,12 @@ async function fetchRemoteOverrides(){
 }
 async function allSongsForPlay(){
   let userRaw=[];try{userRaw=await dbAll();}catch{}
-  const userIds=new Set(userRaw.map(s=>s.id));
-  const built=((typeof window.SONGS!=="undefined"&&Array.isArray(window.SONGS))?window.SONGS:[])
-    .filter(b=>!userIds.has(b.id))   // 내 로컬 수정본(같은 id)이 있으면 그게 우선
-    // 난이도는 복제(원격 덮어쓰기가 window.SONGS 원본을 건드리지 않게)
-    .map(s=>({id:s.id,title:s.title,artist:"내장곡",audio:s.audio,difficulties:s.difficulties.map(d=>({name:d.name,chart:d.chart}))}));
-  const user=userRaw.map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
+  const SONGS=((typeof window.SONGS!=="undefined"&&Array.isArray(window.SONGS))?window.SONGS:[]);
+  const builtinIds=new Set(SONGS.map(s=>s.id));
+  // ★내장곡은 항상 공식 내장본 사용(난이도 복제). 옛 로컬 사본이 가리지 못함 → 삭제한 난이도가 되살아나지 않음.
+  const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"내장곡",audio:s.audio,difficulties:s.difficulties.map(d=>({name:d.name,chart:d.chart}))}));
+  // 내가 등록한 "새 곡"만 추가 (내장곡과 id가 겹치는 옛 라이브러리 사본은 무시)
+  const user=userRaw.filter(s=>!builtinIds.has(s.id)).map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
   const result=built.concat(user);
   // ★온라인 최신 채보(Gist)를 권위로 덮어쓰기 — 내장곡이든 로컬 사본이든 같은 곡이면 Gist 최신본이 이김
   //   (옛 로컬 사본이 남아 최신을 가리는 문제 방지: "어디서든 최신"이 보장됨)
@@ -2023,9 +2023,10 @@ async function openEdHub(){
   {const tok=ghToken();$("#ghToken").value=tok;$("#syncState").textContent=tok?"· 켜짐 (저장 시 자동 업로드)":"· 토큰 없음 (저장해도 자동 업로드 안 됨)";}
   const list=$("#hubSongList");list.innerHTML='<div class="muted">온라인 최신 채보 불러오는 중…</div>';
   await refetchRemote();   // ★어느 브라우저에서든 항상 Gist 최신본 기준으로 편집
-  let user=[];try{user=await dbAll();}catch{}
-  const userIds=new Set(user.map(s=>s.id));
-  const built=(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).filter(b=>!userIds.has(b.id)));
+  let userAll=[];try{userAll=await dbAll();}catch{}
+  const built=(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]));
+  const builtinIds=new Set(built.map(s=>s.id));
+  const user=userAll.filter(s=>!builtinIds.has(s.id));   // ★내장곡과 id 겹치는 옛 라이브러리 사본은 숨김(삭제 난이도 되살아남 방지)
   const cnt=(song,d)=>gistNotesFor(song.id,d.name,d.chart.notes).length;   // 최신(Gist) 노트 수 표시
   list.innerHTML="";
   if(!built.length&&!user.length){list.innerHTML='<div class="muted">곡이 없습니다. 위 "신규 곡 등록"으로 만들어보세요.</div>';return;}
