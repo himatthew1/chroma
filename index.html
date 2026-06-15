@@ -773,9 +773,12 @@ async function fetchRemoteOverrides(){
 }
 // 한 (곡,난이도)의 적용 채보 = 내 편집본 > Gist > 내장. (난이도 목록 자체는 내장이 결정 → 삭제한 난이도는 안 살아남)
 function pickChart(songId,diffName,builtinChart,localSong){
-  if(localSong){const d=localSong.difficulties.find(x=>x.name===diffName);if(d&&d.chart&&d.chart.notes&&d.chart.notes.length)return d.chart;}   // ★내 편집본 우선(보존)
-  if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o){if(o.chart)return o.chart;if(o.notes)return Object.assign({},builtinChart,{notes:o.notes});}}
-  return builtinChart;
+  let localC=null;
+  if(localSong){const d=localSong.difficulties.find(x=>x.name===diffName);if(d&&d.chart&&d.chart.notes&&d.chart.notes.length)localC=d.chart;}
+  let gistC=null;
+  if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o)gistC=o.chart?o.chart:(o.notes?Object.assign({},builtinChart,{notes:o.notes,mtime:o.mtime||0}):null);}
+  if(localC&&gistC)return (gistC.mtime||0)>(localC.mtime||0)?gistC:localC;   // ★더 최근에 편집된 쪽이 이김
+  return localC||gistC||builtinChart;                                        // 편집본은 내장(자동생성)을 절대 안 덮임
 }
 async function allSongsForPlay(){
   let userRaw=[];try{userRaw=await dbAll();}catch{}
@@ -2141,7 +2144,7 @@ async function editorSave(silent){
   if(!title){if(!silent)toast("곡 제목을 입력하세요");return false;}
   if(!diff){if(!silent)toast("난이도 이름을 입력하세요 (예: EASY)");return false;}
   if(!edNotes.length){if(!silent)toast("노트가 없습니다 — 자동생성하거나 추가하세요");return false;}
-  const chart={title:title+" ["+diff+"]",notes:currentChart().notes};
+  const chart={title:title+" ["+diff+"]",notes:currentChart().notes,mtime:Date.now()};  // ★수정시각 → 최근 편집이 항상 이김
   let song = edSongId? await dbGet(edSongId) : null;
   if(!song){
     // DB에 없음 = 신규 곡이거나 내장곡 첫 수정. 내장곡이면 형제 난이도들을 보존(edSeedDiffs).
@@ -2157,7 +2160,7 @@ async function editorSave(silent){
   if(i>=0)song.difficulties[i].chart=chart;else song.difficulties.push({name:diff,chart});
   try{await dbPut(song);edSeedDiffs=null;
     if(ghToken())uploadOverridesToGist(false);   // ★토큰 있으면 저장 시 자동으로 모두에게 업로드
-    if(!silent)toast("✅ 저장됨: "+title+" ["+diff+"]"+(ghToken()?" · 자동반영 업로드 중…":"  (플레이 곡 목록에 등록)"));return true;}
+    if(!silent)toast(ghToken()? ("✅ 저장 + 온라인 자동반영: "+title+" ["+diff+"]") : ("💾 이 브라우저에만 저장됨 — 온라인/모두에게 반영하려면 상단에 토큰을 한 번 설정하세요: "+title+" ["+diff+"]"));return true;}
   catch(e){toast("저장 실패: "+e.message);return false;}
 }
 $("#edSave").onclick=()=>editorSave();   // ★이벤트가 silent 인자로 새는 것 방지(저장 결과 토스트가 반드시 뜨게)
@@ -2247,7 +2250,7 @@ async function buildRemoteOverrides(){
   const out=[];
   for(const s of userRaw){
     if(!builtIds.has(s.id))continue;            // 내장곡 수정본만 (새 곡은 오디오 호스팅이 따로 필요)
-    for(const d of s.difficulties)out.push({song:s.id,diff:d.name,notes:d.chart.notes});
+    for(const d of s.difficulties)out.push({song:s.id,diff:d.name,notes:d.chart.notes,mtime:d.chart.mtime||0});
   }
   return out;
 }
