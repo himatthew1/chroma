@@ -1416,7 +1416,7 @@ function layoutPlayPositions(notes){
       // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
       let best=null,bestScore=-1;
       for(let k=0;k<30;k++){
-        const ang=Math.random()*6.2832, f=0.38+Math.random()*0.24;   // 중앙에서 적당히 떨어진 곳(외곽 과다 방지)
+        const ang=Math.random()*6.2832, f=0.2+Math.random()*0.25;   // 중앙에서 약간 떨어진 곳(너무 외곽 방지)
         let ax=clamp(scx+Math.cos(ang)*hx*f, marginX+radPx*0.4, W-marginX-radPx*0.4);
         let ay=clamp(scy+Math.sin(ang)*hy*f, marginYt+radPx*0.4, marginYb-radPx*0.4);
         const distC=Math.hypot(ax-scx,ay-scy);
@@ -2103,11 +2103,12 @@ let edAudio=null,edBuffer=null,edPeaks=null,edRaf=null,edNotes=[],edTime=0,edPla
 let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null;
 let edClip=null, undoStack=[], redoStack=[], spaceHeld=false;   // 클립보드·실행취소·팬
 function uniq(a){return a.filter((v,i)=>a.indexOf(v)===i);}
-function snapshotNotes(){return edNotes.map(n=>({...n}));}
+function snapshotNotes(){return {notes:edNotes.map(n=>({...n})),zones:edZones.map(z=>({...z}))};}   // 노트+속도구간 함께 스냅샷
+function restoreSnap(s){if(Array.isArray(s)){edNotes=s;}else{edNotes=s.notes||[];edZones=s.zones||[];}edZoneSel=null;}
 function commitUndo(pre){undoStack.push(pre);if(undoStack.length>120)undoStack.shift();redoStack.length=0;}
 function pushUndo(){commitUndo(snapshotNotes());}
-function doUndo(){if(!undoStack.length){toast("취소할 작업 없음");return;}redoStack.push(snapshotNotes());edNotes=undoStack.pop();selClear();updateSelPanel();updateGrpPanel();toast("↩ 실행취소");}
-function doRedo(){if(!redoStack.length){toast("복구할 작업 없음");return;}undoStack.push(snapshotNotes());edNotes=redoStack.pop();selClear();updateSelPanel();updateGrpPanel();toast("↪ 다시 실행");}
+function doUndo(){if(!undoStack.length){toast("취소할 작업 없음");return;}redoStack.push(snapshotNotes());restoreSnap(undoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();toast("↩ 실행취소");}
+function doRedo(){if(!redoStack.length){toast("복구할 작업 없음");return;}undoStack.push(snapshotNotes());restoreSnap(redoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();toast("↪ 다시 실행");}
 function selClear(){edSelSet=[];edSel=null;}
 function selSetTo(n){edSel=n;edSelSet=n?[n]:[];}
 function selToggle(n){const i=edSelSet.indexOf(n);if(i>=0){edSelSet.splice(i,1);edSel=edSelSet[edSelSet.length-1]||null;}else{edSelSet.push(n);edSel=n;}}
@@ -2609,6 +2610,15 @@ function notesInBox(x0,y0,x1,y1){
     return nx>=a-3&&nx<=b+3;});
 }
 tl.addEventListener("contextmenu",e=>e.preventDefault());
+tl.addEventListener("dblclick",e=>{   // ★속도구간 자르기: 더블클릭 지점에서 둘로 분리(각각 독립 조작)
+  if(edTool!=="speed")return;
+  const r=tl.getBoundingClientRect(),x=e.clientX-r.left,t=clamp(tOf(x),0,edDur());
+  const z=edZones.find(zz=>t>zz.t0+0.05&&t<zz.t1-0.05);if(!z)return;
+  pushUndo();
+  const left={t0:z.t0,t1:+t.toFixed(3),type:z.type,rampIn:z.rampIn||0,rampOut:0};
+  const right={t0:+t.toFixed(3),t1:z.t1,type:z.type,rampIn:0,rampOut:z.rampOut||0};
+  const i=edZones.indexOf(z);edZones.splice(i,1,left,right);edZoneSel=right;updateZonePanel();toast("구간을 둘로 분리했습니다");
+});
 tl.addEventListener("mousedown",e=>{
   if(e.button===0)e.preventDefault();   // 드래그 중 페이지 텍스트선택이 끼어드는 것 방지
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
@@ -2622,11 +2632,11 @@ tl.addEventListener("mousedown",e=>{
   if(edTool==="group"){grpDrag={x0:x,y0:y,x1:x,y1:y,add:e.shiftKey,prev:edSelSet.slice()};if(!e.shiftKey)edSelSet=[];updateGrpPanel();return;}
   if(edTool==="speed"){
     const hit=edZones.find(z=>t>=z.t0-0.25&&t<=z.t1+0.25);    // 기존 구간: 핸들 잡기
-    if(hit){edZoneSel=hit;updateZonePanel();
+    if(hit){pushUndo();edZoneSel=hit;updateZonePanel();
       const TH=8,dL=Math.abs(x-xOf(hit.t0)),dR=Math.abs(x-xOf(hit.t1)),dRi=Math.abs(x-xOf(hit.t0+(hit.rampIn||0))),dRo=Math.abs(x-xOf(hit.t1-(hit.rampOut||0)));
       let sub="move",best=TH;[["L",dL],["R",dR],["Ri",dRi],["Ro",dRo]].forEach(c=>{if(c[1]<best){best=c[1];sub=c[0];}});
       edDrag={mode:"zoneedit",z:hit,sub,startT:t};return;}
-    const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
+    pushUndo();const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
   }
   // ── 선택/이동 도구 ──
   // ★롱노트 끝 핸들 잡기 → 길이 조절 (프레스=길이, 스페이스홀드=길이/0.12미만이면 일반화)
