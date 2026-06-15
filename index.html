@@ -785,7 +785,15 @@ async function allSongsForPlay(){
   const SONGS=((typeof window.SONGS!=="undefined"&&Array.isArray(window.SONGS))?window.SONGS:[]);
   const builtinIds=new Set(SONGS.map(s=>s.id));
   const userById={};userRaw.forEach(s=>userById[s.id]=s);
-  await fetchRemoteOverrides();   // Gist 먼저 로드 (pickChart에서 사용)
+  await refetchRemote();   // ★항상 최신 Gist (캐시 무시) — 내 브라우저도 늘 최신과 일치
+  // 로컬 자가치유: 내장곡의 스테일 로컬 사본을 Gist(동률/더 최신)에 맞춰 갱신 → 옛 88 등이 영구 정리됨
+  try{ for(const s of SONGS){ const lib=userById[s.id]; if(!lib)continue; let ch=false;
+    for(const d of s.difficulties){ const ld=lib.difficulties.find(x=>x.name===d.name); if(!ld||!ld.chart)continue;
+      const o=_remoteOv&&_remoteOv.find(x=>x.song===s.id&&x.diff===d.name); if(!o||!o.notes)continue;
+      if((o.mtime||0)>=(ld.chart.mtime||0) && (ld.chart.notes||[]).length!==o.notes.length){
+        ld.chart={notes:o.notes,mtime:o.mtime||0,title:ld.chart.title||((s.title||"")+" ["+d.name+"]")}; ch=true; }
+    } if(ch)dbPut(lib); }
+  }catch(e){}
   // 내장곡: 난이도 목록=내장(NORMAL 삭제 유지), 노트=내 편집본>Gist>내장
   const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"내장곡",audio:s.audio,
     difficulties:s.difficulties.map(d=>({name:d.name,chart:pickChart(s.id,d.name,d.chart,userById[s.id])}))}));
@@ -2302,7 +2310,7 @@ async function buildRemoteOverrides(){
   let userRaw=[];try{userRaw=await dbAll();}catch{}
   const userById={};userRaw.forEach(s=>userById[s.id]=s);
   const SONGS=((typeof window.SONGS!=="undefined"&&window.SONGS)||[]);
-  await fetchRemoteOverrides();
+  await refetchRemote();   // ★업로드 직전 항상 최신 Gist로 비교 → 스테일 로컬이 더 최신 Gist를 덮지 않음
   const out=[];
   for(const s of SONGS){
     for(const d of s.difficulties){
