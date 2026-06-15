@@ -1261,16 +1261,25 @@ function rankOf(a){return a>=98?"S+":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"D"
 // 정규화 좌표(0~1) 배치: 시간상 가까운 노트끼리 안 겹치게. onlyMissing=true면 좌표 없는 것만 채움.
 // 위치군: 같은 pg끼리 매판 한 랜덤 앵커 근처로 몰아서 배치 (노트별 이격 거리 랜덤 → 몰린 정도 제각각)
 function assignPosGroups(notes){
+  // 위치군: 같은 pg는 매판 한 랜덤 앵커 근처. 이격값(spread)=영역 크기 → 그 영역을 다 써서 "서로 안 겹치게" 배치.
+  // 값↓=같은 지점에 뭉침 / 값↑=넓게 펼쳐 겹침 없음. (best-candidate: 기존 노트에서 가장 먼 후보 채택)
   const groups={};
   for(const n of notes){ if(n.pg!=null){ (groups[n.pg]||(groups[n.pg]=[])).push(n); } }
   for(const g in groups){
     const mem=groups[g], spread=clamp(mem[0].pgs||0.12,0.02,0.4);
-    const m=0.05+spread;                                  // 앵커를 가장자리에서 띄워 군집이 화면 안에 들어오게
+    const m=0.05+spread;
     const ax=m+Math.random()*(1-2*m), ay=m+Math.random()*(1-2*m);
+    const placed=[];
     for(const n of mem){
-      const ang=Math.random()*6.2832, dist=Math.random()*spread;   // ★이격 거리 노트마다 랜덤
-      n.nx=clamp(ax+Math.cos(ang)*dist,0.03,0.97);
-      n.ny=clamp(ay+Math.sin(ang)*dist,0.03,0.97);
+      let best=null,bestD=-1;
+      for(let k=0;k<18;k++){                                   // 후보 18개 중 가장 멀리 떨어진 지점 선택
+        const ang=Math.random()*6.2832, rad=spread*Math.sqrt(Math.random());   // 디스크 균등 분포
+        const x=clamp(ax+Math.cos(ang)*rad,0.03,0.97), y=clamp(ay+Math.sin(ang)*rad,0.03,0.97);
+        if(!placed.length){best={x,y};break;}
+        let md=1e9; for(const p of placed){const d=Math.hypot(p.x-x,p.y-y);if(d<md)md=d;}
+        if(md>bestD){bestD=md;best={x,y};}
+      }
+      n.nx=best.x;n.ny=best.y;placed.push(best);
     }
   }
 }
@@ -2538,8 +2547,14 @@ function drawPgPreview(spread,count){
   c.strokeStyle="rgba(111,240,160,0.45)";c.setLineDash([3,3]);c.beginPath();c.arc(cx,cy,rr,0,6.2832);c.stroke();c.setLineDash([]);
   c.fillStyle="#6ff0a0";c.beginPath();c.arc(cx,cy,1.6,0,6.2832);c.fill();  // 앵커
   const n=Math.max(3,Math.min(count||6,12));
-  for(let i=0;i<n;i++){const ang=i*2.39996, dist=rr*(0.15+((i*0.61803)%1)*0.85);  // 노트별 다른 이격(육안용 의사난수)
-    c.fillStyle="#9fe0ff";c.beginPath();c.arc(cx+Math.cos(ang)*dist,cy+Math.sin(ang)*dist,2.3,0,6.2832);c.fill();}
+  // 실제 게임과 동일하게 best-candidate로 "안 겹치게" 배치 (영역 넓을수록 더 벌어짐)
+  const placed=[];
+  for(let i=0;i<n;i++){let bx=cx,by=cy,bd=-1;
+    for(let k=0;k<18;k++){const ang=Math.random()*6.2832,rad=rr*Math.sqrt(Math.random()),x=cx+Math.cos(ang)*rad,y=cy+Math.sin(ang)*rad;
+      if(!placed.length){bx=x;by=y;break;}
+      let md=1e9;for(const p of placed){const d=Math.hypot(p.x-x,p.y-y);if(d<md)md=d;}
+      if(md>bd){bd=md;bx=x;by=y;}}
+    placed.push({x:bx,y:by});c.fillStyle="#9fe0ff";c.beginPath();c.arc(bx,by,2.3,0,6.2832);c.fill();}
 }
 $("#selToggle").onclick=()=>{if(!edSel)return;pushUndo();edSel.type=edSel.type==="press"?"normal":"press";if(edSel.type==="press"&&!edSel.duration)edSel.duration=0.3;updateSelPanel();};
 $("#selDur").onchange=()=>{if(edSel&&edSel.type==="press"){pushUndo();edSel.duration=Math.max(0.1,parseFloat($("#selDur").value)||0.3);}};
