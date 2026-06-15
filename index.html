@@ -1437,6 +1437,7 @@ function runIntro(){
   const step=()=>{
     if(!state)return;
     if(i>=seq.length){hideCountdown();beginPlay();return;}
+    if(seq[i][0]==="START!")playStartSound();   // ★게임 개시 순간 = 펼쳐지는 개시음
     showCountdown(seq[i][0],seq[i][2]);
     state.introTimers.push(setTimeout(()=>{i++;step();},seq[i][1]));
   };
@@ -1511,33 +1512,40 @@ function badThud(){ if(!settings.sfxOn)return; try{
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.2*V,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);
   o.connect(lp).connect(g).connect(ctx.destination);o.start(t);o.stop(t+0.24);
 }catch(e){} }
-// 우주선 시동: 4키 홀드 동안 상승하는 엔진 럼블 (1초). 완료 시 추력 액센트.
+// 우주선 시동: 4키 홀드 동안 "부드러운 펄스 차징"(1.5초, 점점 빨라짐). 떼면 중단. 완료 시 카운트다운→개시음.
 let _ign=null;
 function ignitionStart(){ if(!settings.sfxOn||_ign)return; try{
-  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
-  const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";
-  o.type="sawtooth";o.frequency.setValueAtTime(38,t);o.frequency.exponentialRampToValueAtTime(150,t+1.0);
-  lp.frequency.setValueAtTime(180,t);lp.frequency.exponentialRampToValueAtTime(1500,t+1.0);
-  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.24*V,t+1.0);
-  o.connect(lp).connect(g).connect(ctx.destination);o.start(t);
-  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,1.4,0.15);const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.Q.value=0.7;
-  bp.frequency.setValueAtTime(450,t);bp.frequency.exponentialRampToValueAtTime(3200,t+1.0);
-  const ng=ctx.createGain();ng.gain.setValueAtTime(0.0001,t);ng.gain.exponentialRampToValueAtTime(0.13*V,t+1.0);
-  ns.connect(bp).connect(ng).connect(ctx.destination);ns.start(t);
-  _ign={o,ns,g,ng};
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t0=ctx.currentTime,V=settings.sfxVol,DUR=1.5;
+  const master=ctx.createGain();master.gain.value=1;master.connect(ctx.destination);
+  const pulses=[];let tau=t0,gap=0.16,i=0;
+  while(tau<t0+DUR && i<46){const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=420+i*55;o.type="triangle";o.frequency.value=70+i*5;
+    const lvl=(0.16+i*0.009)*V;g.gain.setValueAtTime(0.0001,tau);g.gain.linearRampToValueAtTime(lvl,tau+0.018);g.gain.exponentialRampToValueAtTime(0.0001,tau+gap*1.15);
+    o.connect(lp).connect(g).connect(master);o.start(tau);o.stop(tau+gap*1.2);pulses.push(o);tau+=gap;gap=Math.max(0.055,gap*0.9);i++;}
+  const bo=ctx.createOscillator(),bg=ctx.createGain(),blp=ctx.createBiquadFilter();blp.type="lowpass";bo.type="sine";bo.frequency.setValueAtTime(50,t0);bo.frequency.exponentialRampToValueAtTime(120,t0+DUR);blp.frequency.setValueAtTime(220,t0);blp.frequency.exponentialRampToValueAtTime(700,t0+DUR);bg.gain.setValueAtTime(0.08*V,t0);bg.gain.exponentialRampToValueAtTime(0.2*V,t0+DUR);bo.connect(blp).connect(bg).connect(master);bo.start(t0);
+  _ign={master,pulses,bo};
 }catch(e){} }
 function ignitionStop(){ if(!_ign)return; try{const ctx=getCtx(),tt=ctx.currentTime;
-  for(const gg of [_ign.g,_ign.ng]){gg.gain.cancelScheduledValues(tt);gg.gain.setValueAtTime(Math.max(0.0001,gg.gain.value),tt);gg.gain.exponentialRampToValueAtTime(0.0001,tt+0.12);}
-  _ign.o.stop(tt+0.16);_ign.ns.stop(tt+0.16);
+  _ign.master.gain.cancelScheduledValues(tt);_ign.master.gain.setValueAtTime(Math.max(0.0001,_ign.master.gain.value),tt);_ign.master.gain.exponentialRampToValueAtTime(0.0001,tt+0.07);
+  _ign.pulses.forEach(o=>{try{o.stop(tt+0.09);}catch(e){}});try{_ign.bo.stop(tt+0.1);}catch(e){}
 }catch(e){} _ign=null; }
-function ignitionTakeoff(){ ignitionStop(); if(!settings.sfxOn)return; try{
-  const ctx=getCtx();const t=ctx.currentTime,V=settings.sfxVol;
-  const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=950;
-  o.type="sawtooth";o.frequency.setValueAtTime(160,t);o.frequency.exponentialRampToValueAtTime(60,t+0.55);
-  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.32*V,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.62);
-  o.connect(lp).connect(g).connect(ctx.destination);o.start(t);o.stop(t+0.64);
-  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,0.6,0.9);const hp=ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=500;
-  const ng=ctx.createGain();ng.gain.setValueAtTime(0.26*V,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.5);ns.connect(hp).connect(ng).connect(ctx.destination);ns.start(t);
+// 게임 개시음(START 순간) — 폭발(칠다운) → 에코/여운으로 감쇠. 벨(탑)+코스믹/스웰(베이스).
+let _startIR=null;
+function playStartSound(){ if(!settings.sfxOn)return; try{
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+  if(!_startIR){const ln=Math.floor(ctx.sampleRate*2.8),b=ctx.createBuffer(2,ln,ctx.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/ln,2.0);}_startIR=b;}
+  const out=ctx.createGain();out.gain.value=1;out.connect(ctx.destination);
+  const rv=ctx.createConvolver();rv.buffer=_startIR;const wet=ctx.createGain();wet.gain.value=0.6;rv.connect(wet).connect(ctx.destination);
+  const dl=ctx.createDelay(1.0);dl.delayTime.value=0.34;const fb=ctx.createGain();fb.gain.value=0.4;const dw=ctx.createGain();dw.gain.value=0.32;dl.connect(fb).connect(dl);dl.connect(dw).connect(ctx.destination);dl.connect(rv);
+  const send=(n,echo)=>{n.connect(out);n.connect(rv);if(echo)n.connect(dl);};
+  // 깊은 부밍 (즉시 최대 → 감쇠)
+  const sub=ctx.createOscillator(),sg=ctx.createGain();sub.type="sine";sub.frequency.setValueAtTime(110,t);sub.frequency.exponentialRampToValueAtTime(38,t+0.6);sg.gain.setValueAtTime(0.0001,t);sg.gain.exponentialRampToValueAtTime(0.46*V,t+0.03);sg.gain.exponentialRampToValueAtTime(0.0001,t+1.05);sub.connect(sg);send(sg,true);sub.start(t);sub.stop(t+1.1);
+  // 넓게 여는 디튠 패드 (즉시 강하게 → 2.4초 감쇠, 음량은 감소만)
+  [55,82.5,110,165,220].forEach(f=>{[0,0.7].forEach(det=>{const o=ctx.createOscillator(),g=ctx.createGain(),lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.setValueAtTime(2300,t);lp.frequency.exponentialRampToValueAtTime(680,t+2.2);o.type="sawtooth";o.frequency.value=f+det;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.04*V,t+0.05);g.gain.exponentialRampToValueAtTime(0.0001,t+2.4);o.connect(lp).connect(g);send(g,true);o.start(t);o.stop(t+2.45);});});
+  // 폭발 휘몰이 노이즈 (즉시 최대 → 어두워지며 사그라듦)
+  const ns=ctx.createBufferSource();ns.buffer=_bkNoise(ctx,1.3,0.6);const bp=ctx.createBiquadFilter();bp.type="bandpass";bp.Q.value=0.5;bp.frequency.setValueAtTime(4600,t);bp.frequency.exponentialRampToValueAtTime(500,t+0.95);const ng=ctx.createGain();ng.gain.setValueAtTime(0.0001,t);ng.gain.exponentialRampToValueAtTime(0.16*V,t+0.025);ng.gain.exponentialRampToValueAtTime(0.0001,t+1.0);ns.connect(bp).connect(ng);send(ng,true);ns.start(t);
+  // 벨(탑) — 0.12s 늦게 얹혀 '탁'
+  const tb=t+0.12;[523,659,784,1047,1319].forEach((f,i)=>{const tt=tb+i*0.05;[1,2.01].forEach((m,k)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=f*m;g.gain.setValueAtTime(0.0001,tt);g.gain.exponentialRampToValueAtTime((k?0.042:0.115)*V,tt+0.005);g.gain.exponentialRampToValueAtTime(0.0001,tt+1.05);o.connect(g);send(g,k===0);o.start(tt);o.stop(tt+1.1);});});
+  setTimeout(()=>{try{rv.disconnect();wet.disconnect();dl.disconnect();}catch(e){}},3200);
 }catch(e){} }
 function applySpaceScore(kind){
   state.counts[kind]=(state.counts[kind]||0)+1;
@@ -1581,9 +1589,9 @@ function drawSpaceNote(n,now,AR){
   if(hold&&n.holding&&!n.spState&&now>=n.time+n.duration){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,cx,cy);beatKill();spaceBurst(false);}
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
   if(!n.spState){
-    const p=now-appear,pr=clamp(p/AR,0,1),gp=Math.pow(pr,0.5); // ★크기: 앞부분 급성장(멈칫 없이 끝까지 증가)
-    const aq=clamp(p/(AR*0.6),0,1); al=aq*aq*(3-2*aq);          // ★투명도: 천천히 부드럽게 차오름(smoothstep)
-    rs=0.5+0.5*gp; ringAl=al; gl=1.2*al; ap=pr;
+    const p=now-appear,pr=clamp(p/AR,0,1),gp=Math.pow(pr,1.9); // ★크기: 작게 시작→임박할수록 가속(연속 스페이스 겹침 방지)
+    const aq=clamp(p/(AR*0.65),0,1); al=aq*aq*(3-2*aq);         // ★투명도: 부드럽게 차오름(smoothstep)
+    rs=0.08+0.92*gp; ringAl=al; gl=1.2*al; ap=pr;
     if(hold&&n.holding){charge=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);rs=1;al=1;ringAl=1;ap=-1;gl=1.2+charge*0.7;}
   }else{
     const big=(n.spState!=="bad"&&n.spState!=="miss"&&n.spState!=="break");
@@ -1720,8 +1728,8 @@ function loop(){
     const allHeld=state.held.every(Boolean);
     if(allHeld){
       if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();}
-      const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el,0,1);
-      if(el>=1){state.readyGate=false;state.holdStart=0;ignitionTakeoff();runIntro();}
+      const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el/1.5,0,1);
+      if(el>=1.5){state.readyGate=false;state.holdStart=0;ignitionStop();runIntro();}
     }else{if(state.holdStart)ignitionStop();state.holdStart=0;state.readyProg=0;}
   }
   const W=pcanvas.width,H=pcanvas.height;
@@ -1851,7 +1859,7 @@ function loop(){
     pctx.textAlign="center";
     pctx.fillStyle="#22a7ff";pctx.font="600 14px Segoe UI";pctx.fillText("R U RED E?",W/2,H*0.30);
     pctx.fillStyle="#eef1ff";pctx.font="600 23px Segoe UI";
-    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  모두 누른 채 1초 유지 (시동)",W/2,H*0.365);
+    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  모두 누른 채 1.5초 유지 (시동)",W/2,H*0.365);
     const cx=W/2,cy=H*0.5,R=66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
     pctx.strokeStyle="#2a3158";pctx.lineWidth=8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
     pctx.strokeStyle="#22a7ff";pctx.lineWidth=8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
