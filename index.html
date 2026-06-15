@@ -450,6 +450,7 @@
         <div id="zonePanel" class="hidden">
           <span style="color:#c89bff">구간:</span>
           <button class="tb-btn" id="zoneType" title="스피드업↔슬로우 전환">⏩ 스피드업</button>
+          <span class="field">배속 <input type="range" id="zoneFactor" min="1.3" max="4" step="0.1" value="2" style="width:96px;vertical-align:middle"><span id="zoneFacVal" style="font-size:11px">×2.0</span></span>
           <span class="field">진입 <input type="number" id="zoneRin" value="0.4" step="0.1" min="0" style="width:54px">s</span>
           <span class="field">이탈 <input type="number" id="zoneRout" value="0.4" step="0.1" min="0" style="width:54px">s</span>
           <button class="tb-btn" id="zoneDel" style="color:var(--pink)">구간 삭제</button>
@@ -1249,13 +1250,15 @@ function fitCanvas(cv){cv.width=window.innerWidth;cv.height=window.innerHeight;}
 function approachSec(){return clamp(1.7-parseFloat($("#speed").value)*0.11,0.32,1.4);}
 function noteR(){return clamp(Math.min(pcanvas.width,pcanvas.height)*0.055,26,60);}
 // ===== 스피드 구간(연출용 시각 시간워프) — 노트·별이 느리거나 빨라 "보이되" 판정 타이밍·노래는 그대로 =====
-const SPEED_UP=2.0, SPEED_DOWN=0.25;   // 구간 시각 배속 (업=빠르게, 다운=슬로모 더 느리게)
+const SPEED_UP=2.0, SPEED_DOWN=0.25;   // 구간 기본 배속 (factor 미지정 시)
+// 구간별 조절 범위: 업 1.3~4.0(기본2.0), 다운 0.08(거의 정지)~0.85(기본0.25)
+const ZUP_MIN=1.3, ZUP_MAX=4.0, ZUP_DEF=2.0, ZDN_MIN=0.08, ZDN_MAX=0.85, ZDN_DEF=0.25;
 function lerpRGB(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
 function smooth01(x){x=clamp(x,0,1);return x*x*(3-2*x);}
 function zoneFactorAt(t,zones){   // 그 시점의 시각 배속 (1=정상). 진입/이탈 램프 적용.
   let f=1; if(!zones||!zones.length)return 1;
   for(const z of zones){ if(t<z.t0||t>z.t1)continue;
-    const tgt=(z.type==="down")?SPEED_DOWN:SPEED_UP, ri=z.rampIn||0, ro=z.rampOut||0;
+    const tgt=(typeof z.factor==="number"&&z.factor>0)?z.factor:((z.type==="down")?SPEED_DOWN:SPEED_UP), ri=z.rampIn||0, ro=z.rampOut||0;
     let w=1;
     if(ri>0&&t<z.t0+ri)w=smooth01((t-z.t0)/ri);
     if(ro>0&&t>z.t1-ro)w=Math.min(w,smooth01((z.t1-t)/ro));
@@ -1508,7 +1511,7 @@ function startPlay(startAt){
   const notes=buildPlayNotes(playChart);
   const lastT=notes.length?Math.max(...notes.map(n=>n.time+(n.duration||0))):0;
   if(startAt>0)notes.forEach(n=>{if(n.time<startAt-0.001){n.done=true;n.headJudged=true;}});  // 구간 앞 노트는 건너뜀
-  const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0}));   // 스피드 구간
+  const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0,factor:(typeof z.factor==="number"?z.factor:undefined)}));   // 스피드 구간(배속 포함)
   const warp=buildWarp(zones,lastT);
   const AR0=approachSec();
   notes.forEach(n=>{n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);});   // 노트별 워프 상수
@@ -2557,11 +2560,16 @@ function setTool(t){edTool=t;
   updateGrpPanel();
 }
 function updateZonePanel(){const p=$("#zonePanel");if(!p)return;
-  if(edTool==="speed"&&edZoneSel){p.classList.remove("hidden");
-    $("#zoneType").textContent=edZoneSel.type==="down"?"🐢 슬로우":"⏩ 스피드업";
-    $("#zoneRin").value=edZoneSel.rampIn||0;$("#zoneRout").value=edZoneSel.rampOut||0;
+  if(edTool==="speed"&&edZoneSel){p.classList.remove("hidden");const z=edZoneSel,up=z.type!=="down";
+    $("#zoneType").textContent=up?"⏩ 스피드업":"🐢 슬로우";
+    $("#zoneRin").value=z.rampIn||0;$("#zoneRout").value=z.rampOut||0;
+    const sl=$("#zoneFactor");sl.min=up?ZUP_MIN:ZDN_MIN;sl.max=up?ZUP_MAX:ZDN_MAX;sl.step=up?0.1:0.02;
+    const f=typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF);sl.value=f;
+    $("#zoneFacVal").textContent="×"+f.toFixed(2)+(!up&&f<=0.12?" (거의 정지)":"");
   }else p.classList.add("hidden");}
-$("#zoneType").onclick=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.type=edZoneSel.type==="down"?"up":"down";updateZonePanel();};
+$("#zoneType").onclick=()=>{if(!edZoneSel)return;pushUndo();const z=edZoneSel;z.type=(z.type==="down")?"up":"down";z.factor=(z.type==="down")?ZDN_DEF:ZUP_DEF;updateZonePanel();};
+$("#zoneFactor").addEventListener("pointerdown",()=>{if(edZoneSel)pushUndo();});
+$("#zoneFactor").oninput=()=>{if(!edZoneSel)return;const v=parseFloat($("#zoneFactor").value);edZoneSel.factor=v;const up=edZoneSel.type!=="down";$("#zoneFacVal").textContent="×"+v.toFixed(2)+(!up&&v<=0.12?" (거의 정지)":"");};
 $("#zoneRin").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampIn=Math.max(0,parseFloat($("#zoneRin").value)||0);};
 $("#zoneRout").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampOut=Math.max(0,parseFloat($("#zoneRout").value)||0);};
 $("#zoneDel").onclick=()=>{if(!edZoneSel)return;pushUndo();const i=edZones.indexOf(edZoneSel);if(i>=0)edZones.splice(i,1);edZoneSel=null;updateZonePanel();toast("구간 삭제됨");};
@@ -2636,7 +2644,7 @@ tl.addEventListener("mousedown",e=>{
       const TH=8,dL=Math.abs(x-xOf(hit.t0)),dR=Math.abs(x-xOf(hit.t1)),dRi=Math.abs(x-xOf(hit.t0+(hit.rampIn||0))),dRo=Math.abs(x-xOf(hit.t1-(hit.rampOut||0)));
       let sub="move",best=TH;[["L",dL],["R",dR],["Ri",dRi],["Ro",dRo]].forEach(c=>{if(c[1]<best){best=c[1];sub=c[0];}});
       edDrag={mode:"zoneedit",z:hit,sub,startT:t};return;}
-    pushUndo();const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
+    pushUndo();const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4,factor:ZUP_DEF};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
   }
   // ── 선택/이동 도구 ──
   // ★롱노트 끝 핸들 잡기 → 길이 조절 (프레스=길이, 스페이스홀드=길이/0.12미만이면 일반화)
@@ -2851,7 +2859,7 @@ function fitTimelineIfNeeded(){const r=tl.getBoundingClientRect();if(Math.abs(r.
 function currentChart(){
   layoutPositions(edNotes,'x','y',true); // 좌표 없는 노트 채움
   const t=($("#edSongTitle").value||"무제")+($("#edDiffName").value?" ["+$("#edDiffName").value+"]":"");
-  const zones=(edZones||[]).slice().sort((a,b)=>a.t0-b.t0).map(z=>({t0:+z.t0.toFixed(3),t1:+z.t1.toFixed(3),type:z.type||"up",rampIn:+(z.rampIn||0).toFixed(2),rampOut:+(z.rampOut||0).toFixed(2)}));
+  const zones=(edZones||[]).slice().sort((a,b)=>a.t0-b.t0).map(z=>{const up=z.type!=="down";const f=clamp(typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF),up?ZUP_MIN:ZDN_MIN,up?ZUP_MAX:ZDN_MAX);return {t0:+z.t0.toFixed(3),t1:+z.t1.toFixed(3),type:z.type||"up",rampIn:+(z.rampIn||0).toFixed(2),rampOut:+(z.rampOut||0).toFixed(2),factor:+f.toFixed(2)};});
   return{title:t,zones,notes:edNotes.slice().sort((a,b)=>a.time-b.time)
     .map(n=>{
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
