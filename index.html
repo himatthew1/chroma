@@ -2818,10 +2818,20 @@ tl.addEventListener("contextmenu",e=>e.preventDefault());
 function slidePtAt(x,y){const n=edSel;if(!n||n.type!=="slide"||!Array.isArray(n.pts))return null;
   if((n.lane||0)!==laneOf(y))return null;const dur=n.duration||0.3;slideEnsurePtt(n);
   for(let j=0;j<n.pts.length;j++){if(Math.abs(xOf(n.time+n.ptt[j]*dur)-x)<7)return {n,j};}return null;}
-// 타임라인 상단 📍P# 브래킷 클릭 판정 → 그 위치군 id (재조절용)
-function posGroupBracketAt(x,y){if(y<30||y>50)return null;
-  const span={};for(const n of edNotes){if(typeof n.pg==="number"){const s=span[n.pg]||(span[n.pg]={min:n.time,max:n.time});s.min=Math.min(s.min,n.time);s.max=Math.max(s.max,n.time);}}
-  for(const g in span){const a=xOf(span[g].min),b=xOf(span[g].max);if(x>=a-14&&x<=b+12)return +g;}return null;}
+// 위치군 브래킷 레이아웃 — 시간 겹치는 군은 다른 행(row)으로 쌓아 각각 클릭 가능하게
+const PG_ROW0=40, PG_ROWH=11;
+function posGroupLayout(){
+  const span={};
+  for(const n of edNotes){if(typeof n.pg==="number"){const s=span[n.pg]||(span[n.pg]={min:n.time,max:n.time,g:+n.pg});s.min=Math.min(s.min,n.time);s.max=Math.max(s.max,n.time);}}
+  const arr=Object.keys(span).map(k=>span[k]).sort((p,q)=>p.min-q.min||p.g-q.g);
+  const rowEnd=[];
+  for(const s of arr){let r=0;while(r<rowEnd.length&&rowEnd[r]>s.min-0.0001)r++;s.row=r;rowEnd[r]=s.max;}
+  return arr;
+}
+// 📍P# 브래킷 클릭 판정 → 그 위치군 id (행별 y로 정확히)
+function posGroupBracketAt(x,y){
+  for(const s of posGroupLayout()){const yy=PG_ROW0+s.row*PG_ROWH;if(Math.abs(y-yy)>6)continue;
+    const a=xOf(s.min),b=xOf(s.max);if(x>=a-14&&x<=b+12)return s.g;}return null;}
 function selectPosGroup(g){edSelSet=edNotes.filter(n=>n.pg===g);edSel=edSelSet[edSelSet.length-1]||null;updateSelPanel();updateGrpPanel();toast("📍P"+g+" 선택됨 — 응집도 슬라이더로 다시 조절하세요");}
 tl.addEventListener("dblclick",e=>{
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,t=clamp(tOf(x),0,edDur());
@@ -3103,14 +3113,13 @@ function edLoop(){
     tctx.strokeStyle=grpColor(+g);tctx.lineWidth=3;tctx.beginPath();tctx.moveTo(a,26);tctx.lineTo(b,26);tctx.stroke();
     tctx.fillStyle=grpColor(+g);tctx.fillText("G"+g,a,22);}
   // position-group brackets (청록 점선, 색묶음 아래에)
-  const pgspan={};
-  for(const n of edNotes){if(typeof n.pg==="number"){if(!pgspan[n.pg])pgspan[n.pg]={min:n.time,max:n.time};else{pgspan[n.pg].min=Math.min(pgspan[n.pg].min,n.time);pgspan[n.pg].max=Math.max(pgspan[n.pg].max,n.time);}}}
   const selPg=new Set(edSelSet.map(n=>n.pg).filter(x=>typeof x==="number"));
-  for(const g in pgspan){const a=xOf(pgspan[g].min),b=xOf(pgspan[g].max);if(b<-20||a>W2+20)continue;
-    const on=selPg.has(+g);
-    if(on){tctx.fillStyle="rgba(111,240,160,0.14)";tctx.fillRect(a-2,30,(b-a)+4,16);}   // 선택된 군 강조
-    tctx.strokeStyle=on?"#aef7c8":"#6ff0a0";tctx.lineWidth=on?3:2;tctx.setLineDash([5,4]);tctx.beginPath();tctx.moveTo(a,40);tctx.lineTo(b,40);tctx.stroke();tctx.setLineDash([]);
-    tctx.fillStyle=on?"#aef7c8":"#6ff0a0";tctx.fillText("📍P"+g+(on?" ✎":""),a,38);}
+  tctx.font="11px Segoe UI";tctx.textAlign="left";
+  for(const s of posGroupLayout()){const a=xOf(s.min),b=xOf(s.max);if(b<-20||a>W2+20)continue;
+    const yy=PG_ROW0+s.row*PG_ROWH, on=selPg.has(s.g);
+    if(on){tctx.fillStyle="rgba(111,240,160,0.16)";tctx.fillRect(a-3,yy-9,(b-a)+6,14);}   // 선택된 군 강조
+    tctx.strokeStyle=on?"#aef7c8":"#6ff0a0";tctx.lineWidth=on?3:2;tctx.setLineDash([5,4]);tctx.beginPath();tctx.moveTo(a,yy);tctx.lineTo(b,yy);tctx.stroke();tctx.setLineDash([]);
+    tctx.fillStyle=on?"#aef7c8":"#6ff0a0";tctx.fillText("📍P"+s.g+(on?" ✎":""),a,yy-2);}
   // ★스와이프 체인 연결선 (멤버를 ci 순서로 잇기, 노드 밑에)
   const chSpan={};
   for(const n of edNotes){if(typeof n.ch==="number")(chSpan[n.ch]||(chSpan[n.ch]=[])).push(n);}
