@@ -2818,6 +2818,11 @@ tl.addEventListener("contextmenu",e=>e.preventDefault());
 function slidePtAt(x,y){const n=edSel;if(!n||n.type!=="slide"||!Array.isArray(n.pts))return null;
   if((n.lane||0)!==laneOf(y))return null;const dur=n.duration||0.3;slideEnsurePtt(n);
   for(let j=0;j<n.pts.length;j++){if(Math.abs(xOf(n.time+n.ptt[j]*dur)-x)<7)return {n,j};}return null;}
+// 타임라인 상단 📍P# 브래킷 클릭 판정 → 그 위치군 id (재조절용)
+function posGroupBracketAt(x,y){if(y<30||y>50)return null;
+  const span={};for(const n of edNotes){if(typeof n.pg==="number"){const s=span[n.pg]||(span[n.pg]={min:n.time,max:n.time});s.min=Math.min(s.min,n.time);s.max=Math.max(s.max,n.time);}}
+  for(const g in span){const a=xOf(span[g].min),b=xOf(span[g].max);if(x>=a-14&&x<=b+12)return +g;}return null;}
+function selectPosGroup(g){edSelSet=edNotes.filter(n=>n.pg===g);edSel=edSelSet[edSelSet.length-1]||null;updateSelPanel();updateGrpPanel();toast("📍P"+g+" 선택됨 — 응집도 슬라이더로 다시 조절하세요");}
 tl.addEventListener("dblclick",e=>{
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,t=clamp(tOf(x),0,edDur());
   // ★슬라이드 노트포인트 추가 (선택된 슬라이드 막대 위 더블클릭)
@@ -2841,6 +2846,8 @@ tl.addEventListener("mousedown",e=>{
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
   // 스페이스 누른 채 드래그 = 화면 이동(팬/스크롤)
   if(spaceHeld&&e.button===0){edDrag={mode:"pan",x0:x,scroll0:view.scroll};tl.style.cursor="grabbing";return;}
+  // ★위치군 브래킷(📍P#) 클릭 → 그 군 선택 (응집도 재조절). 어떤 도구에서든
+  if(e.button===0){const pgB=posGroupBracketAt(x,y);if(pgB!=null){selectPosGroup(pgB);return;}}
   if(e.button===2){
     const sp=slidePtAt(x,y);   // ★슬라이드 노트포인트 우클릭 삭제(머리/꼬리 제외)
     if(sp&&sp.j>0&&sp.j<sp.n.pts.length-1&&sp.n.pts.length>2){pushUndo();sp.n.pts.splice(sp.j,1);sp.n.ptt.splice(sp.j,1);sp.n.sShape="custom";if($("#slideShape"))$("#slideShape").value="custom";drawSlidePath(sp.n);updateSelPanel();toast("노트포인트 삭제");return;}
@@ -2888,8 +2895,8 @@ tl.addEventListener("mousedown",e=>{
 });
 tl.addEventListener("mousemove",e=>{   // 끝 핸들 위 hover → ↔ 커서
   if(edDrag||grpDrag||spaceHeld)return;
-  const r=tl.getBoundingClientRect();
-  tl.style.cursor=longNoteEndAt(e.clientX-r.left,e.clientY-r.top)?"ew-resize":"";
+  const r=tl.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  tl.style.cursor=posGroupBracketAt(mx,my)!=null?"pointer":(longNoteEndAt(mx,my)?"ew-resize":"");
 });
 window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 캔버스를 벗어나도 드래그가 계속됨
   if(!edDrag&&!grpDrag)return;
@@ -3098,9 +3105,12 @@ function edLoop(){
   // position-group brackets (청록 점선, 색묶음 아래에)
   const pgspan={};
   for(const n of edNotes){if(typeof n.pg==="number"){if(!pgspan[n.pg])pgspan[n.pg]={min:n.time,max:n.time};else{pgspan[n.pg].min=Math.min(pgspan[n.pg].min,n.time);pgspan[n.pg].max=Math.max(pgspan[n.pg].max,n.time);}}}
+  const selPg=new Set(edSelSet.map(n=>n.pg).filter(x=>typeof x==="number"));
   for(const g in pgspan){const a=xOf(pgspan[g].min),b=xOf(pgspan[g].max);if(b<-20||a>W2+20)continue;
-    tctx.strokeStyle="#6ff0a0";tctx.lineWidth=2;tctx.setLineDash([5,4]);tctx.beginPath();tctx.moveTo(a,40);tctx.lineTo(b,40);tctx.stroke();tctx.setLineDash([]);
-    tctx.fillStyle="#6ff0a0";tctx.fillText("📍P"+g,a,38);}
+    const on=selPg.has(+g);
+    if(on){tctx.fillStyle="rgba(111,240,160,0.14)";tctx.fillRect(a-2,30,(b-a)+4,16);}   // 선택된 군 강조
+    tctx.strokeStyle=on?"#aef7c8":"#6ff0a0";tctx.lineWidth=on?3:2;tctx.setLineDash([5,4]);tctx.beginPath();tctx.moveTo(a,40);tctx.lineTo(b,40);tctx.stroke();tctx.setLineDash([]);
+    tctx.fillStyle=on?"#aef7c8":"#6ff0a0";tctx.fillText("📍P"+g+(on?" ✎":""),a,38);}
   // ★스와이프 체인 연결선 (멤버를 ci 순서로 잇기, 노드 밑에)
   const chSpan={};
   for(const n of edNotes){if(typeof n.ch==="number")(chSpan[n.ch]||(chSpan[n.ch]=[])).push(n);}
