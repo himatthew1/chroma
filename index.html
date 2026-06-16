@@ -1284,6 +1284,8 @@ function warpAt(wp,t){
 }
 // 육각형(pointy-top) 경로 — 홀드 노트 실루엣
 function hexPath(c,x,y,R){c.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,px=x+Math.cos(a)*R,py=y+Math.sin(a)*R;if(i===0)c.moveTo(px,py);else c.lineTo(px,py);}c.closePath();}
+// 4꼭짓점 별 — 슬라이드(유성) 노트 실루엣
+function star4Path(c,x,y,R,rot){const ir=R*0.36;c.beginPath();for(let i=0;i<8;i++){const a=rot+i*Math.PI/4,rr=(i%2===0)?R:ir,px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;if(i===0)c.moveTo(px,py);else c.lineTo(px,py);}c.closePath();}
 // 게임 시계: 오디오 currentTime을 고해상도 시계로 보간 → 판정이 안 느려짐
 function gameNow(){
   if(!state||!state.started)return 0;
@@ -1355,6 +1357,7 @@ function buildPlayNotes(chart){
   const notes=chart.notes.map(n=>({time:n.time,type:n.type||"normal",duration:n.duration||0,
     nx:(typeof n.x==="number"?n.x:null),ny:(typeof n.y==="number"?n.y:null),
     nx2:(typeof n.x2==="number"?n.x2:null),ny2:(typeof n.y2==="number"?n.y2:null),
+    pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화)
     ch:(typeof n.ch==="number"?n.ch:null),ci:(typeof n.ci==="number"?n.ci:0),
     g:(typeof n.g==="number"?n.g:null),
     pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
@@ -1412,19 +1415,23 @@ function layoutPlayPositions(notes){
   for(const n of notes){
     n.x=marginX+ctr(n.nx==null?0.5:n.nx,0.5)*(W-2*marginX);
     n.y=marginYt+ctr(n.ny==null?0.5:n.ny,0.62)*(marginYb-marginYt);
-    // ★슬라이드 노트: 꼬리 좌표(없으면 머리 기준 결정적 곡선 생성)
+    // ★슬라이드(유성) 노트: 노트포인트 경로(정규화 pts) → 픽셀 폴리라인 + 호장(弧長) 테이블
     if(n.type==="slide"){
-      if(n.nx2==null||n.ny2==null){
-        const ang=n.time*2.399963, dist=0.30+(n.time*0.137%0.12);
-        n.nx2=clamp((n.nx==null?0.5:n.nx)+Math.cos(ang)*dist,0.05,0.95);
-        n.ny2=clamp((n.ny==null?0.5:n.ny)+Math.sin(ang)*dist*0.72,0.05,0.95);
+      let P=n.pts;
+      if(!P||P.length<2){                                  // pts 없으면 머리 기준 원호로 자동 생성
+        const h0=[n.nx==null?0.5:n.nx, n.ny==null?0.5:n.ny];
+        const dir=(Math.floor(n.time*7)%2)?1:-1, sweep=2.6*dir, ang0=n.time*2.399963, Rn=0.2;
+        const cx0=h0[0]-Math.cos(ang0)*Rn, cy0=h0[1]-Math.sin(ang0)*Rn, NP=7;
+        P=[];for(let i=0;i<NP;i++){const tt=i/(NP-1),an=ang0+sweep*tt;P.push([clamp(cx0+Math.cos(an)*Rn,0.05,0.95),clamp(cy0+Math.sin(an)*Rn,0.05,0.95)]);}
       }
-      n.x2=marginX+ctr(n.nx2,0.5)*(W-2*marginX);
-      n.y2=marginYt+ctr(n.ny2,0.62)*(marginYb-marginYt);
-      // 곡선 제어점: 머리-꼬리 중점에서 수직으로 살짝 휘게 (결정적)
-      const mx=(n.x+n.x2)/2, my=(n.y+n.y2)/2, vx=n.x2-n.x, vy=n.y2-n.y, vl=Math.hypot(vx,vy)||1;
-      const bow=(((n.time*53.13)%2)-1)*vl*0.22;
-      n.cpx=mx+(-vy/vl)*bow; n.cpy=my+(vx/vl)*bow;
+      n.ppts=P.map(p=>[marginX+ctr(p[0],0.5)*(W-2*marginX), marginYt+ctr(p[1],0.62)*(marginYb-marginYt)]);
+      n.x=n.ppts[0][0]; n.y=n.ppts[0][1];                  // 머리=경로 시작점(캐치)
+      n.x2=n.ppts[n.ppts.length-1][0]; n.y2=n.ppts[n.ppts.length-1][1];  // 꼬리=경로 끝점
+      const cum=[0];for(let i=1;i<n.ppts.length;i++)cum.push(cum[i-1]+Math.hypot(n.ppts[i][0]-n.ppts[i-1][0],n.ppts[i][1]-n.ppts[i-1][1]));
+      n._cum=cum; n._len=cum[cum.length-1]||1;
+      n._frac=cum.map(c=>c/n._len);                        // 각 포인트의 호장 비율(0=머리,1=꼬리)
+      n._aSpan=clamp(340/n._len,0.35,1);                   // 진입 애니메이션이 그릴 도입부 비율(긴 노트는 일부만)
+      n._ptHit=new Array(n.ppts.length).fill(false);        // 타격음 1회 트리거용
     }
   }
   // ★위치군: ①앵커(소환 스팟)를 화면 중앙에서 '먼 가장자리'에 ②동시에 뜨는 다른 위치군과 안 겹치게 ③멤버끼리도 안 겹치게
@@ -1487,7 +1494,7 @@ function layoutPlayPositions(notes){
     if(p.type!=="press")continue;
     for(const n of notes){
       if(n===p)continue;
-      if(n.pg!=null||n.ch!=null)continue;              // ★위치군·체인 노트는 안 밀림(간격/획 유지)
+      if(n.pg!=null||n.ch!=null||n.type==="slide")continue;   // ★위치군·체인·슬라이드는 안 밀림(간격/획/경로 유지)
       if(n._a<p._e&&p._a<n._e){                       // 화면에서 같이 떠 있는 시간 겹침
         let ddx=n.x-p.x,ddy=n.y-p.y,d=Math.hypot(ddx,ddy);
         if(d<holdClear){
@@ -1502,7 +1509,7 @@ function layoutPlayPositions(notes){
   // 그래도 홀드 디스크에 걸리는 노트는 가장 먼 격자점으로 재배치(결정적)
   const occR=r*2.0;
   for(const n of notes){
-    if(n.pg!=null||n.ch!=null)continue;                // ★위치군·체인은 재배치 안 함(간격/획 유지)
+    if(n.pg!=null||n.ch!=null||n.type==="slide")continue;   // ★위치군·체인·슬라이드는 재배치 안 함
     const holds=notes.filter(p=>p!==n&&p.type==="press"&&n._a<p._e&&p._a<n._e);
     if(!holds.length)continue;
     let md=Math.min.apply(null,holds.map(p=>Math.hypot(n.x-p.x,n.y-p.y)));
@@ -1537,11 +1544,14 @@ function layoutPlayPositions(notes){
   }
 }
 
-// ★슬라이드 노트: 진행도 s(0~1)에서의 곡선 좌표 (머리→제어점→꼬리, 2차 베지어)
+// ★슬라이드 노트: 진행도 s(0~1, 0=머리/캐치, 1=꼬리)에서의 픽셀 좌표 (노트포인트 폴리라인 호장 보간)
 function slidePos(n,s){
-  const u=1-s, x2=(typeof n.x2==="number")?n.x2:n.x, y2=(typeof n.y2==="number")?n.y2:n.y,
-    cpx=(typeof n.cpx==="number")?n.cpx:(n.x+x2)/2, cpy=(typeof n.cpy==="number")?n.cpy:(n.y+y2)/2;
-  return {x:u*u*n.x+2*u*s*cpx+s*s*x2, y:u*u*n.y+2*u*s*cpy+s*s*y2};
+  const P=n.ppts;
+  if(!P||P.length<2)return {x:n.x,y:n.y};
+  s=clamp(s,0,1);const target=s*n._len,cum=n._cum;
+  let i=1;while(i<cum.length-1&&cum[i]<target)i++;
+  const segL=(cum[i]-cum[i-1])||1,f=clamp((target-cum[i-1])/segL,0,1);
+  return {x:P[i-1][0]+(P[i][0]-P[i-1][0])*f, y:P[i-1][1]+(P[i][1]-P[i-1][1])*f};
 }
 function startPlay(startAt){
   startAt=Math.max(0,startAt||0);
@@ -1708,6 +1718,16 @@ function countBeep(big){ if(!settings.sfxOn)return; try{
   g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime((big?0.3:0.22)*V,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+(big?0.3:0.16));
   o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+(big?0.32:0.18));
   const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=big?1760:1320;g2.gain.setValueAtTime(0.12*V,t);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);o2.connect(g2).connect(ctx.destination);o2.start(t);o2.stop(t+0.07);
+}catch(e){} }
+function slideTick(idx){ if(!settings.sfxOn)return; try{    // ★슬라이드 노트 포인트 타격음 (인덱스에 따라 음정 상승)
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+  const PENTA=[523.25,587.33,659.25,783.99,880,1046.5,1174.7,1318.5];
+  const f=PENTA[idx%PENTA.length]*(idx>=PENTA.length?2:1);
+  const o=ctx.createOscillator(),g=ctx.createGain();o.type="triangle";o.frequency.value=f;
+  const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=f*2;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.16*V,t+0.005);g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);
+  g2.gain.setValueAtTime(0.0001,t);g2.gain.exponentialRampToValueAtTime(0.06*V,t+0.004);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
+  o.connect(g).connect(ctx.destination);o2.connect(g2).connect(ctx.destination);o.start(t);o2.start(t);o.stop(t+0.14);o2.stop(t+0.09);
 }catch(e){} }
 function applySpaceScore(kind){
   state.counts[kind]=(state.counts[kind]||0)+1;
@@ -2005,54 +2025,74 @@ function loop(){
       dx+=(Math.random()-0.5)*jit; dy+=(Math.random()-0.5)*jit;   // 지글지글 흔들림
       br*=1+holdT*0.55; glowB=holdT*48; whiten=0.25+holdT*0.72;   // 점점 크고 밝고 하얗게
     }
-    // ★슬라이드(유성) 노트 — 유성이 하나의 비행경로를 그리며 날아와 육각형 머리에서 합쳐지고, 그 경로를 이어 미끄러짐. 이동 중 연소(흔들림+불꽃)
-    if(n.type==="slide"){
-      const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;                 // 진입 드리프트는 잡기 전만
-      const QB=(p0,p1,p2,s)=>{const u=1-s;return [u*u*p0[0]+2*u*s*p1[0]+s*s*p2[0]+off.x*ph, u*u*p0[1]+2*u*s*p1[1]+s*s*p2[1]+off.y*ph];};
-      const Hh=[n.x,n.y], Cc=[(typeof n.cpx==="number"?n.cpx:(n.x+(n.x2||n.x))/2),(typeof n.cpy==="number"?n.cpy:(n.y+(n.y2||n.y))/2)], Tt=[(typeof n.x2==="number"?n.x2:n.x),(typeof n.y2==="number"?n.y2:n.y)];
-      const LEAD=1.5, C2=[Hh[0]+(Hh[0]-Cc[0])*LEAD,Hh[1]+(Hh[1]-Cc[1])*LEAD], Ll=[Hh[0]+(Hh[0]-Tt[0])*LEAD,Hh[1]+(Hh[1]-Tt[1])*LEAD];
-      const travel=(s)=>QB(Hh,Cc,Tt,s);            // 머리→꼬리 (홀드 이동 경로)
-      const lead=(g)=>QB(Hh,C2,Ll,g);              // 머리→먼 곳 (유성 진입 경로, 같은 곡선의 거울 연장)
+    // ★슬라이드(유성) 노트 — 유성이 노트포인트를 찍으며 진입→캐치→그 경로를 역으로 되짚는 회전 별. 포인트 소모마다 타격음·연소
+    if(n.type==="slide"&&n.ppts){
+      const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;       // 진입 드리프트(잡기 전만)
+      const PP=(j)=>[n.ppts[j][0]+off.x*ph, n.ppts[j][1]+off.y*ph];
+      const SP=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph, p.y+off.y*ph];};
+      const NP=n.ppts.length, frac=n._frac, aSpan=n._aSpan, hbr=br*1.15;
       const s=n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0;
-      const hbr=br*1.18, SAMP=20;                  // 머리는 홀드(육각형) 크기
-      // ── 리본/유성 (가산광) ──
+      const hueP=(j)=>"hsl("+Math.round((j/Math.max(1,NP-1))*300)+",92%,62%)";
+      // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
+      function drawPt(P,sc,al,j){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();
+        pctx.globalAlpha=al*0.95;pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=7;pctx.beginPath();pctx.arc(P[0],P[1],2.2*sc,0,6.2832);pctx.fill();
+        pctx.globalAlpha=al*0.28;pctx.strokeStyle=hueP(j);pctx.shadowColor=hueP(j);pctx.shadowBlur=8;hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();pctx.restore();}
+      function firePt(P,f,j){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(1-f);pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=16;pctx.lineWidth=2.4;hexPath(pctx,P[0],P[1],8+f*20);pctx.stroke();
+        pctx.globalAlpha=(1-f)*0.8;pctx.strokeStyle=hueP(j);pctx.lineWidth=1.5;hexPath(pctx,P[0],P[1],8+f*30);pctx.stroke();pctx.restore();}
       pctx.save();pctx.lineCap="round";pctx.lineJoin="round";pctx.globalCompositeOperation="lighter";
       if(!n.holding){
-        // 접근: 앞으로 탈 궤도를 은은히 미리 보여주고, 유성이 진입경로를 그리며 들어옴
-        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;pctx.globalAlpha=a*(0.10+0.16*ease);pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=SAMP;i++){const q=travel(i/SAMP);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        const mp=clamp(1-prog,0,1);                // 유성 위치(0=머리에서 합체, 1=먼 곳)
-        for(let i=0;i<16;i++){const g0=clamp(mp+(i/16)*0.32,0,1),g1=clamp(mp+((i+1)/16)*0.32,0,1),A=lead(g0),B=lead(g1),lf=1-i/16;
-          pctx.globalAlpha=a*lf*0.85;pctx.strokeStyle=lf>0.55?"#fff":col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=1+lf*5.5;
+        // ── 접근: 유성이 도입부(0~aSpan)를 그리며 머리로. 긴 노트는 일부만, 나머지는 역행 때 등장 ──
+        const sm=aSpan*(1-prog);                 // 유성 위치(s): aSpan(먼쪽)→0(머리)
+        // 도입부 경로 가이드(은은)
+        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;pctx.globalAlpha=a*(0.08+0.14*ease);pctx.lineWidth=3;
+        pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(sm*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        // 유성이 지난 노트포인트 찍기 (꼬리 따라 옅게)
+        for(let j=0;j<NP;j++){ if(frac[j]<=aSpan && frac[j]>=sm-0.001){ const recent=clamp(1-(frac[j]-sm)/(aSpan*0.5+0.001),0,1); drawPt(PP(j),0.45+recent*0.35, a*(0.10+0.45*recent), j); } }
+        // 긴 유성 꼬리(잔상)
+        const TSPAN=Math.min(0.5,aSpan), TSEG=22, mh=SP(sm);
+        for(let i=0;i<TSEG;i++){const A=SP(clamp(sm+(i/TSEG)*TSPAN,0,1)),B=SP(clamp(sm+((i+1)/TSEG)*TSPAN,0,1)),lf=1-i/TSEG;
+          pctx.globalAlpha=a*lf*lf*0.62;pctx.strokeStyle=lf>0.78?"#eef3ff":col;pctx.shadowColor=col;pctx.shadowBlur=14;pctx.lineWidth=0.6+lf*lf*6;
           pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}
-        const mh=lead(mp);pctx.globalAlpha=a;pctx.fillStyle="#fff";pctx.shadowColor=col;pctx.shadowBlur=20;pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
+        // 유성 머리(또렷한 코어 + 색 후광)
+        const hg=pctx.createRadialGradient(mh[0],mh[1],0,mh[0],mh[1],26);hg.addColorStop(0,col);hg.addColorStop(0.35,col);hg.addColorStop(1,"rgba(0,0,0,0)");
+        pctx.globalAlpha=a*0.5;pctx.fillStyle=hg;pctx.beginPath();pctx.arc(mh[0],mh[1],26,0,6.2832);pctx.fill();
+        pctx.globalAlpha=a;pctx.fillStyle="#fff";pctx.shadowColor=col;pctx.shadowBlur=22;pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
       }else{
-        // 잡는 중: 앞으로 갈 궤도(은은) + 지나온 자취(유성 꼬리: 넓은 글로우+밝은 코어)
-        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;pctx.globalAlpha=0.2;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s+(1-s)*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        if(s>0.001){pctx.globalAlpha=0.26;pctx.lineWidth=11;
-          pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-          pctx.globalAlpha=0.92;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12;pctx.lineWidth=3.5;
-          pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();}
+        // ── 역행: 머리→꼬리로 별이 되짚으며 포인트 소모. fr>aSpan(미스탬프) 포인트는 별이 다가올 때 등장 ──
+        const curAng=0;  // 폴리라인이라 각도 없음
+        for(let j=0;j<NP;j++){ const fr=frac[j],P=PP(j);
+          if(s<fr){ // 아직 안 소모
+            const prox=clamp(1-(fr-s)/0.10,0,1);            // 별이 다가옴
+            const appear=(fr<=aSpan)?1:prox;                // 도입부 밖은 다가올 때 등장
+            if(appear>0.02){const sc=1+prox*1.1; drawPt(P,sc,0.95*appear,j);
+              if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.2;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=14;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],10*sc);pctx.stroke();pctx.restore();}}
+          }else{ // 소모됨 → 타격음 1회 + 발화
+            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)slideTick(j);}
+            const f=clamp((s-fr)/0.18,0,1); if(f<1)firePt(P,f,j);
+          }
+        }
+        // 지나온 궤도(밝은 자취) — 원색 주, 무지개 옅은 오버레이
+        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=8;pctx.globalAlpha=0.5;pctx.lineWidth=4;
+        pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(s*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.globalAlpha=0.85;pctx.lineWidth=2.5;
+        pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(s*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
       }
-      // 꼬리 마커(육각형)
-      const tp=travel(1);pctx.globalAlpha=a*(0.4+0.4*ease);pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=2.5;hexPath(pctx,tp[0],tp[1],hbr*0.66);pctx.stroke();
       pctx.restore();
-      // ── 머리/이동 육각형 노트 (일반 홀드와 동일한 충전 실루엣) + 연소 ──
-      const base=n.holding?travel(s):travel(0);
-      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0;
-      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.55);gl=s*48;wh=0.25+s*0.72;   // 연소: 흔들림·성장·백열
+      // ── 별 노트 본체 ──
+      const base=n.holding?SP(s):PP(0);
+      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0,rot=now*0.7;
+      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.45);gl=30+s*50;wh=0.35+s*0.55;rot=now*(2+s*1.5);
         if(!n.missed){const rate=2+Math.floor(s*5);for(let k=0;k<rate;k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*(3+s*5),ox=Math.cos(ang)*bsz,oy=Math.sin(ang)*bsz;
           state.particles.push({x:bx+ox,y:by+oy,px:bx+ox,py:by+oy,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.3,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*(1.6+s*1.6),streak:Math.random()<0.5,white:Math.random()<s*0.5});}}}
-      // 접근 어프로치 링(육각형)
-      if(!n.holding&&prog<1){const rr=bsz+(1-prog)*r*2.6;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=a*(0.45+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=8;hexPath(pctx,bx,by,rr);pctx.stroke();pctx.restore();}
-      // 충전 코어(육각형)
-      pctx.save();pctx.shadowColor=col;pctx.shadowBlur=16+30*ease+gl;
-      pctx.globalAlpha=a*0.18;pctx.fillStyle=col;hexPath(pctx,bx,by,bsz*1.3);pctx.fill();
-      pctx.globalAlpha=a*(0.85+0.15*ease);pctx.shadowBlur=12+gl;hexPath(pctx,bx,by,bsz);pctx.fill();
-      pctx.globalAlpha=a*0.6;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=8;hexPath(pctx,bx,by,bsz);pctx.stroke();
-      const wc=Math.max(0.5+ease*0.35,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12+gl*0.6;hexPath(pctx,bx,by,bsz*(0.42+wh*0.22));pctx.fill();pctx.restore();
-      // 합체 섬광 (누르는 타이밍)
+      // 접근 어프로치 별 링
+      if(!n.holding&&prog<1){const rr=bsz+(1-prog)*r*2.6;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=a*(0.4+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=8;star4Path(pctx,bx,by,rr,rot);pctx.stroke();pctx.restore();}
+      // 별 코어(오라+색 솔리드+흰 외곽+흰 코어)
+      pctx.save();pctx.globalCompositeOperation="lighter";pctx.shadowColor=col;
+      pctx.shadowBlur=18+gl;pctx.globalAlpha=a*0.2;pctx.fillStyle=col;star4Path(pctx,bx,by,bsz*1.4,rot);pctx.fill();
+      pctx.shadowBlur=12+gl;pctx.globalAlpha=a*0.9;star4Path(pctx,bx,by,bsz,rot);pctx.fill();
+      pctx.globalAlpha=a*0.7;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=8;star4Path(pctx,bx,by,bsz,rot);pctx.stroke();
+      const wc=Math.max(0.45+ease*0.3,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12+gl*0.6;star4Path(pctx,bx,by,bsz*(0.5+wh*0.2),rot);pctx.fill();pctx.restore();
+      // 합체 섬광
       const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1);
       if(!n.holding&&flashS>0.02){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=flashS;pctx.fillStyle="rgba(255,255,255,0.7)";pctx.shadowColor="#fff";pctx.shadowBlur=30;pctx.beginPath();pctx.arc(bx,by,bsz*1.4*flashS+6,0,6.2832);pctx.fill();pctx.restore();}
       continue;
