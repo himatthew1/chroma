@@ -414,6 +414,7 @@
         <label class="file hl" id="edAudioLbl">🎵 곡 불러오기<input type="file" id="edAudio" accept="audio/*"></label>
         <button class="tb-btn" id="edPlay" title="재생/정지 (Enter)">▶/❚❚</button>
         <select id="edSpeed" title="재생 속도"><option value="1">1x</option><option value="0.75">0.75x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option></select>
+        <button class="tb-btn primary" id="edBeatToggle" title="재생 중 노트 타격음으로 비트 확인 (켜짐/꺼짐)">🔊 비트음</button>
         <button class="tb-btn" id="edRec" title="재생 중 A·D·J·L로 노트 찍기 (누르면 프레스)">🔴 라이브 입력</button>
         <button class="tb-btn primary" id="edTestPlay">▶ 처음부터</button>
         <button class="tb-btn primary" id="edTestHere" title="현재 재생위치(빨간 선)부터 테스트">▶ 이 위치부터</button>
@@ -1364,7 +1365,7 @@ function buildPlayNotes(chart){
   const notes=chart.notes.map(n=>({time:n.time,type:n.type||"normal",duration:n.duration||0,
     nx:(typeof n.x==="number"?n.x:null),ny:(typeof n.y==="number"?n.y:null),
     nx2:(typeof n.x2==="number"?n.x2:null),ny2:(typeof n.y2==="number"?n.y2:null),
-    pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화)
+    pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>(p.length>2&&typeof p[2]==="number")?[+p[0],+p[1],+p[2]]:[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화, [x,y,시간비율?])
     ch:(typeof n.ch==="number"?n.ch:null),ci:(typeof n.ci==="number"?n.ci:0),
     g:(typeof n.g==="number"?n.g:null),
     pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
@@ -1436,9 +1437,13 @@ function layoutPlayPositions(notes){
       n.x2=n.ppts[n.ppts.length-1][0]; n.y2=n.ppts[n.ppts.length-1][1];  // 꼬리=경로 끝점
       const cum=[0];for(let i=1;i<n.ppts.length;i++)cum.push(cum[i-1]+Math.hypot(n.ppts[i][0]-n.ppts[i-1][0],n.ppts[i][1]-n.ppts[i-1][1]));
       n._cum=cum; n._len=cum[cum.length-1]||1;
-      n._frac=cum.map(c=>c/n._len);                        // 각 포인트의 호장 비율(0=머리,1=꼬리)
-      n._aSpan=clamp(340/n._len,0.35,1);                   // 진입 애니메이션이 그릴 도입부 비율(긴 노트는 일부만)
-      n._ptHit=new Array(n.ppts.length).fill(false);        // 타격음 1회 트리거용
+      // ★각 포인트의 시간비율(0=머리/캐치, 1=꼬리). 작성된 값(3번째)이 있으면 그대로(비트 배치), 없으면 균등
+      const NPP=n.ppts.length;
+      n._tf=P.map((p,j)=>(p.length>2&&typeof p[2]==="number")?clamp(p[2],0,1):(NPP>1?j/(NPP-1):0));
+      n._tf[0]=0; n._tf[NPP-1]=1;
+      for(let i=1;i<NPP;i++)if(n._tf[i]<n._tf[i-1])n._tf[i]=n._tf[i-1];   // 단조 증가 보정
+      n._aSpan=clamp(1.4/Math.max(n.duration||1,0.3),0.4,1);              // 진입에 그릴 도입부 시간비율(긴 노트는 일부만)
+      n._ptHit=new Array(NPP).fill(false);                  // 타격음 1회 트리거용
     }
   }
   // ★위치군: ①앵커(소환 스팟)를 화면 중앙에서 '먼 가장자리'에 ②동시에 뜨는 다른 위치군과 안 겹치게 ③멤버끼리도 안 겹치게
@@ -1551,13 +1556,13 @@ function layoutPlayPositions(notes){
   }
 }
 
-// ★슬라이드 노트: 진행도 s(0~1, 0=머리/캐치, 1=꼬리)에서의 픽셀 좌표 (노트포인트 폴리라인 호장 보간)
+// ★슬라이드 노트: 진행도 s(0~1, 0=머리/캐치, 1=꼬리)에서의 픽셀 좌표 (시간비율 _tf 기준 포인트 보간)
 function slidePos(n,s){
-  const P=n.ppts;
+  const P=n.ppts,tf=n._tf;
   if(!P||P.length<2)return {x:n.x,y:n.y};
-  s=clamp(s,0,1);const target=s*n._len,cum=n._cum;
-  let i=1;while(i<cum.length-1&&cum[i]<target)i++;
-  const segL=(cum[i]-cum[i-1])||1,f=clamp((target-cum[i-1])/segL,0,1);
+  s=clamp(s,0,1);
+  let i=1;while(i<P.length-1&&tf[i]<s)i++;
+  const segL=(tf[i]-tf[i-1])||1,f=clamp((s-tf[i-1])/segL,0,1);
   return {x:P[i-1][0]+(P[i][0]-P[i-1][0])*f, y:P[i-1][1]+(P[i][1]-P[i-1][1])*f};
 }
 function startPlay(startAt){
@@ -1726,7 +1731,7 @@ function countBeep(big){ if(!settings.sfxOn)return; try{
   o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+(big?0.32:0.18));
   const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=big?1760:1320;g2.gain.setValueAtTime(0.12*V,t);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);o2.connect(g2).connect(ctx.destination);o2.start(t);o2.stop(t+0.07);
 }catch(e){} }
-function slideTick(idx){ if(!settings.sfxOn)return; try{    // ★슬라이드 노트 포인트 타격음 (인덱스에 따라 음정 상승)
+function slideTick(idx,force){ if(!force&&!settings.sfxOn)return; try{    // ★슬라이드 노트 포인트 타격음 (인덱스에 따라 음정 상승)
   const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
   const PENTA=[523.25,587.33,659.25,783.99,880,1046.5,1174.7,1318.5];
   const f=PENTA[idx%PENTA.length]*(idx>=PENTA.length?2:1);
@@ -2037,7 +2042,7 @@ function loop(){
       const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;       // 진입 드리프트(잡기 전만)
       const PP=(j)=>[n.ppts[j][0]+off.x*ph, n.ppts[j][1]+off.y*ph];
       const SP=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph, p.y+off.y*ph];};
-      const NP=n.ppts.length, frac=n._frac, aSpan=n._aSpan, hbr=br*1.15;
+      const NP=n.ppts.length, frac=n._tf, aSpan=n._aSpan, hbr=br*1.15;
       const s=n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0;
       const hueP=(j)=>"hsl("+Math.round((j/Math.max(1,NP-1))*300)+",92%,62%)";
       // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
@@ -2263,11 +2268,11 @@ function endPlay(){
 //   EDITOR  (timeline)
 //============================================================
 const tl=$("#edTimeline"),tctx=tl.getContext("2d");
-let edAudio=null,edBuffer=null,edPeaks=null,edRaf=null,edNotes=[],edTime=0,edPlaying=false;
+let edAudio=null,edBuffer=null,edPeaks=null,edRaf=null,edNotes=[],edTime=0,edPlaying=false,edBeat=true,_edPrevT=null;
 let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null;
 let edClip=null, undoStack=[], redoStack=[], spaceHeld=false;   // 클립보드·실행취소·팬
 function uniq(a){return a.filter((v,i)=>a.indexOf(v)===i);}
-function snapshotNotes(){return {notes:edNotes.map(n=>{const c={...n};if(Array.isArray(n.pts))c.pts=n.pts.map(p=>[p[0],p[1]]);return c;}),zones:edZones.map(z=>({...z}))};}   // 노트+속도구간 함께 스냅샷(경로 깊은복사)
+function snapshotNotes(){return {notes:edNotes.map(n=>{const c={...n};if(Array.isArray(n.pts))c.pts=n.pts.map(p=>p.slice());if(Array.isArray(n.ptt))c.ptt=n.ptt.slice();return c;}),zones:edZones.map(z=>({...z}))};}   // 노트+속도구간 함께 스냅샷(경로·시간 깊은복사)
 function restoreSnap(s){if(Array.isArray(s)){edNotes=s;}else{edNotes=s.notes||[];edZones=s.zones||[];}edZoneSel=null;}
 function commitUndo(pre){undoStack.push(pre);if(undoStack.length>120)undoStack.shift();redoStack.length=0;}
 function pushUndo(){commitUndo(snapshotNotes());}
@@ -2674,6 +2679,17 @@ function toggleEdPlay(){
   else{edAudio.currentTime=clamp(edTime,0,edDur());try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}edAudio.play();edPlaying=true;}
 }
 $("#edSpeed").onchange=()=>{if(edAudio){try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}}};
+$("#edBeatToggle").onclick=()=>{edBeat=!edBeat;$("#edBeatToggle").classList.toggle("primary",edBeat);$("#edBeatToggle").textContent=edBeat?"🔊 비트음":"🔇 비트음";toast(edBeat?"비트음 켜짐":"비트음 꺼짐");};
+// ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
+function edBeatSounds(prev,cur){
+  if(!edBeat||cur<=prev)return;
+  for(const n of edNotes){
+    if(n.type==="slide"){const dur=n.duration||0.3;if(Array.isArray(n.pts)){slideEnsurePtt(n);
+      for(let j=0;j<n.pts.length;j++){const tt=n.time+n.ptt[j]*dur;if(tt>prev&&tt<=cur)slideTick(j,true);}}continue;}
+    if(n.type==="space"){if(n.time>prev&&n.time<=cur)playSfx(settings.sfx,"perfect",0);continue;}
+    if(n.time>prev&&n.time<=cur)playSfx(settings.sfx,"perfect",(n.lane||0)%4);
+  }
+}
 $("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
 document.addEventListener("keydown",e=>{
   if(screens.editor.classList.contains("hidden"))return;
@@ -2783,9 +2799,22 @@ function notesInBox(x0,y0,x1,y1){
     return nx>=a-3&&nx<=b+3;});
 }
 tl.addEventListener("contextmenu",e=>e.preventDefault());
-tl.addEventListener("dblclick",e=>{   // ★속도구간 자르기: 더블클릭 지점에서 둘로 분리(각각 독립 조작)
-  if(edTool!=="speed")return;
-  const r=tl.getBoundingClientRect(),x=e.clientX-r.left,t=clamp(tOf(x),0,edDur());
+// 선택된 슬라이드의 타임라인 노트포인트 잡기 (시간 막대 위 점)
+function slidePtAt(x,y){const n=edSel;if(!n||n.type!=="slide"||!Array.isArray(n.pts))return null;
+  if((n.lane||0)!==laneOf(y))return null;const dur=n.duration||0.3;slideEnsurePtt(n);
+  for(let j=0;j<n.pts.length;j++){if(Math.abs(xOf(n.time+n.ptt[j]*dur)-x)<7)return {n,j};}return null;}
+tl.addEventListener("dblclick",e=>{
+  const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top,t=clamp(tOf(x),0,edDur());
+  // ★슬라이드 노트포인트 추가 (선택된 슬라이드 막대 위 더블클릭)
+  if(edSel&&edSel.type==="slide"&&Array.isArray(edSel.pts)&&(edSel.lane||0)===laneOf(y)){
+    const n=edSel,dur=n.duration||0.3,tt=clamp((t-n.time)/dur,0.03,0.97);
+    if(t>=n.time-0.05&&t<=n.time+dur+0.05){slideEnsurePtt(n);
+      let k=n.ptt.findIndex(v=>v>tt);if(k<1)k=n.pts.length-1;
+      const fa=n.ptt[k-1],fb=n.ptt[k],f=(tt-fa)/((fb-fa)||1),A=n.pts[k-1],B=n.pts[k];
+      pushUndo();n.pts.splice(k,0,[A[0]+(B[0]-A[0])*f,A[1]+(B[1]-A[1])*f]);n.ptt.splice(k,0,tt);
+      n.sShape="custom";if($("#slideShape"))$("#slideShape").value="custom";drawSlidePath(n);updateSelPanel();toast("노트포인트 추가");return;}
+  }
+  if(edTool!=="speed")return;   // ★속도구간 자르기
   const z=edZones.find(zz=>t>zz.t0+0.05&&t<zz.t1-0.05);if(!z)return;
   pushUndo();
   const left={t0:z.t0,t1:+t.toFixed(3),type:z.type,rampIn:z.rampIn||0,rampOut:0};
@@ -2797,7 +2826,10 @@ tl.addEventListener("mousedown",e=>{
   const r=tl.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
   // 스페이스 누른 채 드래그 = 화면 이동(팬/스크롤)
   if(spaceHeld&&e.button===0){edDrag={mode:"pan",x0:x,scroll0:view.scroll};tl.style.cursor="grabbing";return;}
-  if(e.button===2){const n=noteAtX(x,y);if(n){pushUndo();edNotes.splice(edNotes.indexOf(n),1);const i=edSelSet.indexOf(n);if(i>=0)edSelSet.splice(i,1);if(edSel===n)edSel=null;updateSelPanel();updateGrpPanel();}return;}
+  if(e.button===2){
+    const sp=slidePtAt(x,y);   // ★슬라이드 노트포인트 우클릭 삭제(머리/꼬리 제외)
+    if(sp&&sp.j>0&&sp.j<sp.n.pts.length-1&&sp.n.pts.length>2){pushUndo();sp.n.pts.splice(sp.j,1);sp.n.ptt.splice(sp.j,1);sp.n.sShape="custom";if($("#slideShape"))$("#slideShape").value="custom";drawSlidePath(sp.n);updateSelPanel();toast("노트포인트 삭제");return;}
+    const n=noteAtX(x,y);if(n){pushUndo();edNotes.splice(edNotes.indexOf(n),1);const i=edSelSet.indexOf(n);if(i>=0)edSelSet.splice(i,1);if(edSel===n)edSel=null;updateSelPanel();updateGrpPanel();}return;}
   const t=clamp(tOf(x),0,edDur());
   if(edTool==="add"){pushUndo();const n={time:+t.toFixed(3),type:"normal",lane:laneOf(y)};edNotes.push(n);layoutPositions(edNotes,'x','y',true);selSetTo(n);updateSelPanel();updateGrpPanel();return;}
   if(edTool==="press"){pushUndo();const n={time:+t.toFixed(3),type:"press",duration:0.3,lane:laneOf(y)};edNotes.push(n);layoutPositions(edNotes,'x','y',true);selSetTo(n);edDrag={mode:"resize",n};updateSelPanel();updateGrpPanel();return;}
@@ -2816,6 +2848,9 @@ tl.addEventListener("mousedown",e=>{
     pushUndo();const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4,factor:ZUP_DEF};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
   }
   // ── 선택/이동 도구 ──
+  // ★슬라이드 노트포인트 시간 이동 (선택된 슬라이드의 중간 점)
+  if(!(e.shiftKey||e.ctrlKey||e.metaKey)){const sp=slidePtAt(x,y);
+    if(sp&&sp.j>0&&sp.j<sp.n.pts.length-1){pushUndo();edDrag={mode:"slidept",n:sp.n,j:sp.j};return;}}
   // ★롱노트 끝 핸들 잡기 → 길이 조절 (프레스=길이, 스페이스홀드=길이/0.12미만이면 일반화)
   if(!(e.shiftKey||e.ctrlKey||e.metaKey)){
     const endHit=longNoteEndAt(x,y);
@@ -2858,6 +2893,9 @@ window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 �
     edDrag.base.forEach(b=>{b.n.time=+clamp(b.t+dt,0,edDur()).toFixed(3);b.n.lane=clamp(b.lane+dLane,0,ED_LANES-1);});
     edDrag.moved=true;
   }
+  else if(edDrag.mode==="slidept"){const n=edDrag.n,j=edDrag.j,dur=n.duration||0.3;
+    const lo=(n.ptt[j-1]||0)+0.02, hi=(n.ptt[j+1]!=null?n.ptt[j+1]:1)-0.02;
+    n.ptt[j]=clamp((t-n.time)/dur,lo,hi);if(typeof drawSlidePath==="function")drawSlidePath(n);}
   else if(edDrag.mode==="resize"){edDrag.n.duration=+Math.max(0.1,t-edDrag.n.time).toFixed(3);if($("#selDur"))$("#selDur").value=edDrag.n.duration;}
   else if(edDrag.mode==="chaindrag"){   // 가로 드래그 → step 간격으로 체인 노드 채우기 (순서 ci)
     const step=edDrag.step,count=clamp(Math.floor((t-edDrag.t0)/step)+1,1,64);
@@ -2929,9 +2967,11 @@ function slideGenPts(shape,count,span,amp){
     pts.push([clamp(x,0.04,0.96),clamp(y,0.06,0.94)]);}
   return pts;
 }
-function slideRegen(n){const sh=n.sShape||"arc";if(sh==="custom")return;
+function slideUniformPtt(n){const N=n.pts.length;n.ptt=n.pts.map((p,j)=>N>1?j/(N-1):0);}   // 시간비율 균등 초기화
+function slideEnsurePtt(n){if(!n.ptt||n.ptt.length!==n.pts.length)slideUniformPtt(n);}
+function slideRegen(n){const sh=n.sShape||"arc";if(sh==="custom"){slideEnsurePtt(n);return;}
   n.sShape=sh;n.sCount=n.sCount||7;n.sSpan=n.sSpan||0.6;n.sAmp=(n.sAmp==null?0.2:n.sAmp);
-  n.pts=slideGenPts(sh,n.sCount,n.sSpan,n.sAmp);n.x=n.pts[0][0];n.y=n.pts[0][1];}
+  n.pts=slideGenPts(sh,n.sCount,n.sSpan,n.sAmp);slideUniformPtt(n);n.x=n.pts[0][0];n.y=n.pts[0][1];}
 function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height;
   const PAD=8,mx=v=>PAD+v*(W-2*PAD),my=v=>PAD+v*(H-2*PAD);
   c.clearRect(0,0,W,H);c.fillStyle="#0a0d1c";c.fillRect(0,0,W,H);
@@ -2945,9 +2985,9 @@ function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const
   let drag=-1;
   cv.addEventListener("contextmenu",e=>e.preventDefault());
   cv.addEventListener("pointerdown",e=>{e.preventDefault();if(!edSel||edSel.type!=="slide")return;const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,h=hit(px,py);
-    if(e.button===2){if(h>=0&&edSel.pts.length>2){pushUndo();edSel.pts.splice(h,1);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);}return;}
+    if(e.button===2){if(h>=0&&edSel.pts.length>2){pushUndo();edSel.pts.splice(h,1);slideUniformPtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);}return;}
     if(h>=0){drag=h;pushUndo();}
-    else{pushUndo();edSel.pts.push(toN(px,py));edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);}});
+    else{pushUndo();edSel.pts.push(toN(px,py));slideUniformPtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);}});
   window.addEventListener("pointermove",e=>{if(drag<0||!edSel||!edSel.pts)return;const r=cv.getBoundingClientRect();edSel.pts[drag]=toN(e.clientX-r.left,e.clientY-r.top);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);});
   window.addEventListener("pointerup",()=>{drag=-1;});
 })();
@@ -2984,9 +3024,11 @@ function edLoop(){
   edRaf=requestAnimationFrame(edLoop);
   fitTimelineIfNeeded();
   if(edPlaying&&edAudio){edTime=edAudio.currentTime;
+    if(_edPrevT!=null)edBeatSounds(_edPrevT,edTime);   // ★재생 중 비트음
+    _edPrevT=edTime;
     // auto-scroll to keep playhead in view
     const px=xOf(edTime);if(px<tl.width*0.15||px>tl.width*0.85)view.scroll=edTime-tl.width*0.3/view.pps;
-  }
+  }else _edPrevT=null;
   const W2=tl.width,H=tl.height,my=midY();
   tctx.clearRect(0,0,W2,H);
   tctx.fillStyle="#080912";tctx.fillRect(0,0,W2,H);
@@ -3066,6 +3108,12 @@ function edLoop(){
     if(n.type==="press"||n.type==="slide"){const x2=xOf(n.time+(n.duration||0));tctx.fillStyle=base+"55";tctx.fillRect(x,yy-10,Math.max(x2-x,4),20);
       tctx.fillStyle=base;tctx.fillRect(x2-2,yy-11,4,22);}   // 끝 핸들(잡아서 길이조절)
     const sel=n===edSel||selSet.has(n);
+    // ★슬라이드 노트포인트: 지속 막대 위에 시간별 점 (드래그=시간이동, 더블클릭=추가, 우클릭=삭제)
+    if(n.type==="slide"&&Array.isArray(n.pts)){slideEnsurePtt(n);const dur=n.duration||0.3;
+      for(let j=0;j<n.pts.length;j++){const tx=xOf(n.time+n.ptt[j]*dur);if(tx<-10||tx>W2+10)continue;
+        tctx.fillStyle=j===0?"#ffd54f":"#bfe3ff";tctx.strokeStyle="#0a0d1c";tctx.lineWidth=1;
+        tctx.beginPath();tctx.arc(tx,yy,sel?5:3.5,0,Math.PI*2);tctx.fill();tctx.stroke();
+        if(sel&&j>0&&j<n.pts.length-1){tctx.strokeStyle="#bfe3ff";tctx.globalAlpha=0.5;tctx.beginPath();tctx.arc(tx,yy,8,0,Math.PI*2);tctx.stroke();tctx.globalAlpha=1;}}}
     tctx.fillStyle=base;
     tctx.beginPath();tctx.arc(x,yy,sel?11:8,0,Math.PI*2);tctx.fill();
     if(sel){tctx.strokeStyle="#fff";tctx.lineWidth=2;tctx.beginPath();tctx.arc(x,yy,14,0,Math.PI*2);tctx.stroke();}
@@ -3095,7 +3143,7 @@ function currentChart(){
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=(n.type==="press"||n.type==="slide")?{time:n.time,type:n.type,duration:n.duration||0.3}:{time:n.time,type:"normal"};
       o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;
-      if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2)o.pts=n.pts.map(p=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4)]);   // 슬라이드 경로 노트포인트
+      if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2){slideEnsurePtt(n);o.pts=n.pts.map((p,j)=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4),+(+n.ptt[j]).toFixed(3)]);}   // 슬라이드 경로 노트포인트([x,y,시간비율])
       if(typeof n.ch==="number"){o.ch=n.ch;o.ci=n.ci||0;}   // 스와이프 체인
       if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(n.pgs||0.12)).toFixed(3);}
       if(n.lane)o.lane=n.lane;return o;})};
