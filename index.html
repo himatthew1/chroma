@@ -1731,15 +1731,20 @@ function countBeep(big){ if(!settings.sfxOn)return; try{
   o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+(big?0.32:0.18));
   const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=big?1760:1320;g2.gain.setValueAtTime(0.12*V,t);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.06);o2.connect(g2).connect(ctx.destination);o2.start(t);o2.stop(t+0.07);
 }catch(e){} }
-function slideTick(idx,force){ if(!force&&!settings.sfxOn)return; try{    // ★슬라이드 노트 포인트 타격음 (인덱스에 따라 음정 상승)
+function slideTick(idx,force){ if(!force&&!settings.sfxOn)return; try{    // ★슬라이드 노트 포인트 타격음 (인덱스에 따라 음정 상승, 음악 위로 또렷하게)
   const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
-  const PENTA=[523.25,587.33,659.25,783.99,880,1046.5,1174.7,1318.5];
+  const PENTA=[523.25,659.25,783.99,987.77,1174.7,1318.5,1567.98,1760];
   const f=PENTA[idx%PENTA.length]*(idx>=PENTA.length?2:1);
   const o=ctx.createOscillator(),g=ctx.createGain();o.type="triangle";o.frequency.value=f;
-  const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=f*2;
-  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.16*V,t+0.005);g.gain.exponentialRampToValueAtTime(0.0001,t+0.13);
-  g2.gain.setValueAtTime(0.0001,t);g2.gain.exponentialRampToValueAtTime(0.06*V,t+0.004);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
-  o.connect(g).connect(ctx.destination);o2.connect(g2).connect(ctx.destination);o.start(t);o2.start(t);o.stop(t+0.14);o2.stop(t+0.09);
+  const o2=ctx.createOscillator(),g2=ctx.createGain();o2.type="sine";o2.frequency.value=f*2.01;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.36*V,t+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t+0.19);
+  g2.gain.setValueAtTime(0.0001,t);g2.gain.exponentialRampToValueAtTime(0.15*V,t+0.004);g2.gain.exponentialRampToValueAtTime(0.0001,t+0.1);
+  o.connect(g).connect(ctx.destination);o2.connect(g2).connect(ctx.destination);o.start(t);o2.start(t);o.stop(t+0.2);o2.stop(t+0.12);
+  // 어택 클릭 (음악에 묻히지 않게 또렷한 트랜지언트)
+  const ln=Math.floor(ctx.sampleRate*0.03),bl=ctx.createBuffer(1,ln,ctx.sampleRate),d=bl.getChannelData(0);
+  for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/ln,3);
+  const cl=ctx.createBufferSource();cl.buffer=bl;const hp=ctx.createBiquadFilter();hp.type="highpass";hp.frequency.value=2200;
+  const cg=ctx.createGain();cg.gain.value=0.24*V;cl.connect(hp).connect(cg).connect(ctx.destination);cl.start(t);
 }catch(e){} }
 function applySpaceScore(kind){
   state.counts[kind]=(state.counts[kind]||0)+1;
@@ -1995,7 +2000,9 @@ function loop(){
     if(n.done)continue;
     if(n.type==="space")continue;   // 스페이스 노트는 별도 패스에서 처리
     if(!n.missed&&!n.headJudged&&now-n.time>JW.good+LATEGRACE){n.missed=true;applyJudge("miss",n);}
-    if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);continue;}
+    if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){
+      if(n.type==="slide"&&n._ptHit&&!n.missed){for(let j=0;j<n._ptHit.length;j++)if(!n._ptHit[j]){n._ptHit[j]=true;slideTick(j);}}   // ★남은(꼬리) 포인트 타격음 보장
+      n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);continue;}
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
     const prog0=1-(n._wT-wpNow)/AR;
     const vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
