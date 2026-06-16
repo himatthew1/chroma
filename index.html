@@ -472,7 +472,7 @@
           </span>
           <button class="tb-btn" id="selGroup" title="선택한 노트를 한 색으로 통일">🎨 색묶기</button>
           <button class="tb-btn" id="selPosGroup" title="선택한 노트의 생성 위치를 한 곳 근처로 몰기">📍 위치묶기</button>
-          <span class="field" id="selSpreadWrap" style="display:none">이격 <input type="range" id="selSpread" min="0.02" max="0.35" step="0.01" value="0.12" style="width:84px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="이 위치군의 몰림 정도 미리보기 (점=노트, 원=이격범위)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
+          <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">응집도</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = 완전히 같은 자리(같은 방향·속도). 위치군별로 따로 저장됩니다" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="이 위치군의 몰림 정도 미리보기 (점=노트, 원=이격범위)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
           <button class="tb-btn" id="selUngroup">해제</button>
           <button class="tb-btn" id="selDel">삭제(Del)</button>
         </div>
@@ -1325,7 +1325,7 @@ function assignPosGroups(notes){
   const groups={};
   for(const n of notes){ if(n.pg!=null){ (groups[n.pg]||(groups[n.pg]=[])).push(n); } }
   for(const g in groups){
-    const mem=groups[g], spread=clamp(mem[0].pgs||0.12,0.02,0.4);
+    const mem=groups[g], spread=clamp(typeof mem[0].pgs==="number"?mem[0].pgs:0.12,0,0.4);
     const m=0.05+spread;
     const ax=m+Math.random()*(1-2*m), ay=m+Math.random()*(1-2*m);
     const placed=[];
@@ -1452,7 +1452,7 @@ function layoutPlayPositions(notes){
     const scx=W/2, scy=(marginYt+marginYb)/2, hx=(W-2*marginX)/2, hy=(marginYb-marginYt)/2, minSep=r*2.15;
     const anchors=[];   // {x,y,rad,a,e} — 시간이 겹치는 그룹끼리만 분리
     for(const g in pgM){
-      const mem=pgM[g], spread=clamp(mem[0].pgs||0.12,0.02,0.4), radPx=spread*Math.min(hx*2,hy*2)*0.95;
+      const mem=pgM[g], spread=clamp(typeof mem[0].pgs==="number"?mem[0].pgs:0.12,0,0.4), radPx=spread*Math.min(hx*2,hy*2)*0.95;
       let ga=Infinity,ge=-Infinity; for(const n of mem){ga=Math.min(ga,n._a);ge=Math.max(ge,n._e);}   // 그룹 시간 구간
       // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
       let best=null,bestScore=-1;
@@ -2308,9 +2308,9 @@ function makeGroupFromSel(){const set=selList();if(!set.length){toast("노트를
   toast(set.length+"개를 컬러군 G"+ng+"으로 묶음 (한 판 동안 같은 색)");}
 function makePosGroupFromSel(){const set=selList().filter(n=>n.type!=="space");if(!set.length){toast("노트를 선택하세요 (스페이스 제외)");return;}
   pushUndo();let maxg=0;edNotes.forEach(n=>{if(typeof n.pg==="number"&&n.pg>maxg)maxg=n.pg;});
-  const ng=maxg+1,spread=parseFloat($("#selSpread").value)||0.12;
+  const ng=maxg+1;let spread=parseFloat($("#selSpread").value);if(isNaN(spread))spread=0.12;
   set.forEach(n=>{n.pg=ng;n.pgs=spread;});updateSelPanel();updateGrpPanel();
-  toast(set.length+"개를 위치군 P"+ng+"으로 묶음 (매판 한 곳 근처에 몰려 생성 · 이격 "+spread.toFixed(2)+")");}
+  toast(set.length+"개를 위치군 P"+ng+"으로 묶음 (응집도 "+_spreadTxt(spread)+")");}
 function ungroupSel(){const set=selList();if(!set.length){toast("선택된 노트가 없습니다");return;}
   pushUndo();set.forEach(n=>{delete n.g;delete n.pg;delete n.pgs;});updateSelPanel();updateGrpPanel();toast("색·위치군 해제됨");}
 let edSongId=null,edAudioFile=null,edSeedDiffs=null;   // 라이브러리 편집 컨텍스트
@@ -2775,8 +2775,10 @@ $("#grpClear").onclick=ungroupSel;
 $("#selGroup").onclick=makeGroupFromSel;
 $("#selPosGroup").onclick=makePosGroupFromSel;
 $("#selUngroup").onclick=ungroupSel;
-$("#selSpread").oninput=()=>{const v=parseFloat($("#selSpread").value)||0.12;$("#selSpreadVal").textContent=v.toFixed(2);const pg=selList().filter(n=>typeof n.pg==="number");drawPgPreview(v,pg.length?edNotes.filter(n=>n.pg===pg[0].pg).length:6);};
-$("#selSpread").onchange=()=>{const v=parseFloat($("#selSpread").value)||0.12;const pgs=new Set(selList().map(n=>n.pg).filter(x=>typeof x==="number"));if(!pgs.size)return;pushUndo();edNotes.forEach(n=>{if(pgs.has(n.pg))n.pgs=v;});toast("위치군 이격 "+v.toFixed(2)+"로 조정");};
+function _spreadVal(){let v=parseFloat($("#selSpread").value);return isNaN(v)?0.12:v;}
+function _spreadTxt(v){return v<=0.001?"완전 일치":v<=0.06?v.toFixed(2)+" (빡빡)":v.toFixed(2);}
+$("#selSpread").oninput=()=>{const v=_spreadVal();$("#selSpreadVal").textContent=_spreadTxt(v);const pg=selList().filter(n=>typeof n.pg==="number");drawPgPreview(v,pg.length?edNotes.filter(n=>n.pg===pg[0].pg).length:6);};
+$("#selSpread").onchange=()=>{const v=_spreadVal();const pgs=new Set(selList().map(n=>n.pg).filter(x=>typeof x==="number"));if(!pgs.size)return;pushUndo();edNotes.forEach(n=>{if(pgs.has(n.pg))n.pgs=v;});toast(pgs.size>1?(pgs.size+"개 위치군 응집도 "+_spreadTxt(v)):("위치군 응집도 "+_spreadTxt(v)));};
 
 function noteAtX(x,y){
   const lane=laneOf(y);let best=null,bd=14;
@@ -2960,7 +2962,9 @@ function updateSelPanel(){
   // 위치군 이격 슬라이더 + 밀집도 미리보기: 선택에 위치군 노트가 있으면 표시
   const pgSel=selList().filter(n=>typeof n.pg==="number");
   $("#selSpreadWrap").style.display=pgSel.length?"":"none";
-  if(pgSel.length){const v=pgSel[0].pgs||0.12;$("#selSpread").value=v;$("#selSpreadVal").textContent=(+v).toFixed(2);
+  if(pgSel.length){const v=typeof pgSel[0].pgs==="number"?pgSel[0].pgs:0.12;$("#selSpread").value=v;$("#selSpreadVal").textContent=_spreadTxt(v);
+    const gids=[...new Set(pgSel.map(n=>n.pg))];
+    if($("#selSpreadLbl"))$("#selSpreadLbl").textContent=gids.length===1?("📍P"+gids[0]+" 응집도"):(gids.length+"개 군 응집도");
     const cnt=edNotes.filter(n=>n.pg===pgSel[0].pg).length;drawPgPreview(v,cnt);}
   // ★슬라이드 경로 편집 패널 (단일 슬라이드 선택 시)
   const slideSel=single&&edSel.type==="slide";
@@ -3016,7 +3020,7 @@ $("#slideAmp").oninput=slideParamChange;
 function drawPgPreview(spread,count){
   const cv=$("#pgPreview");if(!cv)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2-4;
   c.clearRect(0,0,W,H);c.fillStyle="#0a0d1c";c.fillRect(0,0,W,H);
-  const rr=R*clamp(spread/0.35,0.12,1);
+  const rr=R*clamp(spread/0.35,0,1);   // 0 = 완전 일치(한 점에 겹침)
   c.strokeStyle="rgba(111,240,160,0.45)";c.setLineDash([3,3]);c.beginPath();c.arc(cx,cy,rr,0,6.2832);c.stroke();c.setLineDash([]);
   c.fillStyle="#6ff0a0";c.beginPath();c.arc(cx,cy,1.6,0,6.2832);c.fill();  // 앵커
   const n=Math.max(3,Math.min(count||6,12));
@@ -3158,7 +3162,7 @@ function currentChart(){
       o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;
       if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2){slideEnsurePtt(n);o.pts=n.pts.map((p,j)=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4),+(+n.ptt[j]).toFixed(3)]);}   // 슬라이드 경로 노트포인트([x,y,시간비율])
       if(typeof n.ch==="number"){o.ch=n.ch;o.ci=n.ci||0;}   // 스와이프 체인
-      if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(n.pgs||0.12)).toFixed(3);}
+      if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(typeof n.pgs==="number"?n.pgs:0.12)).toFixed(3);}
       if(n.lane)o.lane=n.lane;return o;})};
 }
 $("#edExport").onclick=()=>{const data=JSON.stringify(currentChart(),null,2);const b=new Blob([data],{type:"application/json"});
