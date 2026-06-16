@@ -237,9 +237,9 @@
       </g>
     </svg>
     <button class="menu-btn" id="goPlay">▶  PLAY</button>
-    <button class="menu-btn" id="goEditor">✎  채보 에디터</button>
-    <button class="menu-btn" id="goSettings" style="font-size:16px;padding:12px">⚙  설정 (효과음 · 싱크)</button>
-    <button class="menu-btn" id="goHelp" style="font-size:16px;padding:12px">❓  사용법 / 버튼 설명</button>
+    <button class="menu-btn" id="goEditor">✎  Chart Editor</button>
+    <button class="menu-btn" id="goSettings" style="font-size:16px;padding:12px">⚙  Settings (SFX · Sync)</button>
+    <button class="menu-btn" id="goHelp" style="font-size:16px;padding:12px">❓  How to Play / Controls</button>
     <p style="margin-top:26px;font-size:13px;letter-spacing:1px"><b style="color:var(--pink)">A</b> · <b style="color:var(--blue)">D</b> · <b style="color:var(--green)">J</b> · <b style="color:var(--yellow)">L</b></p>
   </div>
 
@@ -262,7 +262,7 @@
         <div class="meta"><span id="hAcc">100.00%</span><b id="hRank">S+</b><span class="rk">RANK</span></div>
       </div>
       <div class="hud-prog"><span class="live">● LIVE</span><div class="pbar"><i id="progFill"></i></div><span id="progTime">0:00 / 0:00</span></div>
-      <button id="playBack" title="나가기 (Esc)">✕</button>
+      <button id="playBack" title="Quit (Esc)">✕</button>
       <div id="countdown" class="hidden"></div>
     </div>
   </div>
@@ -281,70 +281,70 @@
       <div class="k" style="color:var(--pink)">Miss</div><div class="v" id="rMiss">0</div>
     </div>
     <div>
-      <button class="tb-btn" data-home>메뉴</button>
-      <button class="tb-btn" id="toSongSel">곡 선택</button>
-      <button class="tb-btn hidden" id="toEditor">✎ 에디터로</button>
-      <button class="tb-btn primary" id="retryBtn">다시하기</button>
+      <button class="tb-btn" data-home>Menu</button>
+      <button class="tb-btn" id="toSongSel">Song Select</button>
+      <button class="tb-btn hidden" id="toEditor">✎ Editor</button>
+      <button class="tb-btn primary" id="retryBtn">Retry</button>
     </div>
   </div>
 
   <!-- SONG / DIFFICULTY SELECT -->
   <div id="songsel" class="hidden">
     <div class="topbar">
-      <button class="tb-btn" data-home>← 메뉴</button>
-      <span class="title" id="selTitle">곡 선택</span>
+      <button class="tb-btn" data-home>← Menu</button>
+      <span class="title" id="selTitle">Song Select</span>
     </div>
     <div class="selwrap" id="songListView">
-      <h2>곡 선택</h2>
+      <h2>Song Select</h2>
       <div id="songList"></div>
     </div>
     <div class="selwrap hidden" id="diffView">
-      <button class="tb-btn" id="backToSongs" style="align-self:flex-start">← 곡 목록</button>
-      <h2 id="diffSongTitle">난이도 선택</h2>
+      <button class="tb-btn" id="backToSongs" style="align-self:flex-start">← Songs</button>
+      <h2 id="diffSongTitle">Select Difficulty</h2>
       <div id="diffList"></div>
-      <div class="field" style="margin-top:16px;color:var(--muted)">노트 속도 <input type="number" id="speed" value="6" min="2" max="14" step="0.5"></div>
+      <div class="field" style="margin-top:16px;color:var(--muted)">Note Speed <input type="number" id="speed" value="6" min="2" max="14" step="0.5"></div>
     </div>
   </div>
 
   <!-- SETTINGS -->
   <div id="settings" class="hidden">
     <div class="topbar">
-      <button class="tb-btn" data-home>← 메뉴</button>
-      <span class="title">설정</span>
+      <button class="tb-btn" data-home>← Menu</button>
+      <span class="title">Settings</span>
     </div>
     <div class="selwrap" style="max-width:580px;margin:0 auto;align-items:stretch">
-      <h2>설정</h2>
+      <h2>Settings</h2>
       <div class="set-row">
-        <div class="set-label">효과음</div>
-        <button class="tb-btn" id="setSfxToggle">켜짐</button>
+        <div class="set-label">SFX</div>
+        <button class="tb-btn" id="setSfxToggle">On</button>
         <div class="spacer"></div>
-        <span class="muted" style="font-size:13px">볼륨</span>
+        <span class="muted" style="font-size:13px">Volume</span>
         <input type="range" id="setSfxVol" min="0" max="1" step="0.05" style="width:140px">
       </div>
       <div class="set-row">
-        <div class="set-label">레트로 모드 <span class="muted" style="font-weight:400;font-size:12px">— 256×192(닌텐도 DS) 저해상도 픽셀 룩으로 플레이 (4:3 비율 유지)</span></div>
-        <button class="tb-btn" id="setRetroToggle">꺼짐</button>
+        <div class="set-label">Retro Mode <span class="muted" style="font-weight:400;font-size:12px">— 256×192-style low-res pixel look (Nintendo DS vibe)</span></div>
+        <button class="tb-btn" id="setRetroToggle">Off</button>
       </div>
       <div class="set-row" style="flex-direction:column;align-items:stretch;gap:10px">
-        <div class="set-label" style="min-width:0">버튼 키 설정 <span class="muted" style="font-weight:400;font-size:12px">— 버튼을 누른 뒤 원하는 키를 입력하세요</span></div>
+        <div class="set-label" style="min-width:0">Key Bindings <span class="muted" style="font-weight:400;font-size:12px">— click a button, then press the key you want</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap" id="keyBtns"></div>
-        <div><button class="tb-btn" id="keyReset">기본값 (A D J L)</button></div>
+        <div><button class="tb-btn" id="keyReset">Reset (A D J L)</button></div>
       </div>
-      <div class="set-label" style="margin:14px 2px 2px">효과음 종류 <span class="muted" style="font-weight:400">— ▶로 미리듣기</span></div>
+      <div class="set-label" style="margin:14px 2px 2px">SFX Type <span class="muted" style="font-weight:400">— ▶ to preview</span></div>
       <div id="sfxList"></div>
       <div class="set-row" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:14px">
-        <div class="set-label" style="min-width:0">싱크 보정 <span class="muted" style="font-weight:400;font-size:12px">— "둥" 박자(어프로치 링이 닿는 순간)에 맞춰 <b>A·D·J·L</b>를 누르면 자동으로 맞춰집니다</span></div>
+        <div class="set-label" style="min-width:0">Sync Offset <span class="muted" style="font-weight:400;font-size:12px">— tap <b>A·D·J·L</b> on the beat (when the approach ring meets the note) to auto-calibrate</span></div>
         <div style="display:flex;align-items:center;gap:18px">
           <div id="calibStage"><div id="calibRing"></div><div id="calibPulse"></div></div>
           <div style="flex:1">
-            <div id="calibLive" style="font-weight:700;margin-bottom:8px">박자에 맞춰 버튼을 눌러보세요</div>
+            <div id="calibLive" style="font-weight:700;margin-bottom:8px">Tap to the beat</div>
             <div style="display:flex;align-items:center;gap:10px">
               <input type="range" id="setOffset" min="-300" max="300" step="5" style="flex:1">
               <span id="offsetVal" style="width:66px;text-align:right;font-weight:700">0 ms</span>
             </div>
             <div style="margin-top:10px;display:flex;gap:8px">
-              <button class="tb-btn" id="calibReset">탭 기록 리셋</button>
-              <button class="tb-btn" id="offsetReset">0으로</button>
+              <button class="tb-btn" id="calibReset">Reset taps</button>
+              <button class="tb-btn" id="offsetReset">Zero</button>
             </div>
           </div>
         </div>
@@ -355,55 +355,55 @@
   <!-- EDITOR HUB -->
   <div id="edhub" class="hidden">
     <div class="topbar">
-      <button class="tb-btn" data-home>← 메뉴</button>
-      <span class="title">채보 에디터</span>
+      <button class="tb-btn" data-home>← Menu</button>
+      <span class="title">Chart Editor</span>
     </div>
     <div class="selwrap">
-      <h2>채보 에디터</h2>
+      <h2>Chart Editor</h2>
       <div class="songcard" id="hubNew">
         <div class="cover">🆕</div>
-        <div class="meta"><div class="nm">신규 곡 등록</div><div class="ar">새 곡(음원)을 올리고 채보를 만들어 게임에 등록</div></div>
+        <div class="meta"><div class="nm">New Song</div><div class="ar">Upload a track and build a chart to add to the game</div></div>
         <div style="font-size:24px;color:var(--muted)">›</div>
       </div>
       <div class="songcard" id="hubHelp">
         <div class="cover" style="background:#333a66">❓</div>
-        <div class="meta"><div class="nm">버튼 설명 / 사용법</div><div class="ar">각 버튼이 무슨 기능인지 보기</div></div>
+        <div class="meta"><div class="nm">Controls / How-to</div><div class="ar">See what each button does</div></div>
         <div style="font-size:24px;color:var(--muted)">›</div>
       </div>
       <div class="songcard" id="hubBackup" style="cursor:default">
         <div class="cover" style="background:#1c5e3a">💾</div>
-        <div class="meta"><div class="nm">내 채보 백업 / 복원</div>
-          <div class="ar">내가 만든 곡은 <b>브라우저에만</b> 저장돼요. 폴더를 옮기거나 새 버전으로 교체하기 전에 파일로 백업해두면 안전합니다.</div>
+        <div class="meta"><div class="nm">Backup / Restore</div>
+          <div class="ar">Your charts are saved <b>only in this browser</b>. Back them up to a file before moving folders or updating versions.</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="tb-btn diffchip" id="hubExportAll">💾 전체 백업 (.json)</button>
-            <label class="tb-btn diffchip" style="cursor:pointer">📥 백업 불러오기<input type="file" id="hubImportAll" accept=".json,application/json" hidden></label>
+            <button class="tb-btn diffchip" id="hubExportAll">💾 Backup all (.json)</button>
+            <label class="tb-btn diffchip" style="cursor:pointer">📥 Restore<input type="file" id="hubImportAll" accept=".json,application/json" hidden></label>
           </div>
         </div>
       </div>
       <div class="songcard" id="hubDist" style="cursor:default">
         <div class="cover" style="background:#3a2a66">📦</div>
-        <div class="meta"><div class="nm">다른 사람에게 배포하기 (수정본 적용)</div>
-          <div class="ar">수정한 채보는 <b>내 브라우저에만</b> 저장돼요 — 폴더를 그냥 압축하면 반영 안 됩니다(웹페이지는 폴더 안 파일을 직접 못 고쳐요). 아래로 <b>songs.js</b>를 만들어 폴더의 songs.js를 교체한 뒤 압축·배포하세요. (index.html은 그대로)</div>
+        <div class="meta"><div class="nm">Distribute to others (apply edits)</div>
+          <div class="ar">Edited charts live <b>only in your browser</b> — zipping the folder won't include them (web pages can't write files directly). Build <b>songs.js</b> below, replace the folder's songs.js, then zip & share. (index.html stays as-is)</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="tb-btn diffchip" id="hubSaveFolder">📁 게임 폴더에 바로 저장</button>
-            <button class="tb-btn diffchip" id="hubExportSongs">📦 songs.js 파일로 받기</button>
+            <button class="tb-btn diffchip" id="hubSaveFolder">📁 Save to game folder</button>
+            <button class="tb-btn diffchip" id="hubExportSongs">📦 Download songs.js</button>
           </div>
         </div>
       </div>
       <div class="songcard" id="hubSync" style="cursor:default">
         <div class="cover" style="background:#1c3a66">🌐</div>
-        <div class="meta"><div class="nm">온라인 자동반영 (모두에게 즉시) <span id="syncState" class="muted" style="font-size:12px"></span></div>
-          <div class="ar">GitHub 토큰을 한 번만 넣어두면, 에디터에서 <b>저장할 때마다 자동으로 모든 사람에게 업데이트</b>됩니다. (붙여넣기 필요 없음)</div>
+        <div class="meta"><div class="nm">Online auto-sync (instant for everyone) <span id="syncState" class="muted" style="font-size:12px"></span></div>
+          <div class="ar">Enter a GitHub token once and every <b>Save</b> in the editor auto-updates everyone. (no pasting needed)</div>
           <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <input type="password" id="ghToken" placeholder="GitHub 토큰 (gist 권한)" autocomplete="off" style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid #2a3158;background:var(--panel2);color:var(--text);font-size:13px">
-            <button class="tb-btn diffchip" id="ghTokenSave">토큰 저장</button>
-            <button class="tb-btn diffchip" id="hubUploadNow">⬆ 지금 업로드</button>
-            <button class="tb-btn diffchip" id="hubExportOv">📤 파일로 받기</button>
+            <input type="password" id="ghToken" placeholder="GitHub token (gist scope)" autocomplete="off" style="flex:1;min-width:180px;padding:8px 10px;border-radius:8px;border:1px solid #2a3158;background:var(--panel2);color:var(--text);font-size:13px">
+            <button class="tb-btn diffchip" id="ghTokenSave">Save token</button>
+            <button class="tb-btn diffchip" id="hubUploadNow">⬆ Upload now</button>
+            <button class="tb-btn diffchip" id="hubExportOv">📤 Download file</button>
           </div>
-          <div class="ar" style="font-size:11px;margin-top:6px;color:#7b82a8">토큰 만드는 법: 터미널에서 <b>gh auth token</b> 실행 → 나온 값 붙여넣기 (또는 github.com → Settings → Developer settings → Tokens, gist 권한). 토큰은 이 브라우저에만 저장되고 배포본엔 안 들어갑니다.</div>
+          <div class="ar" style="font-size:11px;margin-top:6px;color:#7b82a8">How to make a token: run <b>gh auth token</b> in a terminal → paste the value (or github.com → Settings → Developer settings → Tokens, gist scope). The token stays in this browser only and is never bundled.</div>
         </div>
       </div>
-      <h2 style="font-size:20px;margin-top:20px">기존 곡 수정</h2>
+      <h2 style="font-size:20px;margin-top:20px">Edit existing songs</h2>
       <div id="hubSongList"></div>
     </div>
   </div>
@@ -412,83 +412,83 @@
   <div id="editor" class="hidden">
     <div id="edWrap">
       <div class="topbar">
-        <button class="tb-btn" id="edBackHub">← 에디터 홈</button>
-        <span class="title" id="edModeTitle">채보 편집</span>
-        <button class="tb-btn" id="edHelpBtn" title="도움말">❓</button>
-        <label class="file hl" id="edAudioLbl">🎵 곡 불러오기<input type="file" id="edAudio" accept="audio/*"></label>
-        <button class="tb-btn" id="edPlay" title="재생/정지 (Enter)">▶/❚❚</button>
-        <select id="edSpeed" title="재생 속도"><option value="1">1x</option><option value="0.75">0.75x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option></select>
-        <button class="tb-btn primary" id="edBeatToggle" title="재생 중 노트 타격음으로 비트 확인 (켜짐/꺼짐)">🔊 비트음</button>
-        <span class="field" title="에디터 미리듣기 음량 (실제 게임엔 영향 없음)">🎵<input type="range" id="edMusicVol" min="0" max="1" step="0.05" value="1" style="width:64px;vertical-align:middle"></span>
-        <span class="field" title="에디터 비트음 음량 (실제 게임엔 영향 없음)">🔊<input type="range" id="edSfxVol" min="0" max="1" step="0.05" value="0.8" style="width:64px;vertical-align:middle"></span>
-        <button class="tb-btn" id="edRec" title="재생 중 A·D·J·L로 노트 찍기 (누르면 프레스)">🔴 라이브 입력</button>
-        <button class="tb-btn primary" id="edTestPlay">▶ 처음부터</button>
-        <button class="tb-btn primary" id="edTestHere" title="현재 재생위치(빨간 선)부터 테스트">▶ 이 위치부터</button>
+        <button class="tb-btn" id="edBackHub">← Editor Home</button>
+        <span class="title" id="edModeTitle">Chart Editor</span>
+        <button class="tb-btn" id="edHelpBtn" title="Help">❓</button>
+        <label class="file hl" id="edAudioLbl">🎵 Load track<input type="file" id="edAudio" accept="audio/*"></label>
+        <button class="tb-btn" id="edPlay" title="Play/Pause (Enter)">▶/❚❚</button>
+        <select id="edSpeed" title="Playback speed"><option value="1">1x</option><option value="0.75">0.75x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option></select>
+        <button class="tb-btn primary" id="edBeatToggle" title="Hit sounds during playback to check the beat (on/off)">🔊 Beat SFX</button>
+        <span class="field" title="Editor preview music volume (doesn't affect the game)">🎵<input type="range" id="edMusicVol" min="0" max="1" step="0.05" value="1" style="width:64px;vertical-align:middle"></span>
+        <span class="field" title="Editor beat-SFX volume (doesn't affect the game)">🔊<input type="range" id="edSfxVol" min="0" max="1" step="0.05" value="0.8" style="width:64px;vertical-align:middle"></span>
+        <button class="tb-btn" id="edRec" title="Tap notes with A·D·J·L during playback (hold = press note)">🔴 Live input</button>
+        <button class="tb-btn primary" id="edTestPlay">▶ From start</button>
+        <button class="tb-btn primary" id="edTestHere" title="Test from the playhead (red line)">▶ From here</button>
         <div class="spacer"></div>
         <span id="genStatus"></span>
-        <span class="field">곡 <input type="text" id="edSongTitle" placeholder="곡 제목" style="width:118px"></span>
-        <span class="field">난이도 <input type="text" id="edDiffName" placeholder="EASY" style="width:78px"></span>
-        <button class="tb-btn primary" id="edSave">💾 저장</button>
+        <span class="field">Song <input type="text" id="edSongTitle" placeholder="Song title" style="width:118px"></span>
+        <span class="field">Difficulty <input type="text" id="edDiffName" placeholder="EASY" style="width:78px"></span>
+        <button class="tb-btn primary" id="edSave">💾 Save</button>
         <button class="tb-btn" id="edExport">JSON↓</button>
         <label class="file">JSON↑<input type="file" id="edImport" accept=".json,application/json"></label>
       </div>
 
-      <div id="edSteps">① <b>🎵곡 불러오기</b> → ② <b>⚡음파 분석 자동생성</b> → ③ 타임라인에서 노트 추가·이동·삭제 → ④ <b>💾저장</b> &nbsp;|&nbsp; 🎨컬러군: 라인별로 드래그해 묶기 (Enter=재생 · 스페이스+드래그=이동 · Ctrl+Z 취소)</div>
+      <div id="edSteps">① <b>🎵 Load track</b> → ② <b>⚡ Analyze & auto-gen</b> → ③ add/move/delete notes on the timeline → ④ <b>💾 Save</b> &nbsp;|&nbsp; 🎨 Color group: drag along a lane to group (Enter = play · Space+drag = pan · Ctrl+Z = undo)</div>
       <canvas id="edTimeline"></canvas>
 
       <div id="edBar2">
-        <b style="color:var(--yellow)">자동생성</b>
-        <div class="field">민감도 <input type="range" id="genSens" min="0" max="1" step="0.05" value="0.5"></div>
-        <div class="field">성향 <span style="font-size:11px">보컬</span><input type="range" id="genFocus" min="0" max="1" step="0.05" value="0.5"><span style="font-size:11px">비트</span></div>
-        <div class="field">최소간격 <input type="number" id="genGap" value="0.1" step="0.02" min="0.04" style="width:62px"></div>
-        <select id="genSub" title="그리드"><option value="2">1/2박</option><option value="4" selected>1/4박</option><option value="8">1/8박</option></select>
-        <label class="field"><input type="checkbox" id="genGrid" checked> 그리드</label>
-        <label class="field"><input type="checkbox" id="genHolds" checked> 홀드</label>
-        <button class="tb-btn primary" id="genBtn">⚡ 음파 분석 → 자동생성</button>
-        <button class="tb-btn" id="posShuffle">🎲 위치 재배치</button>
+        <b style="color:var(--yellow)">Auto-gen</b>
+        <div class="field">Sensitivity <input type="range" id="genSens" min="0" max="1" step="0.05" value="0.5"></div>
+        <div class="field">Bias <span style="font-size:11px">Vocal</span><input type="range" id="genFocus" min="0" max="1" step="0.05" value="0.5"><span style="font-size:11px">Beat</span></div>
+        <div class="field">Min gap <input type="number" id="genGap" value="0.1" step="0.02" min="0.04" style="width:62px"></div>
+        <select id="genSub" title="Grid"><option value="2">1/2</option><option value="4" selected>1/4</option><option value="8">1/8</option></select>
+        <label class="field"><input type="checkbox" id="genGrid" checked> Grid</label>
+        <label class="field"><input type="checkbox" id="genHolds" checked> Holds</label>
+        <button class="tb-btn primary" id="genBtn">⚡ Analyze → Auto-gen</button>
+        <button class="tb-btn" id="posShuffle">🎲 Reshuffle positions</button>
         <span style="width:18px"></span>
-        <b>도구</b>
-        <button class="tb-btn on" id="toolSelect">선택/이동</button>
-        <button class="tb-btn" id="toolAdd">＋일반</button>
-        <button class="tb-btn" id="toolPress">＋프레스</button>
-        <button class="tb-btn" id="toolSlide" title="슬라이드 홀드: 머리를 누르고 유지하면 노트가 궤적 따라 미끄러짐 (드래그로 길이)">↗ 슬라이드</button>
-        <button class="tb-btn" id="toolChain" title="스와이프 체인: 가로로 드래그하면 이어진 색노트 묶음 생성 (순서대로 타격)">⛓ 체인</button>
-        <button class="tb-btn" id="toolSpace" title="스페이스바 노트 (중앙 거대)">＋스페이스</button>
-        <button class="tb-btn" id="toolGroup">🎨 컬러군</button>
-        <button class="tb-btn" id="toolSpeed" title="스피드업/슬로우 구간 (드래그로 구간 생성)">⏩ 속도구간</button>
+        <b>Tools</b>
+        <button class="tb-btn on" id="toolSelect">Select/Move</button>
+        <button class="tb-btn" id="toolAdd">+Note</button>
+        <button class="tb-btn" id="toolPress">+Press</button>
+        <button class="tb-btn" id="toolSlide" title="Slide hold: press the head and hold; the note slides along its path (drag = length)">↗ Slide</button>
+        <button class="tb-btn" id="toolChain" title="Swipe chain: drag horizontally to make a linked run of color notes (hit in order)">⛓ Chain</button>
+        <button class="tb-btn" id="toolSpace" title="Spacebar note (giant center ring)">+Space</button>
+        <button class="tb-btn" id="toolGroup">🎨 Color group</button>
+        <button class="tb-btn" id="toolSpeed" title="Speed-up / slow zone (drag to create)">⏩ Speed zone</button>
         <div class="spacer"></div>
         <div id="zonePanel" class="hidden">
-          <span style="color:#c89bff">구간:</span>
-          <button class="tb-btn" id="zoneType" title="스피드업↔슬로우 전환">⏩ 스피드업</button>
-          <span class="field">배속 ×<input type="number" id="zoneFactor" step="0.05" value="2" style="width:62px"><span id="zoneFacVal" style="font-size:11px;color:var(--muted)"></span></span>
-          <span class="field">진입 <input type="number" id="zoneRin" value="0.4" step="0.1" min="0" style="width:54px">s</span>
-          <span class="field">이탈 <input type="number" id="zoneRout" value="0.4" step="0.1" min="0" style="width:54px">s</span>
-          <button class="tb-btn" id="zoneDel" style="color:var(--pink)">구간 삭제</button>
+          <span style="color:#c89bff">Zone:</span>
+          <button class="tb-btn" id="zoneType" title="Toggle speed-up ↔ slow">⏩ Speed up</button>
+          <span class="field">Rate ×<input type="number" id="zoneFactor" step="0.05" value="2" style="width:62px"><span id="zoneFacVal" style="font-size:11px;color:var(--muted)"></span></span>
+          <span class="field">In <input type="number" id="zoneRin" value="0.4" step="0.1" min="0" style="width:54px">s</span>
+          <span class="field">Out <input type="number" id="zoneRout" value="0.4" step="0.1" min="0" style="width:54px">s</span>
+          <button class="tb-btn" id="zoneDel" style="color:var(--pink)">Delete zone</button>
         </div>
         <div id="selPanel" class="hidden">
-          <span id="selCount">선택됨:</span>
-          <button class="tb-btn" id="selToggle">타입전환</button>
-          <span class="field">길이 <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
+          <span id="selCount">Selected:</span>
+          <button class="tb-btn" id="selToggle">Toggle type</button>
+          <span class="field">Length <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
           <span class="field" id="selSlideWrap" style="display:none">
-            <select id="slideShape" title="경로 모양" style="background:var(--panel2);color:var(--text);border:1px solid #2a3158;border-radius:6px;padding:3px 4px"><option value="arc">호</option><option value="wave">물결(음파)</option><option value="zigzag">지그재그</option><option value="line">직선</option><option value="custom">직접</option></select>
-            개수<input type="number" id="slideCount" min="2" max="16" step="1" value="7" style="width:46px">
-            폭<input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="width:64px;vertical-align:middle">
-            진폭<input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="width:64px;vertical-align:middle">
-            <canvas id="slidePathCv" width="150" height="92" title="경로 편집: 클릭=점 추가 · 드래그=이동 · 우클릭=삭제" style="vertical-align:middle;margin-left:4px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair"></canvas>
+            <select id="slideShape" title="Path shape" style="background:var(--panel2);color:var(--text);border:1px solid #2a3158;border-radius:6px;padding:3px 4px"><option value="arc">Arc</option><option value="wave">Wave</option><option value="zigzag">Zigzag</option><option value="line">Line</option><option value="custom">Custom</option></select>
+            Count<input type="number" id="slideCount" min="2" max="16" step="1" value="7" style="width:46px">
+            Span<input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="width:64px;vertical-align:middle">
+            Amp<input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="width:64px;vertical-align:middle">
+            <canvas id="slidePathCv" width="150" height="92" title="Edit path: click = add point · drag = move · right-click = delete" style="vertical-align:middle;margin-left:4px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair"></canvas>
           </span>
-          <button class="tb-btn" id="selGroup" title="선택한 노트를 한 색으로 통일">🎨 색묶기</button>
-          <button class="tb-btn" id="selPosGroup" title="선택한 노트의 생성 위치를 한 곳 근처로 몰기">📍 위치묶기</button>
-          <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">응집도</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = 완전히 같은 자리(같은 방향·속도). 위치군별로 따로 저장됩니다" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="이 위치군의 몰림 정도 미리보기 (점=노트, 원=이격범위)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
-          <button class="tb-btn" id="selUngroup">해제</button>
-          <button class="tb-btn" id="selDel">삭제(Del)</button>
+          <button class="tb-btn" id="selGroup" title="Make selected notes share one color">🎨 Color</button>
+          <button class="tb-btn" id="selPosGroup" title="Cluster selected notes near one spawn spot">📍 Position</button>
+          <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">Cohesion</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = exactly the same spot (same direction & speed). Saved per position group" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="Preview of this group's tightness (dots = notes, circle = spread)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
+          <button class="tb-btn" id="selUngroup">Ungroup</button>
+          <button class="tb-btn" id="selDel">Delete (Del)</button>
         </div>
         <div id="grpPanel" class="hidden">
-          <span id="grpCount" style="color:var(--yellow)">구간을 드래그하세요</span>
-          <button class="tb-btn primary" id="grpMake">🎨 컬러군으로 묶기</button>
-          <button class="tb-btn primary" id="grpMakePos">📍 위치군으로 묶기</button>
-          <button class="tb-btn" id="grpClear">그룹 해제</button>
+          <span id="grpCount" style="color:var(--yellow)">Drag over a range</span>
+          <button class="tb-btn primary" id="grpMake">🎨 Group as color</button>
+          <button class="tb-btn primary" id="grpMakePos">📍 Group as position</button>
+          <button class="tb-btn" id="grpClear">Ungroup</button>
         </div>
-        <span id="ed-help">빈곳 드래그=박스선택 · Shift/Ctrl+클릭=선택추가 · 스페이스+드래그=화면이동 · Enter=재생 · Ctrl+Z 취소 / Ctrl+Shift+Z 복구 · Ctrl+C/V 복사·붙여넣기 · 휠=스크롤 · Ctrl+휠=확대 · 우클릭=삭제</span>
+        <span id="ed-help">Drag empty = box-select · Shift/Ctrl+click = add to selection · Space+drag = pan · Enter = play · Ctrl+Z undo / Ctrl+Shift+Z redo · Ctrl+C/V copy·paste · wheel = scroll · Ctrl+wheel = zoom · right-click = delete</span>
       </div>
     </div>
   </div>
@@ -502,12 +502,12 @@
 
   <div id="pwGate" class="hidden">
     <div class="pw-card">
-      <div class="pw-title">🔒 채보 에디터 잠금</div>
-      <div class="pw-desc">접근하려면 비밀번호를 입력하세요</div>
+      <div class="pw-title">🔒 Editor Locked</div>
+      <div class="pw-desc">Enter password to access</div>
       <input type="password" id="pwInput" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="••••">
-      <div id="pwErr" class="pw-err hidden">비밀번호가 틀렸습니다</div>
+      <div id="pwErr" class="pw-err hidden">Wrong password</div>
       <div class="pw-row">
-        <button class="tb-btn" id="pwCancel">취소</button>
+        <button class="tb-btn" id="pwCancel">Cancel</button>
         <button class="tb-btn primary" id="pwOk">확인</button>
       </div>
     </div>
@@ -566,13 +566,13 @@ $("#goSettings").onclick=()=>openSettings();
 // ---------- 설정 화면 ----------
 function openSettings(){
   show("settings");
-  $("#setSfxToggle").textContent=settings.sfxOn?"켜짐":"꺼짐";
+  $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";
   $("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   $("#setSfxVol").value=settings.sfxVol;
-  $("#setRetroToggle").textContent=settings.retro?"켜짐":"꺼짐";
+  $("#setRetroToggle").textContent=settings.retro?"On":"Off";
   $("#setRetroToggle").classList.toggle("primary",settings.retro);
   $("#setOffset").value=settings.offset;$("#offsetVal").textContent=(settings.offset>0?"+":"")+settings.offset+" ms";
-  $("#calibLive").textContent="박자에 맞춰 버튼을 눌러보세요";
+  $("#calibLive").textContent="Tap to the beat";
   rebindIdx=null; renderKeyButtons();
   renderSfxList();
   startSettingsMetro();           // 메트로놈 계속 진행
@@ -588,10 +588,10 @@ function renderSfxList(){
   });
 }
 $("#setSfxToggle").onclick=()=>{settings.sfxOn=!settings.sfxOn;saveSettings();
-  $("#setSfxToggle").textContent=settings.sfxOn?"켜짐":"꺼짐";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
+  $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
 $("#setRetroToggle").onclick=()=>{settings.retro=!settings.retro;saveSettings();
-  $("#setRetroToggle").textContent=settings.retro?"켜짐":"꺼짐";$("#setRetroToggle").classList.toggle("primary",settings.retro);
+  $("#setRetroToggle").textContent=settings.retro?"On":"Off";$("#setRetroToggle").classList.toggle("primary",settings.retro);
   if(!screens.play.classList.contains("hidden")){fitCanvas(pcanvas);if(state&&state.notes)layoutPlayPositions(state.notes);}};
 $("#setSfxVol").oninput=()=>{settings.sfxVol=parseFloat($("#setSfxVol").value);saveSettings();};
 $("#setSfxVol").onchange=()=>{if(settings.sfxOn)playSfx(settings.sfx,"perfect",1);};
@@ -677,7 +677,7 @@ function recordTap(col){
   if($("#setOffset")){$("#setOffset").value=ms;$("#offsetVal").textContent=(ms>0?"+":"")+ms+" ms";}
   const el=$("#calibLive");if(el)el.textContent=calib.taps.length+"번 측정 · 자동 보정 "+(ms>0?"+":"")+ms+" ms";
 }
-$("#calibReset").onclick=()=>{if(calib)calib.taps=[];const el=$("#calibLive");if(el)el.textContent="박자에 맞춰 버튼을 눌러보세요";};
+$("#calibReset").onclick=()=>{if(calib)calib.taps=[];const el=$("#calibLive");if(el)el.textContent="Tap to the beat";};
 $("#calibStage").onclick=()=>recordTap(0);
 $("#hubNew").onclick=()=>{editorNew();};
 $("#edBackHub").onclick=()=>{stopEditor();openEdHub();};
@@ -688,20 +688,20 @@ function openHelp(){
   $("#overlayBody").innerHTML=
     `<div class="ov-h">채보 에디터 도움말</div>`+
     `<div class="ov-sec">상단 바</div>`+
-    hrow("🎵 곡 불러오기","채보를 만들 음원 선택")+
+    hrow("🎵 Load track","채보를 만들 음원 선택")+
     hrow("▶ / ❚❚ (Space)","음원 재생·정지 (미리듣기)")+
     hrow("▶ 테스트 플레이","지금 만든 채보 바로 플레이")+
     hrow("곡 / 난이도","곡 제목·난이도 이름 입력")+
-    hrow("💾 저장","곡 목록에 등록·갱신")+
+    hrow("💾 Save","곡 목록에 등록·갱신")+
     hrow("JSON↓ / JSON↑","채보 파일 내보내기·가져오기")+
     `<div class="ov-sec">자동 생성</div>`+
     hrow("⚡ 자동생성","음파를 분석해 노트 자동 배치")+
-    hrow("민감도 / 최소간격","노트 촘촘함 / 노트 사이 최소 시간")+
-    hrow("🎲 위치 재배치","노트 화면 위치를 새로 배치(고정 저장)")+
+    hrow("Sensitivity / 최소간격","노트 촘촘함 / 노트 사이 최소 시간")+
+    hrow("🎲 Reshuffle positions","노트 화면 위치를 새로 배치(고정 저장)")+
     `<div class="ov-sec">도구</div>`+
     hrow("선택/이동","클릭=선택, 드래그=이동, 빈곳=재생위치")+
-    hrow("＋일반 / ＋프레스","노트 추가 / 드래그로 롱노트")+
-    hrow("🎨 컬러군","구간 드래그로 묶기")+
+    hrow("+Note / +Press","노트 추가 / 드래그로 롱노트")+
+    hrow("🎨 Color group","구간 드래그로 묶기")+
     `<div class="ov-sec">단축키 · 기타</div>`+
     hrow("휠 / Ctrl+휠","스크롤 / 확대")+
     hrow("우클릭 / Del","노트 삭제")+
@@ -725,13 +725,13 @@ const COACH_ITEMS=[
   {id:'edDiffName',text:'<b>난이도</b> 이름(EASY 등)'},
   {id:'edSave',text:'<b>저장</b> · 곡 목록에 등록'},
   {id:'edExport',text:'<b>JSON 내보내기</b> (백업/공유)'},
-  {id:'genBtn',text:'<b>자동생성</b> · 음파 분석해 노트 배치'},
+  {id:'genBtn',text:'<b>Auto-gen</b> · 음파 분석해 노트 배치'},
   {id:'genSens',text:'<b>민감도</b> · 노트 촘촘함'},
   {id:'genGap',text:'<b>최소간격</b> · 노트 사이 최소 시간'},
   {id:'posShuffle',text:'<b>위치 재배치</b> · 노트 화면위치 새로'},
-  {id:'toolSelect',text:'<b>선택/이동</b>'},
-  {id:'toolAdd',text:'<b>＋일반</b> 노트 추가'},
-  {id:'toolPress',text:'<b>＋프레스</b> · 끌어서 길이(롱노트)'},
+  {id:'toolSelect',text:'<b>Select/Move</b>'},
+  {id:'toolAdd',text:'<b>+Note</b> 노트 추가'},
+  {id:'toolPress',text:'<b>+Press</b> · 끌어서 길이(롱노트)'},
   {id:'toolGroup',text:'<b>🎨컬러군</b> · 구간 묶어 한 색 통일'},
   {id:'edTimeline',text:'<b>타임라인</b> — 가로=시간, 세로 4줄=동시 노트.<br>줄을 바꿔 같은 시각에 여러 개 = 동시치기',big:true},
 ];
@@ -776,7 +776,7 @@ function coachLabel(labels,svg,lx,ly,w,text,tx,ty,lineY,noLine){
 }
 $("#coach").onclick=closeCoach;
 
-// ---------- 곡 / 난이도 선택 ----------
+// ---------- 곡 / Select Difficulty ----------
 // 온라인 자동반영: 실행 시 1회 원격 채보(JSON)를 받아옴. 오프라인/미설정이면 null → 내장 채보 사용.
 let _remoteOv=null,_remoteDone=false;
 // ★Gist(온라인 최신본)에서 해당 곡/난이도의 노트를 가져온다. 없으면 fallback(내장/로컬).
@@ -835,13 +835,13 @@ async function openSongSelect(){
   show("songsel");
   $("#songListView").classList.remove("hidden");
   $("#diffView").classList.add("hidden");
-  $("#selTitle").textContent="곡 선택";
+  $("#selTitle").textContent="Song Select";
   await renderSongList();
 }
 async function renderSongList(){
   const list=$("#songList");list.innerHTML='<div class="muted">불러오는 중…</div>';
   const songs=await allSongsForPlay();
-  if(!songs.length){list.innerHTML='<div class="muted">곡이 없습니다. 에디터에서 "신규 곡 등록"으로 만들어보세요.</div>';return;}
+  if(!songs.length){list.innerHTML='<div class="muted">곡이 없습니다. 에디터에서 "New Song"으로 만들어보세요.</div>';return;}
   list.innerHTML="";
   songs.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";
@@ -862,7 +862,7 @@ function openDiffs(song){
   $("#songListView").classList.add("hidden");
   $("#diffView").classList.remove("hidden");
   $("#selTitle").textContent=song.title;
-  $("#diffSongTitle").textContent=song.title+" — 난이도 선택";
+  $("#diffSongTitle").textContent=song.title+" — Select Difficulty";
   const list=$("#diffList");list.innerHTML="";
   song.difficulties.forEach(d=>{
     const col=DIFFCOL[d.name]||"var(--blue)";
@@ -2188,7 +2188,7 @@ function loop(){
     pctx.textAlign="center";
     pctx.fillStyle="#22a7ff";pctx.font="600 14px Segoe UI";pctx.fillText("R U RED E?",W/2,H*0.30);
     pctx.fillStyle="#eef1ff";pctx.font="600 23px Segoe UI";
-    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  모두 누른 채 1.5초 유지 (시동)",W/2,H*0.365);
+    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  hold all for 1.5s to ignite",W/2,H*0.365);
     const cx=W/2,cy=H*0.5,R=66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
     pctx.strokeStyle="#2a3158";pctx.lineWidth=8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
     pctx.strokeStyle="#22a7ff";pctx.lineWidth=8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
@@ -2196,7 +2196,7 @@ function loop(){
     pctx.fillStyle="#fff";pctx.font="700 28px Segoe UI";pctx.textBaseline="middle";
     pctx.fillText(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy);pctx.textBaseline="alphabetic";
     pctx.fillStyle="#8b90b8";pctx.font="13px Segoe UI";
-    pctx.fillText(heldN<4?"4개 키를 모두 누르세요":"유지…",cx,cy+R+26);
+    pctx.fillText(heldN<4?"Press all 4 keys":"Hold…",cx,cy+R+26);
     pctx.restore();
   }
 
@@ -2285,7 +2285,7 @@ function endPlay(){
   $("#rGood").textContent=c.good;$("#rBad").textContent=(c.bad||0);$("#rMiss").textContent=c.miss;
   $("#rRank").textContent=(c.miss===0&&!(c.bad)?"FULL COMBO · ":"")+"RANK "+rankOf(acc);
   $("#toEditor").classList.toggle("hidden",!playFromEditor);   // 테스트 플레이면 '에디터로'
-  $("#toSongSel").classList.toggle("hidden",playFromEditor);   //   대신 '곡 선택' 숨김
+  $("#toSongSel").classList.toggle("hidden",playFromEditor);   //   대신 'Song Select' 숨김
   show("result");
   const rs=screens.result;rs.style.animation="none";void rs.offsetWidth;rs.style.animation="resIn .7s ease both";  // 부드러운 페이드인
 }
@@ -2409,7 +2409,7 @@ async function openEdHub(){
   const user=userAll.filter(s=>!builtinIds.has(s.id));   // 새 곡만 별도 목록(내장곡 편집본은 내장 카드에서 노트로 반영)
   const cnt=(song,d)=>pickChart(song.id,d.name,d.chart,userById[song.id]).notes.length;   // 내 편집본>Gist>내장 반영 개수
   list.innerHTML="";
-  if(!built.length&&!user.length){list.innerHTML='<div class="muted">곡이 없습니다. 위 "신규 곡 등록"으로 만들어보세요.</div>';return;}
+  if(!built.length&&!user.length){list.innerHTML='<div class="muted">곡이 없습니다. 위 "New Song"으로 만들어보세요.</div>';return;}
   // 내장곡 (수정 시 사본 저장)
   built.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
@@ -2460,14 +2460,14 @@ function resetEditorState(){edNotes=[];edSel=null;edSelSet=[];edTime=0;edPlaying
 function editorNew(){
   resetEditorState();edSongId=null;
   $("#edSongTitle").value="";$("#edDiffName").value="NORMAL";
-  $("#edAudioLbl").classList.add("hl");$("#edModeTitle").textContent="🆕 신규 곡 등록";$("#genStatus").textContent="";
+  $("#edAudioLbl").classList.add("hl");$("#edModeTitle").textContent="🆕 New Song";$("#genStatus").textContent="";
   show("editor");edInit();updateSelPanel();
 }
 async function editorEdit(songId,diffName){
   const song=await dbGet(songId);if(!song){toast("곡을 찾을 수 없음");return;}
   const d=song.difficulties.find(x=>x.name===diffName);if(!d){toast("난이도를 찾을 수 없음");return;}
   resetEditorState();edSongId=song.id;
-  $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ 기존 곡 수정";
+  $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ Edit existing songs";
   edNotes=(gistNotesFor(song.id,d.name,d.chart.notes)||[]).map(n=>({...n}));   // ★온라인 최신본 우선
   show("editor");edInit();updateSelPanel();
   await loadEditorAudioBlob(song.audio);
@@ -2708,7 +2708,7 @@ function toggleEdPlay(){
 $("#edSpeed").onchange=()=>{if(edAudio){try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}}};
 $("#edMusicVol").oninput=()=>{edMusicVol=parseFloat($("#edMusicVol").value);if(edAudio)try{edAudio.volume=edMusicVol;}catch(e){}};
 $("#edSfxVol").oninput=()=>{edSfxVol=parseFloat($("#edSfxVol").value);};
-$("#edBeatToggle").onclick=()=>{edBeat=!edBeat;$("#edBeatToggle").classList.toggle("primary",edBeat);$("#edBeatToggle").textContent=edBeat?"🔊 비트음":"🔇 비트음";toast(edBeat?"비트음 켜짐":"비트음 꺼짐");};
+$("#edBeatToggle").onclick=()=>{edBeat=!edBeat;$("#edBeatToggle").classList.toggle("primary",edBeat);$("#edBeatToggle").textContent=edBeat?"🔊 Beat SFX":"🔇 Beat SFX";toast(edBeat?"비트음 켜짐":"비트음 꺼짐");};
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
   if(!edBeat||cur<=prev||edSfxVol<=0)return;
@@ -2725,7 +2725,7 @@ function edBeatSounds(prev,cur){
     if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
-$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
+$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 Recording…":"🔴 Live input";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
 document.addEventListener("keydown",e=>{
   if(screens.editor.classList.contains("hidden"))return;
   const tag=e.target.tagName;
