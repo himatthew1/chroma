@@ -321,6 +321,10 @@
         <span class="muted" style="font-size:13px">볼륨</span>
         <input type="range" id="setSfxVol" min="0" max="1" step="0.05" style="width:140px">
       </div>
+      <div class="set-row">
+        <div class="set-label">레트로 모드 <span class="muted" style="font-weight:400;font-size:12px">— 256×192(닌텐도 DS) 저해상도 픽셀 룩으로 플레이 (4:3 비율 유지)</span></div>
+        <button class="tb-btn" id="setRetroToggle">꺼짐</button>
+      </div>
       <div class="set-row" style="flex-direction:column;align-items:stretch;gap:10px">
         <div class="set-label" style="min-width:0">버튼 키 설정 <span class="muted" style="font-weight:400;font-size:12px">— 버튼을 누른 뒤 원하는 키를 입력하세요</span></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap" id="keyBtns"></div>
@@ -565,6 +569,8 @@ function openSettings(){
   $("#setSfxToggle").textContent=settings.sfxOn?"켜짐":"꺼짐";
   $("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   $("#setSfxVol").value=settings.sfxVol;
+  $("#setRetroToggle").textContent=settings.retro?"켜짐":"꺼짐";
+  $("#setRetroToggle").classList.toggle("primary",settings.retro);
   $("#setOffset").value=settings.offset;$("#offsetVal").textContent=(settings.offset>0?"+":"")+settings.offset+" ms";
   $("#calibLive").textContent="박자에 맞춰 버튼을 눌러보세요";
   rebindIdx=null; renderKeyButtons();
@@ -584,6 +590,9 @@ function renderSfxList(){
 $("#setSfxToggle").onclick=()=>{settings.sfxOn=!settings.sfxOn;saveSettings();
   $("#setSfxToggle").textContent=settings.sfxOn?"켜짐":"꺼짐";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
+$("#setRetroToggle").onclick=()=>{settings.retro=!settings.retro;saveSettings();
+  $("#setRetroToggle").textContent=settings.retro?"켜짐":"꺼짐";$("#setRetroToggle").classList.toggle("primary",settings.retro);
+  if(!screens.play.classList.contains("hidden")){fitCanvas(pcanvas);if(state&&state.notes)layoutPlayPositions(state.notes);}};
 $("#setSfxVol").oninput=()=>{settings.sfxVol=parseFloat($("#setSfxVol").value);saveSettings();};
 $("#setSfxVol").onchange=()=>{if(settings.sfxOn)playSfx(settings.sfx,"perfect",1);};
 $("#setOffset").oninput=()=>{settings.offset=parseInt($("#setOffset").value)||0;playOffset=settings.offset/1000;
@@ -894,7 +903,7 @@ function saveStore(o){localStorage.setItem(STORE_KEY,JSON.stringify(o));}
 
 // ---------- 설정 (효과음 / 싱크) ----------
 const SET_KEY="chroma_settings";
-let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"]};
+let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"],retro:false};
 try{Object.assign(settings,JSON.parse(localStorage.getItem(SET_KEY))||{});}catch{}
 if(Array.isArray(settings.keys)&&settings.keys.length===4)KEYS=settings.keys.slice();
 let playOffset=settings.offset/1000;  // 초 단위 싱크 보정
@@ -1253,13 +1262,26 @@ function generateChart(buf,opt){
 //   PLAY
 //============================================================
 const pcanvas=$("#playCanvas"),pctx=pcanvas.getContext("2d");
+let _retroBuf=null; function _retroLow(){if(!_retroBuf){_retroBuf=document.createElement("canvas");_retroBuf.width=256;_retroBuf.height=192;}return _retroBuf;}  // ★레트로 저해상도 버퍼
 let playAudio=null,playChart=null,raf=null,state=null;
 
 $("#retryBtn").onclick=()=>{show("play");startPlay();};
 $("#toSongSel").onclick=()=>{stopPlay();openSongSelect();};
 $("#toEditor").onclick=()=>{stopPlay();playFromEditor=false;show("editor");};
 
-function fitCanvas(cv){cv.width=window.innerWidth;cv.height=window.innerHeight;}
+function fitCanvas(cv){
+  if(cv===pcanvas&&settings&&settings.retro){   // ★레트로: 4:3 레터박스 (256×192 비율 유지)
+    const W=window.innerWidth,H=window.innerHeight;let bw,bh;
+    if(W/H>4/3){bh=H;bw=Math.round(H*4/3);}else{bw=W;bh=Math.round(W*0.75);}
+    cv.width=bw;cv.height=bh;
+    cv.style.position="absolute";cv.style.left=Math.round((W-bw)/2)+"px";cv.style.top=Math.round((H-bh)/2)+"px";
+    cv.style.width=bw+"px";cv.style.height=bh+"px";cv.style.imageRendering="pixelated";
+    if(screens&&screens.play)screens.play.style.background="#000";
+    return;
+  }
+  cv.width=window.innerWidth;cv.height=window.innerHeight;
+  if(cv===pcanvas){cv.style.position="";cv.style.left="";cv.style.top="";cv.style.width="";cv.style.height="";cv.style.imageRendering="";if(screens&&screens.play)screens.play.style.background="";}
+}
 function approachSec(){return clamp(1.7-parseFloat($("#speed").value)*0.11,0.32,1.4);}
 function noteR(){return clamp(Math.min(pcanvas.width,pcanvas.height)*0.055,26,60);}
 // ===== 스피드 구간(연출용 시각 시간워프) — 노트·별이 느리거나 빨라 "보이되" 판정 타이밍·노래는 그대로 =====
@@ -2249,6 +2271,12 @@ function loop(){
   }
   pctx.globalAlpha=1;pctx.shadowBlur=0;
   state.floats=state.floats.filter(f=>f.life>0);
+
+  // ★레트로(저해상도) 후처리 — 최종 프레임을 256×192로 다운샘플 후 니어리스트 확대 (DS 픽셀 룩)
+  if(settings.retro){const lb=_retroLow(),lc=lb.getContext("2d");
+    lc.imageSmoothingEnabled=true;lc.clearRect(0,0,256,192);
+    lc.drawImage(pcanvas,0,0,pcanvas.width,pcanvas.height,0,0,256,192);
+    pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,256,192,0,0,pcanvas.width,pcanvas.height);pctx.imageSmoothingEnabled=true;}
 
   // progress
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
