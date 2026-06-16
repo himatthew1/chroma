@@ -415,6 +415,8 @@
         <button class="tb-btn" id="edPlay" title="재생/정지 (Enter)">▶/❚❚</button>
         <select id="edSpeed" title="재생 속도"><option value="1">1x</option><option value="0.75">0.75x</option><option value="0.5">0.5x</option><option value="0.25">0.25x</option></select>
         <button class="tb-btn primary" id="edBeatToggle" title="재생 중 노트 타격음으로 비트 확인 (켜짐/꺼짐)">🔊 비트음</button>
+        <span class="field" title="에디터 미리듣기 음량 (실제 게임엔 영향 없음)">🎵<input type="range" id="edMusicVol" min="0" max="1" step="0.05" value="1" style="width:64px;vertical-align:middle"></span>
+        <span class="field" title="에디터 비트음 음량 (실제 게임엔 영향 없음)">🔊<input type="range" id="edSfxVol" min="0" max="1" step="0.05" value="0.8" style="width:64px;vertical-align:middle"></span>
         <button class="tb-btn" id="edRec" title="재생 중 A·D·J·L로 노트 찍기 (누르면 프레스)">🔴 라이브 입력</button>
         <button class="tb-btn primary" id="edTestPlay">▶ 처음부터</button>
         <button class="tb-btn primary" id="edTestHere" title="현재 재생위치(빨간 선)부터 테스트">▶ 이 위치부터</button>
@@ -1025,7 +1027,7 @@ const SFX={
   }
 };
 const SFX_LIST=[["percussion","타악 — 탁! 위주"],["impact","임팩트 — 팍+팡+스파클 (에코·여운)"],["tambourine","탬버린 — 청량 짤랑"],["bell","벨 — 맑은 딩"],["click","클릭 — 또각"],["soft","소프트 — 부드러운 블립"],["arcade","아케이드 — 레트로"]];
-function playSfx(name,kind,col){try{(SFX[name]||SFX.tambourine)(kind||"perfect",col||0,settings.sfxVol);}catch(e){}}
+function playSfx(name,kind,col,vol){try{(SFX[name]||SFX.tambourine)(kind||"perfect",col||0,vol!=null?vol:settings.sfxVol);}catch(e){}}
 function hitSound(kind,col){if(!settings.sfxOn||kind==="miss")return;playSfx(settings.sfx,kind,col);}
 // BAD 타격음 — 심심하고 밍밍한 둔탁음
 function badSound(){
@@ -2276,6 +2278,7 @@ function endPlay(){
 //============================================================
 const tl=$("#edTimeline"),tctx=tl.getContext("2d");
 let edAudio=null,edBuffer=null,edPeaks=null,edRaf=null,edNotes=[],edTime=0,edPlaying=false,edBeat=true,_edPrevT=null;
+let edMusicVol=1, edSfxVol=0.8;   // ★에디터 전용 미리듣기 음량 (실제 게임 settings 와 분리)
 let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null;
 let edClip=null, undoStack=[], redoStack=[], spaceHeld=false;   // 클립보드·실행취소·팬
 function uniq(a){return a.filter((v,i)=>a.indexOf(v)===i);}
@@ -2357,7 +2360,7 @@ function laneOf(y){const lh=(laneBot()-laneTop())/ED_LANES;return clamp(Math.flo
 
 async function loadEditorAudioBlob(blob){
   $("#edAudioLbl").classList.remove("hl");
-  edAudio=new Audio(URL.createObjectURL(blob));edAudio.preload="auto";
+  edAudio=new Audio(URL.createObjectURL(blob));edAudio.preload="auto";try{edAudio.volume=edMusicVol;}catch(e){}
   edAudio.addEventListener("timeupdate",()=>{if(edPlaying)edTime=edAudio.currentTime;});
   $("#genStatus").textContent="음원 디코딩 중…";
   try{
@@ -2683,24 +2686,26 @@ $("#edPlay").onclick=toggleEdPlay;
 function toggleEdPlay(){
   if(!edAudio){toast("곡을 먼저 불러오세요");return;}
   if(edPlaying){edAudio.pause();edPlaying=false;}
-  else{edAudio.currentTime=clamp(edTime,0,edDur());try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}edAudio.play();edPlaying=true;}
+  else{edAudio.currentTime=clamp(edTime,0,edDur());try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;edAudio.volume=edMusicVol;}catch(e){}edAudio.play();edPlaying=true;}
 }
 $("#edSpeed").onchange=()=>{if(edAudio){try{edAudio.preservesPitch=true;edAudio.playbackRate=parseFloat($("#edSpeed").value)||1;}catch(e){}}};
+$("#edMusicVol").oninput=()=>{edMusicVol=parseFloat($("#edMusicVol").value);if(edAudio)try{edAudio.volume=edMusicVol;}catch(e){}};
+$("#edSfxVol").oninput=()=>{edSfxVol=parseFloat($("#edSfxVol").value);};
 $("#edBeatToggle").onclick=()=>{edBeat=!edBeat;$("#edBeatToggle").classList.toggle("primary",edBeat);$("#edBeatToggle").textContent=edBeat?"🔊 비트음":"🔇 비트음";toast(edBeat?"비트음 켜짐":"비트음 꺼짐");};
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
-  if(!edBeat||cur<=prev)return;
-  const cross=(t)=>t>prev&&t<=cur;
+  if(!edBeat||cur<=prev||edSfxVol<=0)return;
+  const cross=(t)=>t>prev&&t<=cur, beep=(kind,c)=>playSfx(settings.sfx,kind,c,edSfxVol);   // ★에디터 전용 음량
   for(const n of edNotes){
     const col=(n.lane||0)%4, dur=n.duration||0;
     if(n.type==="slide"){if(Array.isArray(n.pts)){slideEnsurePtt(n);   // 노트 포인트마다 (머리·중간·꼬리 전부) 일반 노트와 동일음
-      for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))playSfx(settings.sfx,"perfect",col);}}
-      else{if(cross(n.time))playSfx(settings.sfx,"perfect",col);if(dur&&cross(n.time+dur))playSfx(settings.sfx,"perfect",col);}continue;}
-    if(n.type==="press"){if(cross(n.time))playSfx(settings.sfx,"perfect",col);   // ★홀드: 시작 + 끝
-      if(cross(n.time+dur))playSfx(settings.sfx,"great",col);continue;}
-    if(n.type==="space"){if(cross(n.time))playSfx(settings.sfx,"perfect",0);     // ★스페이스 홀드: 끝에도
-      if(dur&&cross(n.time+dur))playSfx(settings.sfx,"great",0);continue;}
-    if(cross(n.time))playSfx(settings.sfx,"perfect",col);                        // 일반
+      for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))beep("perfect",col);}}
+      else{if(cross(n.time))beep("perfect",col);if(dur&&cross(n.time+dur))beep("perfect",col);}continue;}
+    if(n.type==="press"){if(cross(n.time))beep("perfect",col);   // ★홀드: 시작 + 끝
+      if(cross(n.time+dur))beep("great",col);continue;}
+    if(n.type==="space"){if(cross(n.time))beep("perfect",0);     // ★스페이스 홀드: 끝에도
+      if(dur&&cross(n.time+dur))beep("great",0);continue;}
+    if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
 $("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
