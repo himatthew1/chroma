@@ -2001,7 +2001,7 @@ function loop(){
     if(n.type==="space")continue;   // 스페이스 노트는 별도 패스에서 처리
     if(!n.missed&&!n.headJudged&&now-n.time>JW.good+LATEGRACE){n.missed=true;applyJudge("miss",n);}
     if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){
-      if(n.type==="slide"&&n._ptHit&&!n.missed){for(let j=0;j<n._ptHit.length;j++)if(!n._ptHit[j]){n._ptHit[j]=true;slideTick(j);}}   // ★남은(꼬리) 포인트 타격음 보장
+      if(n.type==="slide"&&n._ptHit&&!n.missed){for(let j=0;j<n._ptHit.length;j++)if(!n._ptHit[j]){n._ptHit[j]=true;hitSound("perfect",n.col);}}   // ★남은(꼬리) 포인트 타격음 보장(일반음)
       n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);continue;}
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
     const prog0=1-(n._wT-wpNow)/AR;
@@ -2085,8 +2085,8 @@ function loop(){
             const appear=(fr<=aSpan)?1:prox;                // 도입부 밖은 다가올 때 등장
             if(appear>0.02){const sc=1+prox*1.1; drawPt(P,sc,0.95*appear,j);
               if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.2;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=14;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],10*sc);pctx.stroke();pctx.restore();}}
-          }else{ // 소모됨 → 타격음 1회 + 발화
-            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)slideTick(j);}
+          }else{ // 소모됨 → 일반 노트와 동일한 타격음 + 발화
+            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)hitSound("perfect",n.col);}
             const f=clamp((s-fr)/0.18,0,1); if(f<1)firePt(P,f,j);
           }
         }
@@ -2693,9 +2693,9 @@ function edBeatSounds(prev,cur){
   const cross=(t)=>t>prev&&t<=cur;
   for(const n of edNotes){
     const col=(n.lane||0)%4, dur=n.duration||0;
-    if(n.type==="slide"){if(Array.isArray(n.pts)){slideEnsurePtt(n);   // 노트 포인트마다 (머리·중간·꼬리 전부)
-      for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))slideTick(j,true);}}
-      else{if(cross(n.time))playSfx(settings.sfx,"perfect",col);if(dur&&cross(n.time+dur))playSfx(settings.sfx,"great",col);}continue;}
+    if(n.type==="slide"){if(Array.isArray(n.pts)){slideEnsurePtt(n);   // 노트 포인트마다 (머리·중간·꼬리 전부) 일반 노트와 동일음
+      for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))playSfx(settings.sfx,"perfect",col);}}
+      else{if(cross(n.time))playSfx(settings.sfx,"perfect",col);if(dur&&cross(n.time+dur))playSfx(settings.sfx,"perfect",col);}continue;}
     if(n.type==="press"){if(cross(n.time))playSfx(settings.sfx,"perfect",col);   // ★홀드: 시작 + 끝
       if(cross(n.time+dur))playSfx(settings.sfx,"great",col);continue;}
     if(n.type==="space"){if(cross(n.time))playSfx(settings.sfx,"perfect",0);     // ★스페이스 홀드: 끝에도
