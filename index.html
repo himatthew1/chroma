@@ -2005,39 +2005,56 @@ function loop(){
       dx+=(Math.random()-0.5)*jit; dy+=(Math.random()-0.5)*jit;   // 지글지글 흔들림
       br*=1+holdT*0.55; glowB=holdT*48; whiten=0.25+holdT*0.72;   // 점점 크고 밝고 하얗게
     }
-    // ★슬라이드 노트 — 머리를 잡고 유지하면 곡선 궤적을 따라 미끄러지는 혜성 (일반노트와 디자인결 공유: 원형)
+    // ★슬라이드(유성) 노트 — 유성이 하나의 비행경로를 그리며 날아와 육각형 머리에서 합쳐지고, 그 경로를 이어 미끄러짐. 이동 중 연소(흔들림+불꽃)
     if(n.type==="slide"){
-      const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;            // 진입 드리프트는 잡기 전만
-      const P=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph,p.y+off.y*ph];};
+      const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;                 // 진입 드리프트는 잡기 전만
+      const QB=(p0,p1,p2,s)=>{const u=1-s;return [u*u*p0[0]+2*u*s*p1[0]+s*s*p2[0]+off.x*ph, u*u*p0[1]+2*u*s*p1[1]+s*s*p2[1]+off.y*ph];};
+      const Hh=[n.x,n.y], Cc=[(typeof n.cpx==="number"?n.cpx:(n.x+(n.x2||n.x))/2),(typeof n.cpy==="number"?n.cpy:(n.y+(n.y2||n.y))/2)], Tt=[(typeof n.x2==="number"?n.x2:n.x),(typeof n.y2==="number"?n.y2:n.y)];
+      const LEAD=1.5, C2=[Hh[0]+(Hh[0]-Cc[0])*LEAD,Hh[1]+(Hh[1]-Cc[1])*LEAD], Ll=[Hh[0]+(Hh[0]-Tt[0])*LEAD,Hh[1]+(Hh[1]-Tt[1])*LEAD];
+      const travel=(s)=>QB(Hh,Cc,Tt,s);            // 머리→꼬리 (홀드 이동 경로)
+      const lead=(g)=>QB(Hh,C2,Ll,g);              // 머리→먼 곳 (유성 진입 경로, 같은 곡선의 거울 연장)
       const s=n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0;
-      const SAMP=18;
+      const hbr=br*1.18, SAMP=20;                  // 머리는 홀드(육각형) 크기
+      // ── 리본/유성 (가산광) ──
       pctx.save();pctx.lineCap="round";pctx.lineJoin="round";pctx.globalCompositeOperation="lighter";
-      // 앞으로 갈 길 (은은한 가이드 리본)
-      pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;
-      pctx.globalAlpha=a*(n.holding?0.22:0.14+0.18*ease);pctx.lineWidth=3;
-      pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s+(1-s)*i/SAMP,q=P(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-      // 지나온 길 (밝은 리본)
-      if(n.holding&&s>0.001){
-        pctx.globalAlpha=a*0.26;pctx.lineWidth=10;
-        pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=P(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        pctx.globalAlpha=a*0.92;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12;pctx.lineWidth=3.5;
-        pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=P(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+      if(!n.holding){
+        // 접근: 앞으로 탈 궤도를 은은히 미리 보여주고, 유성이 진입경로를 그리며 들어옴
+        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;pctx.globalAlpha=a*(0.10+0.16*ease);pctx.lineWidth=3;
+        pctx.beginPath();for(let i=0;i<=SAMP;i++){const q=travel(i/SAMP);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        const mp=clamp(1-prog,0,1);                // 유성 위치(0=머리에서 합체, 1=먼 곳)
+        for(let i=0;i<16;i++){const g0=clamp(mp+(i/16)*0.32,0,1),g1=clamp(mp+((i+1)/16)*0.32,0,1),A=lead(g0),B=lead(g1),lf=1-i/16;
+          pctx.globalAlpha=a*lf*0.85;pctx.strokeStyle=lf>0.55?"#fff":col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=1+lf*5.5;
+          pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}
+        const mh=lead(mp);pctx.globalAlpha=a;pctx.fillStyle="#fff";pctx.shadowColor=col;pctx.shadowBlur=20;pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
+      }else{
+        // 잡는 중: 앞으로 갈 궤도(은은) + 지나온 자취(유성 꼬리: 넓은 글로우+밝은 코어)
+        pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=6;pctx.globalAlpha=0.2;pctx.lineWidth=3;
+        pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s+(1-s)*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        if(s>0.001){pctx.globalAlpha=0.26;pctx.lineWidth=11;
+          pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+          pctx.globalAlpha=0.92;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12;pctx.lineWidth=3.5;
+          pctx.beginPath();for(let i=0;i<=SAMP;i++){const ss=s*i/SAMP,q=travel(ss);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();}
       }
-      // 꼬리 마커
-      const tp=P(1);pctx.globalAlpha=a*(0.45+0.4*ease);pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=2.5;
-      pctx.beginPath();pctx.arc(tp[0],tp[1],br*0.66,0,6.2832);pctx.stroke();
-      // 혜성 머리
-      const hp=P(s),hx=hp[0],hy=hp[1],cbr=br*(n.holding?1.0+0.12*Math.sin(now*20):1);
-      if(n.holding&&!n.missed){for(let k=0;k<2;k++){const ang=Math.random()*6.2832,sp=1.2+Math.random()*3;
-        state.particles.push({x:hx,y:hy,px:hx,py:hy,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.0,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*1.8,streak:Math.random()<0.5,white:Math.random()<0.4});}}
-      if(!n.holding&&prog<1){const rr=cbr+(1-prog)*r*2.6;pctx.globalAlpha=a*(0.45+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=8;pctx.beginPath();pctx.arc(hx,hy,rr,0,6.2832);pctx.stroke();}
-      pctx.shadowColor=col;pctx.shadowBlur=14+30*ease+(n.holding?20:0);pctx.globalAlpha=a;pctx.lineWidth=3+2.5*ease;pctx.strokeStyle=col;
-      pctx.beginPath();pctx.arc(hx,hy,cbr,0,6.2832);pctx.stroke();
-      pctx.globalAlpha=a*(0.7+0.3*ease);pctx.fillStyle=col;pctx.beginPath();pctx.arc(hx,hy,cbr*0.5,0,6.2832);pctx.fill();
-      pctx.globalAlpha=a*(n.holding?0.95:0.34+0.5*ease);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=14;pctx.beginPath();pctx.arc(hx,hy,cbr*(n.holding?0.5:0.34),0,6.2832);pctx.fill();
-      const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1);
-      if(!n.holding&&flashS>0.02){pctx.globalAlpha=a*flashS*0.9;pctx.strokeStyle="#fff";pctx.lineWidth=2.5;pctx.shadowColor="#fff";pctx.shadowBlur=20;pctx.beginPath();pctx.arc(hx,hy,cbr+2+flashS*5,0,6.2832);pctx.stroke();}
+      // 꼬리 마커(육각형)
+      const tp=travel(1);pctx.globalAlpha=a*(0.4+0.4*ease);pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=10;pctx.lineWidth=2.5;hexPath(pctx,tp[0],tp[1],hbr*0.66);pctx.stroke();
       pctx.restore();
+      // ── 머리/이동 육각형 노트 (일반 홀드와 동일한 충전 실루엣) + 연소 ──
+      const base=n.holding?travel(s):travel(0);
+      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0;
+      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.55);gl=s*48;wh=0.25+s*0.72;   // 연소: 흔들림·성장·백열
+        if(!n.missed){const rate=2+Math.floor(s*5);for(let k=0;k<rate;k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*(3+s*5),ox=Math.cos(ang)*bsz,oy=Math.sin(ang)*bsz;
+          state.particles.push({x:bx+ox,y:by+oy,px:bx+ox,py:by+oy,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.3,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*(1.6+s*1.6),streak:Math.random()<0.5,white:Math.random()<s*0.5});}}}
+      // 접근 어프로치 링(육각형)
+      if(!n.holding&&prog<1){const rr=bsz+(1-prog)*r*2.6;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=a*(0.45+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=8;hexPath(pctx,bx,by,rr);pctx.stroke();pctx.restore();}
+      // 충전 코어(육각형)
+      pctx.save();pctx.shadowColor=col;pctx.shadowBlur=16+30*ease+gl;
+      pctx.globalAlpha=a*0.18;pctx.fillStyle=col;hexPath(pctx,bx,by,bsz*1.3);pctx.fill();
+      pctx.globalAlpha=a*(0.85+0.15*ease);pctx.shadowBlur=12+gl;hexPath(pctx,bx,by,bsz);pctx.fill();
+      pctx.globalAlpha=a*0.6;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=8;hexPath(pctx,bx,by,bsz);pctx.stroke();
+      const wc=Math.max(0.5+ease*0.35,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12+gl*0.6;hexPath(pctx,bx,by,bsz*(0.42+wh*0.22));pctx.fill();pctx.restore();
+      // 합체 섬광 (누르는 타이밍)
+      const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1);
+      if(!n.holding&&flashS>0.02){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=flashS;pctx.fillStyle="rgba(255,255,255,0.7)";pctx.shadowColor="#fff";pctx.shadowBlur=30;pctx.beginPath();pctx.arc(bx,by,bsz*1.4*flashS+6,0,6.2832);pctx.fill();pctx.restore();}
       continue;
     }
     pctx.save();pctx.globalAlpha=a;
