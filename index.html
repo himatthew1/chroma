@@ -2683,11 +2683,17 @@ $("#edBeatToggle").onclick=()=>{edBeat=!edBeat;$("#edBeatToggle").classList.togg
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
   if(!edBeat||cur<=prev)return;
+  const cross=(t)=>t>prev&&t<=cur;
   for(const n of edNotes){
-    if(n.type==="slide"){const dur=n.duration||0.3;if(Array.isArray(n.pts)){slideEnsurePtt(n);
-      for(let j=0;j<n.pts.length;j++){const tt=n.time+n.ptt[j]*dur;if(tt>prev&&tt<=cur)slideTick(j,true);}}continue;}
-    if(n.type==="space"){if(n.time>prev&&n.time<=cur)playSfx(settings.sfx,"perfect",0);continue;}
-    if(n.time>prev&&n.time<=cur)playSfx(settings.sfx,"perfect",(n.lane||0)%4);
+    const col=(n.lane||0)%4, dur=n.duration||0;
+    if(n.type==="slide"){if(Array.isArray(n.pts)){slideEnsurePtt(n);   // 노트 포인트마다 (머리·중간·꼬리 전부)
+      for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))slideTick(j,true);}}
+      else{if(cross(n.time))playSfx(settings.sfx,"perfect",col);if(dur&&cross(n.time+dur))playSfx(settings.sfx,"great",col);}continue;}
+    if(n.type==="press"){if(cross(n.time))playSfx(settings.sfx,"perfect",col);   // ★홀드: 시작 + 끝
+      if(cross(n.time+dur))playSfx(settings.sfx,"great",col);continue;}
+    if(n.type==="space"){if(cross(n.time))playSfx(settings.sfx,"perfect",0);     // ★스페이스 홀드: 끝에도
+      if(dur&&cross(n.time+dur))playSfx(settings.sfx,"great",0);continue;}
+    if(cross(n.time))playSfx(settings.sfx,"perfect",col);                        // 일반
   }
 }
 $("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 녹음 중…":"🔴 라이브 입력";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
