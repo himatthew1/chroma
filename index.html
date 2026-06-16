@@ -1269,19 +1269,7 @@ $("#retryBtn").onclick=()=>{show("play");startPlay();};
 $("#toSongSel").onclick=()=>{stopPlay();openSongSelect();};
 $("#toEditor").onclick=()=>{stopPlay();playFromEditor=false;show("editor");};
 
-function fitCanvas(cv){
-  if(cv===pcanvas&&settings&&settings.retro){   // ★레트로: 4:3 레터박스 (256×192 비율 유지)
-    const W=window.innerWidth,H=window.innerHeight;let bw,bh;
-    if(W/H>4/3){bh=H;bw=Math.round(H*4/3);}else{bw=W;bh=Math.round(W*0.75);}
-    cv.width=bw;cv.height=bh;
-    cv.style.position="absolute";cv.style.left=Math.round((W-bw)/2)+"px";cv.style.top=Math.round((H-bh)/2)+"px";
-    cv.style.width=bw+"px";cv.style.height=bh+"px";cv.style.imageRendering="pixelated";
-    if(screens&&screens.play)screens.play.style.background="#000";
-    return;
-  }
-  cv.width=window.innerWidth;cv.height=window.innerHeight;
-  if(cv===pcanvas){cv.style.position="";cv.style.left="";cv.style.top="";cv.style.width="";cv.style.height="";cv.style.imageRendering="";if(screens&&screens.play)screens.play.style.background="";}
-}
+function fitCanvas(cv){cv.width=window.innerWidth;cv.height=window.innerHeight;}   // 레트로는 화면 꽉 채움(레터박스 없음) — 거칠기는 모자이크 후처리가 담당
 function approachSec(){return clamp(1.7-parseFloat($("#speed").value)*0.11,0.32,1.4);}
 function noteR(){return clamp(Math.min(pcanvas.width,pcanvas.height)*0.055,26,60);}
 // ===== 스피드 구간(연출용 시각 시간워프) — 노트·별이 느리거나 빨라 "보이되" 판정 타이밍·노래는 그대로 =====
@@ -2272,11 +2260,12 @@ function loop(){
   pctx.globalAlpha=1;pctx.shadowBlur=0;
   state.floats=state.floats.filter(f=>f.life>0);
 
-  // ★레트로(저해상도) 후처리 — 최종 프레임을 256×192로 다운샘플 후 니어리스트 확대 (DS 픽셀 룩)
-  if(settings.retro){const lb=_retroLow(),lc=lb.getContext("2d");
-    lc.imageSmoothingEnabled=true;lc.clearRect(0,0,256,192);
-    lc.drawImage(pcanvas,0,0,pcanvas.width,pcanvas.height,0,0,256,192);
-    pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,256,192,0,0,pcanvas.width,pcanvas.height);pctx.imageSmoothingEnabled=true;}
+  // ★레트로(저해상도) 후처리 — 세로 ~192 밀도(정사각 픽셀)로 다운샘플 후 니어리스트 확대. 화면비 무관·풀스크린
+  if(settings.retro){const W=pcanvas.width,H=pcanvas.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
+    const lb=_retroLow();if(lb.width!==lw||lb.height!==lh){lb.width=lw;lb.height=lh;}const lc=lb.getContext("2d");
+    lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
+    lc.drawImage(pcanvas,0,0,W,H,0,0,lw,lh);
+    pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;}
 
   // progress
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
