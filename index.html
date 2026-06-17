@@ -584,18 +584,47 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
 const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART EDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO PLAY",ic:"?",fn:()=>openHelp()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
-// 공용: 네온 CHROMA 로고
-function fxLogo(cx,ly,lsz){fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
-  const word="CHROMA",sp=lsz*0.92,startx=cx-(word.length-1)*sp/2;
-  for(let i=0;i<word.length;i++){fxc.shadowColor=FX_COLS[i];fxc.shadowBlur=lsz*0.5;fxc.fillStyle="#fff";fxc.lineWidth=lsz*0.06;fxc.strokeStyle=FX_COLS[i];
-    fxc.fillText(word[i],startx+i*sp,ly);fxc.strokeText(word[i],startx+i*sp,ly);}
+// 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
+function fxLogo(cx,ly,lsz,t){t=t||0;
+  fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";
+  fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
+  fxc.lineJoin="round";
+  const word="CHROMA",sp=lsz*0.94,startx=cx-(word.length-1)*sp/2;
+  const hueOf=(i)=>(t*42+i*52)%360;
+  for(let i=0;i<word.length;i++){
+    const gx=startx+i*sp,hue=hueOf(i),col="hsl("+hue.toFixed(0)+",95%,62%)";
+    if(i===3){   // O → 그라데이션 링 + 흰색 4꼭짓점 별
+      const r=lsz*0.46;
+      const grad=fxc.createLinearGradient(gx-r,ly+r,gx+r,ly-r);
+      grad.addColorStop(0,"hsl("+(hue%360)+",95%,62%)");grad.addColorStop(.5,"hsl("+((hue+130)%360)+",95%,62%)");grad.addColorStop(1,"hsl("+((hue+250)%360)+",95%,62%)");
+      fxc.shadowColor=col;fxc.shadowBlur=lsz*0.45;
+      fxc.lineWidth=lsz*0.1;fxc.strokeStyle=grad;fxc.beginPath();fxc.arc(gx,ly,r,0,6.2832);fxc.stroke();
+      const R=r*0.62;fxc.shadowColor="#fff";fxc.shadowBlur=lsz*0.3;fxc.fillStyle="#fff";
+      fxc.beginPath();fxc.moveTo(gx,ly-R);fxc.quadraticCurveTo(gx,ly,gx+R,ly);fxc.quadraticCurveTo(gx,ly,gx,ly+R);fxc.quadraticCurveTo(gx,ly,gx-R,ly);fxc.quadraticCurveTo(gx,ly,gx,ly-R);fxc.closePath();fxc.fill();
+      continue;
+    }
+    // 네온 외곽선 글자 (색 순환) + 옅은 동색 채움으로 가독성 확보
+    fxc.shadowColor=col;fxc.shadowBlur=lsz*0.5;
+    fxc.globalAlpha=0.28;fxc.fillStyle=col;fxc.fillText(word[i],gx,ly);fxc.globalAlpha=1;
+    fxc.lineWidth=lsz*0.085;fxc.strokeStyle=col;fxc.strokeText(word[i],gx,ly);
+  }
   fxc.restore();}
 function fxTitle(s,cx,y,sz,col){fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.shadowColor=col||"#22a7ff";fxc.shadowBlur=sz*0.4;fxc.fillStyle="#fff";fxc.font="700 "+Math.round(sz)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(s,cx,y);fxc.restore();}
 function drawFxMenu(t){
   const W=fx.width,H=fx.height,cx=W/2;
   fxBgDraw();
-  fxLogo(cx,H*0.24,Math.min(W*0.16,H*0.16,120));
-  fxc.save();fxc.shadowBlur=0;fxc.fillStyle="#aab4e0";fxc.textAlign="center";fxc.font="600 "+Math.round(Math.min(W*0.16,H*0.16,120)*0.16)+"px 'Segoe UI',sans-serif";fxc.fillText("C O L O R   Y O U R   B E A T",cx,H*0.24+Math.min(W*0.16,H*0.16,120)*0.62);fxc.restore();
+  const lsz=Math.min(W*0.16,H*0.16,120);
+  fxLogo(cx,H*0.235,lsz,t);
+  // 서브타이틀 — 크고 굵게, 자간 + 글로우로 도트필터에서도 확실히 읽히게
+  const subSz=Math.max(17,lsz*0.24),subY=H*0.235+lsz*0.74;
+  fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";
+  fxc.font="700 "+Math.round(subSz)+"px 'Century Gothic','Segoe UI',sans-serif";
+  try{fxc.letterSpacing=Math.round(subSz*0.34)+"px";}catch(_){}
+  fxc.shadowColor="#22a7ff";fxc.shadowBlur=subSz*0.8;fxc.fillStyle="#eaf0ff";
+  fxc.fillText("COLOR YOUR BEAT",cx,subY);
+  fxc.shadowBlur=0;fxc.fillText("COLOR YOUR BEAT",cx,subY);   // 두 번 그려 선명하게
+  try{fxc.letterSpacing="0px";}catch(_){}
+  fxc.restore();
   fxBtns=[];const bw=Math.min(W*0.66,440),bh=Math.max(54,H*0.092),gap=bh*0.34,n=FX_MENU.length;let by=H*0.44;
   for(let i=0;i<n;i++)fxButton(cx-bw/2,by+i*(bh+gap),bw,bh,FX_MENU[i].ic+"  "+FX_MENU[i].t,FX_MENU[i].fn,i);
   fxc.save();fxc.textAlign="left";fxc.font="700 "+Math.round(bh*0.4)+"px 'Segoe UI',sans-serif";
@@ -649,7 +678,7 @@ function drawFxSongsel(t){
     const tx=swx+sw+pad;
     fxc.shadowBlur=5;fxc.textBaseline="alphabetic";fxc.textAlign="left";
     fxc.fillStyle="#fff";fxc.font="700 "+Math.round(Math.min(bh*0.3,(bw-(tx-bx)-pad)/Math.max(8,nm.length)*1.7))+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText((locked?"🔒 ":"")+nm,tx,yy+bh*0.46);
-    if(sub){fxc.shadowBlur=0;fxc.fillStyle="#9fb0d8";fxc.font="600 "+Math.round(bh*0.18)+"px 'Segoe UI',sans-serif";fxc.fillText(sub,tx,yy+bh*0.72);}
+    if(sub){fxc.shadowColor="#0a1030";fxc.shadowBlur=2;fxc.fillStyle="#bcc8ee";fxc.font="700 "+Math.round(bh*0.24)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(sub,tx,yy+bh*0.74);}
     fxc.restore();});
   fxPixelate();
 }
@@ -674,7 +703,7 @@ function drawFxSettings(t){
   fxButton(W*0.04,H*0.032,Math.min(W*0.18,140),Math.max(36,H*0.055),"← MENU",()=>document.querySelector("#settings [data-home]").click(),900);
   const pw=Math.min(W*0.86,720),px=cx-pw/2,rowH=Math.max(46,H*0.084),adv=rowH*1.32;let y=H*0.17;
   const lab=(s,yy,col,sz)=>{fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle=col||"#e6ecff";fxc.shadowColor="#060a22";fxc.shadowBlur=2;fxc.font="700 "+Math.round(sz||rowH*0.36)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(s,px,yy);fxc.restore();};
-  const small=(s,xx,yy,col,sz)=>{fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle=col||"#9fb0d8";fxc.font="600 "+Math.round(sz||rowH*0.26)+"px 'Segoe UI',sans-serif";fxc.fillText(s,xx,yy);fxc.restore();};
+  const small=(s,xx,yy,col,sz)=>{fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle=col||"#bcc8ee";fxc.shadowColor="#0a1030";fxc.shadowBlur=2;fxc.font="700 "+Math.round(sz||rowH*0.34)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(s,xx,yy);fxc.restore();};
   // SFX 토글 + 볼륨
   lab("SFX",y+rowH/2);
   fxButton(px+pw*0.14,y+rowH*0.12,pw*0.13,rowH*0.76,settings.sfxOn?"ON":"OFF",()=>document.getElementById("setSfxToggle").click(),901,settings.sfxOn?"#39e36b":"#3a4a86");
@@ -709,7 +738,7 @@ function drawFxSettings(t){
   fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle="#ffd23f";fxc.shadowColor="#ffd23f";fxc.shadowBlur=5;fxc.font="700 "+Math.round(rowH*0.32)+"px 'Century Gothic',monospace";fxc.fillText(document.getElementById("offsetVal").textContent,px+pw*0.64,y+rowH/2);fxc.restore();
   fxButton(px+pw*0.8,y+rowH*0.12,pw*0.09,rowH*0.76,"0",()=>document.getElementById("offsetReset").click(),930);
   y+=adv*0.72;
-  small(document.getElementById("calibLive").textContent||"Tap A D J L to the beat",px,y+rowH*0.4,"#9fb0d8",rowH*0.32);
+  small(document.getElementById("calibLive").textContent||"Tap A D J L to the beat",px,y+rowH*0.4,"#bcc8ee",rowH*0.36);
   fxPixelate();
 }
 const FX_SCREENS={menu:1,result:1,songsel:1,settings:1};
