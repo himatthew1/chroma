@@ -221,6 +221,12 @@
   html.retro .hud-score .meta #hRank{font-size:11px;}
   html.retro .nm{font-size:15px;}
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
+  /* 픽셀 로고 (레트로일 때 SVG 대신) */
+  .logo-px{display:none;}
+  html.retro #logoSvg{display:none;}
+  html.retro .logo-px{display:block;text-align:center;margin:24px 0 14px;font-family:'Press Start 2P',monospace;font-size:clamp(26px,8.5vw,46px);letter-spacing:4px;line-height:1;}
+  html.retro .logo-px span{text-shadow:0 0 6px currentColor,0 0 14px currentColor,0 0 24px currentColor;}
+  html.retro .logo-px .sub{display:block;font-size:9px;letter-spacing:7px;color:#9fb0d8;margin-top:14px;text-shadow:0 0 6px #9fb0d8aa;}
 </style>
 </head>
 <body>
@@ -260,6 +266,7 @@
         <circle cx="647" cy="224" r="2.4" fill="#ffd23f"/>
       </g>
     </svg>
+    <div id="logoPx" class="logo-px" aria-hidden="true"><span style="color:#ff2e97">C</span><span style="color:#22a7ff">H</span><span style="color:#39e36b">R</span><span style="color:#ffd23f">O</span><span style="color:#ff2e97">M</span><span style="color:#22a7ff">A</span><span class="sub">COLOR YOUR BEAT</span></div>
     <button class="menu-btn" id="goPlay">▶  PLAY</button>
     <button class="menu-btn" id="goEditor">✎  Chart Editor</button>
     <button class="menu-btn" id="goSettings" style="font-size:16px;padding:12px">⚙  Settings (SFX · Sync)</button>
@@ -849,7 +856,7 @@ async function allSongsForPlay(){
     } if(ch)dbPut(lib); }
   }catch(e){}
   // 내장곡: 난이도 목록=내장(NORMAL 삭제 유지), 노트=내 편집본>Gist>내장
-  const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"내장곡",audio:s.audio,
+  const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"Built-in",audio:s.audio,
     difficulties:s.difficulties.map(d=>({name:d.name,chart:pickChart(s.id,d.name,d.chart,userById[s.id])}))}));
   // 내가 등록한 "새 곡"만 별도 추가
   const user=userRaw.filter(s=>!builtinIds.has(s.id)).map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
@@ -2216,12 +2223,12 @@ function loop(){
     const gtxt=(s,gx,gy,sz,col)=>{ if(RT){pctx.font=Math.round(sz*0.7)+"px 'Press Start 2P',monospace";pctx.lineJoin="round";pctx.lineWidth=Math.max(3,sz*0.16);pctx.strokeStyle="#05070f";pctx.strokeText(s,gx,gy);pctx.fillStyle=col;pctx.fillText(s,gx,gy);} else {pctx.font="600 "+sz+"px Segoe UI";pctx.fillStyle=col;pctx.fillText(s,gx,gy);} };
     gtxt("R U RED E?",W/2,H*0.28,RT?H*0.05:14,"#22a7ff");
     gtxt(RT?("HOLD "+KEYS.map(k=>k.toUpperCase()).join(" ")):(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  hold all for 1.5s to ignite"),W/2,H*0.37,RT?H*0.034:23,"#eef1ff");
-    const cx=W/2,cy=H*0.52,R=Math.max(66,RT?H*0.12:66),pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
-    pctx.strokeStyle="#2a3158";pctx.lineWidth=RT?12:8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
-    pctx.strokeStyle="#22a7ff";pctx.lineWidth=RT?12:8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
+    const cx=W/2,cy=H*0.49,R=RT?H*0.085:66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
+    pctx.strokeStyle="#2a3158";pctx.lineWidth=RT?10:8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
+    pctx.strokeStyle="#22a7ff";pctx.lineWidth=RT?10:8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
     pctx.beginPath();pctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*pr);pctx.stroke();pctx.shadowBlur=0;
-    pctx.textBaseline="middle";gtxt(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy,RT?H*0.07:28,"#fff");pctx.textBaseline="alphabetic";
-    gtxt(heldN<4?"PRESS ALL 4 KEYS":"HOLD...",cx,cy+R+(RT?42:26),RT?H*0.028:13,"#8b90b8");
+    pctx.textBaseline="middle";gtxt(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy,RT?H*0.055:28,"#fff");pctx.textBaseline="alphabetic";
+    gtxt(heldN<4?"PRESS ALL 4 KEYS":"HOLD...",cx,cy+R+(RT?28:26),RT?H*0.022:13,"#8b90b8");
     pctx.restore();
   }
 
@@ -2283,8 +2290,8 @@ function loop(){
     pctx.save();pctx.globalAlpha=f.life>0.3?1:f.life/0.3;
     pctx.translate(f.x,yy);pctx.scale(sc,sc);
     pctx.shadowColor=col;pctx.shadowBlur=14;
-    if(settings.retro){pctx.font="20px 'Press Start 2P',monospace";   // ★레트로: 큰 픽셀 폰트 + 외곽선
-      pctx.lineJoin="round";pctx.lineWidth=6;pctx.strokeStyle="#05070f";pctx.shadowBlur=0;pctx.strokeText(JUDGE_TXT[f.kind],0,0);pctx.shadowColor=col;pctx.shadowBlur=14;pctx.fillStyle=col;}
+    if(settings.retro){const jf=Math.max(22,Math.round(pcanvas.height*0.042));pctx.font=jf+"px 'Press Start 2P',monospace";   // ★레트로: 큰 픽셀 폰트 + 외곽선 (다운샘플에서도 읽히게)
+      pctx.lineJoin="round";pctx.lineWidth=Math.max(5,jf*0.32);pctx.strokeStyle="#05070f";pctx.shadowBlur=0;pctx.strokeText(JUDGE_TXT[f.kind],0,0);pctx.shadowColor=col;pctx.shadowBlur=14;pctx.fillStyle=col;}
     else{pctx.font="800 24px Segoe UI";pctx.fillStyle=col;}
     pctx.fillText(JUDGE_TXT[f.kind],0,0);
     pctx.restore();
@@ -2446,7 +2453,7 @@ async function openEdHub(){
   built.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
     const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-bsong="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button>`).join(" ");
-    card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· 내장곡 · 온라인 최신</span></div>
+    card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· Built-in · online latest</span></div>
       <div class="ar muted">난이도 클릭 = 수정 (저장하면 온라인에 자동 반영)</div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips}
       <button class="tb-btn diffchip" data-badd="${song.id}">➕ 난이도 추가</button></div></div>`;
@@ -2484,7 +2491,7 @@ async function editorEditBuiltin(id,diffName){
 async function editorAddDiffBuiltin(id){
   const song=builtinById(id);if(!song){toast("곡을 찾을 수 없음");return;}
   resetEditorState();edSongId=song.id;edSeedDiffs=song.difficulties.map(x=>({name:x.name,chart:x.chart}));
-  $("#edSongTitle").value=song.title;$("#edDiffName").value="";$("#edModeTitle").textContent="➕ 내장곡에 난이도 추가 (사본)";
+  $("#edSongTitle").value=song.title;$("#edDiffName").value="";$("#edModeTitle").textContent="➕ Add difficulty to built-in (copy)";
   show("editor");edInit();updateSelPanel();
   try{const blob=await (await fetch(song.audio)).blob();edAudioFile=blob;await loadEditorAudioBlob(blob);}catch(e){toast("음원 로드 실패");}
 }
