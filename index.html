@@ -508,6 +508,7 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
             Span<input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="width:64px;vertical-align:middle">
             Amp<input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="width:64px;vertical-align:middle">
             <canvas id="slidePathCv" width="150" height="92" title="Edit path: click = add point · drag = move · right-click = delete" style="vertical-align:middle;margin-left:4px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair"></canvas>
+            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="OFF = curved orbital path (default) · ON = straight lines between points (manual placement)"><input type="checkbox" id="slideStraight" style="vertical-align:middle">Straight</label>
           </span>
           <button class="tb-btn" id="selGroup" title="Make selected notes share one color">🎨 Color</button>
           <button class="tb-btn" id="selPosGroup" title="Cluster selected notes near one spawn spot">📍 Position</button>
@@ -1775,6 +1776,7 @@ function buildPlayNotes(chart){
     nx:(typeof n.x==="number"?n.x:null),ny:(typeof n.y==="number"?n.y:null),
     nx2:(typeof n.x2==="number"?n.x2:null),ny2:(typeof n.y2==="number"?n.y2:null),
     pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>(p.length>2&&typeof p[2]==="number")?[+p[0],+p[1],+p[2]]:[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화, [x,y,시간비율?])
+    straight:(n.straight?true:undefined),   // ★직선 경로 옵션(기본=곡선/궤도)
     ch:(typeof n.ch==="number"?n.ch:null),ci:(typeof n.ci==="number"?n.ci:0),
     g:(typeof n.g==="number"?n.g:null),
     pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
@@ -3499,6 +3501,7 @@ function updateSelPanel(){
   if(slideSel){ if(!edSel.pts)slideRegen(edSel);   // 처음이면 기본 경로 생성
     $("#slideShape").value=edSel.sShape||"arc";$("#slideCount").value=edSel.sCount||7;
     $("#slideSpan").value=edSel.sSpan||0.6;$("#slideAmp").value=(edSel.sAmp==null?0.2:edSel.sAmp);
+    if($("#slideStraight"))$("#slideStraight").checked=!!edSel.straight;
     drawSlidePath(edSel); }
 }
 // 슬라이드 경로 생성 (모양/개수/폭/진폭 → 정규화 노트포인트). custom이면 기존 pts 유지
@@ -3520,7 +3523,12 @@ function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const
   const PAD=8,mx=v=>PAD+v*(W-2*PAD),my=v=>PAD+v*(H-2*PAD);
   c.clearRect(0,0,W,H);c.fillStyle="#0a0d1c";c.fillRect(0,0,W,H);
   c.strokeStyle="#2a3158";c.lineWidth=1;c.strokeRect(0.5,0.5,W-1,H-1);
-  c.strokeStyle="#5cc8ff";c.lineWidth=2;c.beginPath();n.pts.forEach((p,i)=>{const X=mx(p[0]),Y=my(p[1]);i?c.lineTo(X,Y):c.moveTo(X,Y);});c.stroke();
+  c.strokeStyle="#5cc8ff";c.lineWidth=2;c.beginPath();
+  if(n.straight||n.pts.length<3){n.pts.forEach((p,i)=>{const X=mx(p[0]),Y=my(p[1]);i?c.lineTo(X,Y):c.moveTo(X,Y);});}
+  else{const P=n.pts,SEG=14;for(let i=1;i<P.length;i++){const p0=P[Math.max(0,i-2)],p1=P[i-1],p2=P[i],p3=P[Math.min(P.length-1,i+1)];
+      for(let s=0;s<=SEG;s++){const t=s/SEG,t2=t*t,t3=t2*t,cr=(a,b,cc,d)=>0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3);
+        const X=mx(cr(p0[0],p1[0],p2[0],p3[0])),Y=my(cr(p0[1],p1[1],p2[1],p3[1]));(i===1&&s===0)?c.moveTo(X,Y):c.lineTo(X,Y);}}}
+  c.stroke();
   n.pts.forEach((p,i)=>{c.fillStyle=i===0?"#ffd54f":"#9fe0ff";c.beginPath();c.arc(mx(p[0]),my(p[1]),i===0?4:3,0,6.2832);c.fill();});
 }
 (function(){const cv=$("#slidePathCv");if(!cv)return;const W=cv.width,H=cv.height,PAD=8;
@@ -3543,6 +3551,7 @@ $("#slideShape").onchange=()=>{if(!edSel)return;if($("#slideShape").value==="cus
 $("#slideCount").onchange=slideParamChange;
 $("#slideSpan").oninput=slideParamChange;
 $("#slideAmp").oninput=slideParamChange;
+$("#slideStraight").onchange=()=>{const set=selList().filter(n=>n.type==="slide");if(!set.length)return;pushUndo();const v=$("#slideStraight").checked;set.forEach(n=>{if(v)n.straight=true;else delete n.straight;});if(edSel)drawSlidePath(edSel);toast(v?"직선 경로 (수동 배치)":"곡선 경로 (궤도)");};
 // 위치군 몰림 정도 미리보기 (점=노트, 점선원=이격 범위) — 슬라이더와 연동해 육안 확인
 function drawPgPreview(spread,count){
   const cv=$("#pgPreview");if(!cv)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=Math.min(W,H)/2-4;
