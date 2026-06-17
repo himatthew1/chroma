@@ -2355,7 +2355,7 @@ function loop(){
     }
     // ★슬라이드(유성) 노트 — 유성이 노트포인트를 찍으며 진입→캐치→그 경로를 역으로 되짚는 회전 별. 포인트 소모마다 타격음·연소
     if(n.type==="slide"&&n.ppts){
-      const off={x:dx-n.x,y:dy-n.y}, ph=n.holding?0:1;       // 진입 드리프트(잡기 전만)
+      const off={x:dx-n.x,y:dy-n.y}, ph=0;       // ★드리프트 끔 — 경로 고정, 유성이 그 위를 그림(위젯과 동일)
       const PP=(j)=>[n.ppts[j][0]+off.x*ph, n.ppts[j][1]+off.y*ph];
       const SP=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph, p.y+off.y*ph];};
       const NP=n.ppts.length, frac=n._tf, aSpan=n._aSpan, hbr=br*1.15;
@@ -2372,11 +2372,11 @@ function loop(){
       if(!n.holding){
         // ── 접근: 유성이 도입부(0~aSpan)를 그리며 머리로. 긴 노트는 일부만, 나머지는 역행 때 등장 ──
         const cp=clamp(prog/0.62,0,1),sm=aSpan*(1-cp);     // ★유성 더 빠르게: prog 0.62에 머리 도착 후 대기
-        // 도입부 경로 가이드 — 어두운 회색(접근 중엔 무채색)
-        pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=5;pctx.globalAlpha=a*(0.25+0.35*ease);pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(sm*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        // 유성이 지난 노트포인트 (회색·옅게)
-        for(let j=0;j<NP;j++){ if(frac[j]<=aSpan && frac[j]>=sm-0.001){ const recent=clamp(1-(frac[j]-sm)/(aSpan*0.5+0.001),0,1); drawPt(PP(j),0.5+recent*0.3, a*(0.2+0.4*recent), j, true); } }
+        // 유성이 그려온 궤적(회색) — 유성(sm)에서 도입부 끝(aSpan)까지 또렷하게
+        pctx.strokeStyle="#828cba";pctx.shadowColor="#828cba";pctx.shadowBlur=5;pctx.globalAlpha=a*0.7;pctx.lineWidth=3.2;
+        pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(sm+(aSpan-sm)*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        // 유성이 지난 노트포인트 (회색, 또렷)
+        for(let j=0;j<NP;j++){ if(frac[j]<=aSpan && frac[j]>=sm-0.001){ drawPt(PP(j),0.7, a*0.8, j, true); } }
         // 긴 유성 꼬리(잔상)
         const TSPAN=Math.min(0.5,aSpan), TSEG=22, mh=SP(sm);
         for(let i=0;i<TSEG;i++){const A=SP(clamp(sm+(i/TSEG)*TSPAN,0,1)),B=SP(clamp(sm+((i+1)/TSEG)*TSPAN,0,1)),lf=1-i/TSEG;
