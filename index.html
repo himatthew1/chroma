@@ -1060,8 +1060,8 @@ function drawFxHowto(t){
       if(prog>=1){fxc.save();fxc.globalAlpha=1;fxc.globalCompositeOperation="lighter";fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=8;fxc.lineWidth=Math.max(3,r*0.08);fxc.beginPath();fxc.arc(cx,cyc,br*1.32,-1.5708,-1.5708+6.283*n.charge);fxc.stroke();fxc.restore();}}   // 충전 게이지(교육용)
   } else if(_htMode==="drag"){
     // 인게임 메테오와 동일: 유성이 경로/노트포인트 그리며 헤드 도착(별 대기) → 캐치 → 별이 경로 역행 점화
-    const C=[[0,0],[2.0,-1.4],[3.6,0.2],[2.6,1.8],[0.4,1.6]],FR=[0.25,0.5,0.75,1.0];
-    const SP=fr=>{fr=Math.max(0,Math.min(1,fr));const s=fr*(C.length-1),i=Math.min(C.length-2,Math.floor(s)),tt=s-i,t2=tt*tt,t3=t2*tt,a=C[Math.max(0,i-1)],b=C[i],cc2=C[i+1],dd=C[Math.min(C.length-1,i+2)];const cr=(p0,p1,p2,p3)=>0.5*((2*p1)+(-p0+p2)*tt+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);return {x:cx+cr(a[0],b[0],cc2[0],dd[0])*r,y:cyc+cr(a[1],b[1],cc2[1],dd[1])*r};};   // ★Catmull-Rom 곡선(궤도)
+    const FR=[0,0.2,0.4,0.6,0.8,1.0],sx=W*0.12,ex=W*0.88,amp=(ex-sx)*0.2;   // ★승인본 위젯 v4 수평 사인 경로 (화면 안·중앙, 6 노트포인트)
+    const SP=fr=>{fr=Math.max(0,Math.min(1,fr));return {x:sx+(ex-sx)*fr,y:cyc+Math.sin(fr*Math.PI*2)*amp};};
     if(!n.caught){
       if(prog>1.25&&!n.judged)_htBurst("miss",cx,cyc,n.col);   // ★안 잡으면 제때 미스
       if(!n.judged){const cp=Math.min(1,prog/0.62),sm=1-cp;
