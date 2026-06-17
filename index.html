@@ -1581,7 +1581,7 @@ function gameNow(){
 let curSongMeta={title:"—",artist:"",diff:""};
 function padGeom(){
   const W=pcanvas.width,H=pcanvas.height;
-  const r=clamp(Math.min(W/9,H*0.13),40,108);
+  const r=clamp(Math.min(W/12,H*0.10),32,74);   // ★위젯 비율로 축소(예전보다 작게)
   // ★패드를 가운데로 모아 한눈에: 인접 패드 간격을 좁히고 전체를 중앙 정렬
   const gap=r*0.40, maxSpan=(W-2*(r+12))/3;
   const span=Math.min(2*r+gap,maxSpan), total=span*3, startX=W/2-total/2, y=H-r-46-Math.round(r*0.92);   // ★스페이스 콘솔 자리 확보(패드 살짝 위로)
@@ -2433,7 +2433,7 @@ function loop(){
     // 어프로치 링
     if(prog<1){const rr=br+(1-prog)*r*2.6;
       pctx.shadowColor=col;pctx.shadowBlur=8;pctx.globalAlpha=a*(0.45+0.45*ease);
-      pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;
+      pctx.lineWidth=Math.max(2.8,br*0.07);pctx.strokeStyle=col;
       if(n.type==="press")hexPath(pctx,dx,dy,rr);else{pctx.beginPath();pctx.arc(dx,dy,rr,0,Math.PI*2);}
       pctx.stroke();pctx.globalAlpha=a;}
     // 프레스 연소 스파크 — 잡는 중엔 길수록 치지직 격하게
@@ -2453,20 +2453,20 @@ function loop(){
       hexPath(pctx,dx,dy,br*1.3);pctx.fill();                                          // 오라
       pctx.globalAlpha=a*(0.85+0.15*ease);pctx.shadowBlur=12+glowB;
       hexPath(pctx,dx,dy,br);pctx.fill();                                              // 솔리드
-      pctx.globalAlpha=a*0.6;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=8;
+      pctx.globalAlpha=a*0.6;pctx.strokeStyle="#fff";pctx.lineWidth=Math.max(2.5,br*0.06);pctx.shadowBlur=8;
       hexPath(pctx,dx,dy,br);pctx.stroke();                                            // 흰 림
       const wc=Math.max(0.5+ease*0.35,whiten);                                         // 잡을수록 하얗게 차오름
       pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12+glowB*0.6;
       hexPath(pctx,dx,dy,br*(0.42+whiten*0.22));pctx.fill();                           // 밝은 중심
     }else{
-      // 일반 노트 — 속 빈 링 + 코어
-      pctx.shadowColor=col;pctx.shadowBlur=12+34*ease;
-      pctx.lineWidth=3+2.5*ease;pctx.strokeStyle=col;
+      // 일반 노트(Orb) — 굵은 링 + 코어 + 작은 흰 중심 (위젯 비율)
+      pctx.shadowColor=col;pctx.shadowBlur=14+28*ease;
+      pctx.lineWidth=Math.max(3.5,br*0.1);pctx.strokeStyle=col;
       pctx.beginPath();pctx.arc(dx,dy,br,0,Math.PI*2);pctx.stroke();
-      pctx.shadowBlur=10+18*ease;pctx.globalAlpha=a*(0.7+0.3*ease);pctx.fillStyle=col;
-      pctx.beginPath();pctx.arc(dx,dy,br*(0.4+0.16*ease),0,Math.PI*2);pctx.fill();
-      if(ease>0.01){pctx.globalAlpha=a*ease*0.7;pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12*ease;
-        pctx.beginPath();pctx.arc(dx,dy,br*0.42,0,Math.PI*2);pctx.fill();}
+      pctx.shadowBlur=12;pctx.globalAlpha=a*(0.85+0.15*ease);pctx.fillStyle=col;
+      pctx.beginPath();pctx.arc(dx,dy,br*0.46,0,Math.PI*2);pctx.fill();
+      pctx.globalAlpha=a;pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=12;
+      pctx.beginPath();pctx.arc(dx,dy,br*0.26,0,Math.PI*2);pctx.fill();
     }
     // 퍼펙트 임박 플래시
     const flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
@@ -2518,13 +2518,13 @@ function loop(){
   }
   for(let c=0;c<4;c++){
     const col=COLHEX[c],x=g.xs[c],y=g.y,held=state.held[c],fx=state.padFx[c];
-    pctx.save();pctx.shadowColor=col;pctx.shadowBlur=held?42:20;
-    pctx.strokeStyle=col;pctx.globalAlpha=held?0.95:0.5;pctx.lineWidth=2.5;
+    pctx.save();pctx.shadowColor=col;pctx.shadowBlur=held?40:18;
+    pctx.strokeStyle=col;pctx.globalAlpha=held?0.98:0.62;pctx.lineWidth=Math.max(3.5,g.r*0.09);   // ★굵고 또렷한 외곽 링(위젯)
     pctx.beginPath();pctx.arc(x,y,g.r,0,Math.PI*2);pctx.stroke();
-    pctx.globalAlpha=held?0.7:0.32;pctx.lineWidth=2;
-    pctx.beginPath();pctx.arc(x,y,g.r*0.74,0,Math.PI*2);pctx.stroke();
-    const rg=pctx.createRadialGradient(x,y,2,x,y,g.r*0.72);rg.addColorStop(0,col);rg.addColorStop(1,"transparent");
-    pctx.globalAlpha=held?0.9:0.32;pctx.fillStyle=rg;pctx.beginPath();pctx.arc(x,y,g.r*0.72,0,Math.PI*2);pctx.fill();
+    pctx.globalAlpha=held?0.72:0.34;pctx.lineWidth=Math.max(2.5,g.r*0.065);
+    pctx.beginPath();pctx.arc(x,y,g.r*0.72,0,Math.PI*2);pctx.stroke();
+    const rg=pctx.createRadialGradient(x,y,2,x,y,g.r*0.7);rg.addColorStop(0,col);rg.addColorStop(1,"transparent");
+    pctx.globalAlpha=held?0.9:0.32;pctx.fillStyle=rg;pctx.beginPath();pctx.arc(x,y,g.r*0.7,0,Math.PI*2);pctx.fill();
     pctx.restore();
     if(fx&&fx.life>0){
       if(fx.kind!=="miss"){   // 타격 시 패드 글로우 (원형 확산 링 없음)
@@ -2535,7 +2535,7 @@ function loop(){
       }
       fx.life-=0.05;
     }
-    if(settings.retro){pPixText(KEYS[c].toUpperCase(),x,y,g.r*0.5,"#fff","center");}   // ★레트로: 작게·볼드 픽셀폰트, 저해상도 직접 렌더
+    if(settings.retro){pPixText(KEYS[c].toUpperCase(),x,y,g.r*0.44,"#fff","center");}   // ★레트로: 작게·볼드 픽셀폰트, 저해상도 직접 렌더
     else{pctx.save();pctx.globalAlpha=0.95;pctx.textAlign="center";pctx.textBaseline="middle";pctx.font="600 20px Segoe UI";pctx.fillStyle="#fff";pctx.fillText(KEYS[c].toUpperCase(),x,y);pctx.restore();}
   }
   pctx.textBaseline="alphabetic";
