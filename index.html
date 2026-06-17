@@ -1912,7 +1912,7 @@ function applyJudge(kind,note){
   state.counts[kind]=(state.counts[kind]||0)+1;
   if(kind==="miss"||kind==="bad"){state.combo=0;if(kind==="bad")state.score+=SCOREMAP.bad;}
   else{state.combo++;state.maxCombo=Math.max(state.maxCombo,state.combo);state.score+=SCOREMAP[kind]+state.combo;}
-  if(note){padBurst(note.col,kind);spawnJudge(kind,note.x,note.y);}
+  if(note){padBurst(note.col,kind,note.x,note.y);spawnJudge(kind,note.x,note.y);}
   if(note){if(kind==="bad")badSound();else if(kind!=="miss")hitSound(kind,note.col);}
   updateHUD();
 }
@@ -2129,18 +2129,23 @@ function drawSpaceParts(){ if(!state.spaceParts||!state.spaceParts.length)return
     pctx.globalAlpha=a;pctx.strokeStyle=_rgba(_briC(cc),1);pctx.lineWidth=bw*0.8;pctx.beginPath();pctx.moveTo(cx+c*ri,cy+s*ri);pctx.lineTo(cx+c*p.r,cy+s*p.r);pctx.stroke();}
   pctx.restore();pctx.globalAlpha=1;
 }
-function padBurst(col,kind){
+function padBurst(col,kind,nx,ny){
   state.padFx[col]={life:1,kind};
   if(kind==="miss"||kind==="bad")return;   // BAD/미스는 파티클 없음
-  const g=padGeom(),x=g.xs[col],y=g.y;
-  const n=kind==="perfect"?30:kind==="great"?22:15;
+  const g=padGeom(),x=(nx!=null?nx:g.xs[col]),y=(ny!=null?ny:g.y);   // ★노트 위치에서 폭발(위젯)
+  const n=kind==="perfect"?34:kind==="great"?24:16;
   for(let i=0;i<n;i++){
     const a=Math.random()*Math.PI*2, sp=3+Math.random()*9;
     state.particles.push({x,y,px:x,py:y,
-      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-3.8,        // 위로 솟는 편향
+      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-2,
       life:1, decay:0.016+Math.random()*0.022,
-      col, size:1+Math.random()*2.6, streak:Math.random()<0.55});
+      col, size:1.4+Math.random()*2.6, streak:Math.random()<0.6});
   }
+  for(let i=0;i<Math.ceil(n*0.35);i++){          // 흰 코어 입자(위젯 supernova)
+    const a=Math.random()*Math.PI*2, sp=1+Math.random()*5;
+    state.particles.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:1.5+Math.random()*2,white:true});
+  }
+  (state.shocks||(state.shocks=[])).push({x,y,r:noteR()*0.55,vr:noteR()*0.5,life:1,col:COLHEX[col]});   // ★충격파 확산 링(위젯)
 }
 function updateHUD(){
   $("#hScore").textContent=String(state.score).padStart(7,"0");
@@ -2554,6 +2559,12 @@ function loop(){
   }
   pctx.restore();pctx.globalAlpha=1;pctx.shadowBlur=0;
   state.particles=state.particles.filter(p=>p.life>0);
+  // ★타격 충격파 확산 링 (위젯과 동일)
+  if(state.shocks&&state.shocks.length){pctx.save();pctx.globalCompositeOperation="lighter";
+    for(const s of state.shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;
+      pctx.globalAlpha=s.life*0.8;pctx.strokeStyle=s.col;pctx.shadowColor=s.col;pctx.shadowBlur=12;pctx.lineWidth=(settings.retro?3:2)+4*s.life;
+      pctx.beginPath();pctx.arc(s.x,s.y,s.r,0,Math.PI*2);pctx.stroke();}
+    pctx.restore();state.shocks=state.shocks.filter(s=>s.life>0);}
 
   // 판정 문구 — 노트가 있던 자리에 볼드로 떠오름
   pctx.textAlign="center";
