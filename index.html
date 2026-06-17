@@ -752,9 +752,9 @@ function drawFxSettings(t){
   y+=adv;
   // 싱크 오프셋
   lab("SYNC",y+rowH/2);
-  fxSlider(px+pw*0.24,y+rowH/2,pw*0.36,document.getElementById("setOffset"));
-  fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle="#ffd23f";fxc.shadowColor="#ffd23f";fxc.shadowBlur=5;fxc.font="700 "+Math.round(rowH*0.32)+"px 'Century Gothic',monospace";fxc.fillText(document.getElementById("offsetVal").textContent,px+pw*0.64,y+rowH/2);fxc.restore();
-  fxButton(px+pw*0.8,y+rowH*0.12,pw*0.09,rowH*0.76,"0",()=>document.getElementById("offsetReset").click(),930);
+  fxSlider(px+pw*0.23,y+rowH/2,pw*0.3,document.getElementById("setOffset"));
+  {const ov=document.getElementById("offsetVal").textContent;fxc.save();fxc.shadowColor="#ffd23f";fxc.shadowBlur=4;fxPixText(ov,px+pw*0.56,y+rowH/2,fxPixFit(ov,pw*0.22,rowH*0.3),"#ffd23f","left");fxc.restore();}   // ★크리스프 픽셀폰트(도트필터 선명)
+  fxButton(px+pw*0.82,y+rowH*0.12,pw*0.09,rowH*0.76,"0",()=>document.getElementById("offsetReset").click(),930);
   y+=adv;   // ★비트 싱커 전용 행 (싱크 오프셋 행과 분리 → 겹침 방지)
   // ★비트 싱커: 왼쪽 링 + 오른쪽 상태문구 (다른 컨트롤과 안 겹침). 링을 누르거나 A·D·J·L 로 탭.
   const bvR=Math.max(22,Math.min(rowH*0.72,(H-y-12)*0.46)),bvX=px+bvR+pw*0.03,bvY=Math.min(y+bvR,H-bvR-10);
@@ -769,7 +769,7 @@ function drawFxSettings(t){
       else{fxc.fillStyle="#1b2040";fxc.beginPath();fxc.arc(bvX,bvY,bvR*0.72,0,6.2832);fxc.fill();}}
     else{fxc.fillStyle="#1b2040";fxc.beginPath();fxc.arc(bvX,bvY,bvR*0.72,0,6.2832);fxc.fill();}
   }else{fxc.fillStyle="#1b2040";fxc.beginPath();fxc.arc(bvX,bvY,bvR*0.72,0,6.2832);fxc.fill();}
-  fxc.fillStyle="#cdd6f5";fxc.shadowBlur=0;fxc.textAlign="center";fxc.textBaseline="middle";fxc.font="700 "+Math.round(rowH*0.26)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText("BEAT",bvX,bvY);
+  fxc.shadowBlur=0;fxPixText("BEAT",bvX,bvY,fxPixFit("BEAT",bvR*1.5,rowH*0.3),"#cdd6f5","center");   // ★크리스프 픽셀폰트
   fxc.restore();
   fxBtns.push({x:bvX-bvR,y:bvY-bvR,w:bvR*2,h:bvR*2,fn:()=>recordTap(0)});   // 링 클릭 = 탭
   fxPixelate();
@@ -958,7 +958,7 @@ function recordTap(col){
   const ms=clamp(Math.round(-avg*1000),-300,300);
   settings.offset=ms;playOffset=ms/1000;saveSettings();
   if($("#setOffset")){$("#setOffset").value=ms;$("#offsetVal").textContent=(ms>0?"+":"")+ms+" ms";}
-  const el=$("#calibLive");if(el)el.textContent=calib.taps.length+"번 측정 · 자동 보정 "+(ms>0?"+":"")+ms+" ms";
+  const el=$("#calibLive");if(el)el.textContent=calib.taps.length+" TAPS · AUTO "+(ms>0?"+":"")+ms+" ms";   // ★ASCII(픽셀폰트 렌더 가능 — 한글 두부현상 제거)
 }
 $("#calibReset").onclick=()=>{if(calib)calib.taps=[];const el=$("#calibLive");if(el)el.textContent="Tap to the beat";};
 $("#calibStage").onclick=()=>recordTap(0);
@@ -2439,7 +2439,7 @@ function pressCol(col){
   if(!best)return;
   const dt=best.time-now;
   const kind = Math.abs(dt)<=JW.good ? (judgeOf(dt)||"good") : "bad";   // 유예 안이면 BAD
-  if(best.type==="press"||best.type==="slide"){best.headJudged=true;best.holding=true;best._headKind=kind;padBurst(best.col,kind);
+  if(best.type==="press"||best.type==="slide"){best.headJudged=true;best.holding=true;best._headKind=kind;padBurst(best.col,kind,best.x,best.y);   // ★노트 위치에서 폭발(패드 아님) — 일반 노트와 동일
     if(kind==="bad")badSound();else hitSound(kind,best.col);spawnJudge(kind,best.x,best.y);}
   else{best.done=true;applyJudge(kind,best);}
 }
