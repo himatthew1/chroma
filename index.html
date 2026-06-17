@@ -586,7 +586,7 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
   const lc=_fxLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
   lc.drawImage(fx,0,0,W,H,0,0,lw,lh);
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
-const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART EDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO PLAY",ic:"?",fn:()=>openHelp()}];
+const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHelp()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
 // 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
 function fxLogo(cx,ly,lsz,t){t=t||0;
@@ -777,14 +777,18 @@ function fxBgDraw(){const W=fx.width,H=fx.height,cx=W/2;
   fxc.restore();fxc.globalAlpha=1;}
 // 공용: 버튼 그리기 + 히트영역 등록
 // 픽셀폰트(도트필터에서도 또렷)로 maxW 안에 들어가게 크기 맞춤
-function fxPixFit(text,maxW,sz){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";const w=fxc.measureText(text).width;if(w>maxW)sz=sz*maxW/w;return Math.max(8,Math.round(sz));}
-function fxPixText(text,x,y,sz,col,align){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";fxc.textAlign=align||"center";fxc.textBaseline="middle";
-  fxc.lineJoin="round";fxc.lineWidth=Math.max(2,sz*0.2);fxc.strokeStyle="#05070f";fxc.strokeText(text,x,y);fxc.fillStyle=col||"#fff";fxc.fillText(text,x,y);}
+function _ls(sz){return Math.max(1,Math.round(sz*0.16))+"px";}   // 자간(가독성): 닌텐도식 또렷한 분리
+function fxPixFit(text,maxW,sz){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{fxc.letterSpacing=_ls(sz);}catch(_){}const w=fxc.measureText(text).width;try{fxc.letterSpacing="0px";}catch(_){}if(w>maxW)sz=sz*maxW/w;return Math.max(8,Math.round(sz));}
+function fxPixText(text,x,y,sz,col,align){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{fxc.letterSpacing=_ls(sz);}catch(_){}fxc.textAlign=align||"center";fxc.textBaseline="middle";
+  fxc.lineJoin="round";fxc.lineWidth=Math.max(2,sz*0.18);fxc.strokeStyle="#05070f";fxc.strokeText(text,x,y);fxc.fillStyle=col||"#fff";fxc.fillText(text,x,y);try{fxc.letterSpacing="0px";}catch(_){}}
 function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxHover===idx;fxBtns.push({x:bx,y:by,w:bw,h:bh,fn});
   fxc.save();fxc.shadowColor=accent||"#22a7ff";fxc.shadowBlur=hov?26:10;
   fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,by,bw,bh);
   fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#bfe3ff":(accent||"#3a4a86");fxc.strokeRect(bx,by,bw,bh);
-  fxc.shadowBlur=0;const fs=fxPixFit(label,bw*0.86,bh*0.36);fxPixText(label,bx+bw/2,by+bh/2,fs,"#fff","center");fxc.restore();}
+  fxc.shadowBlur=0;const lines=String(label).split("\n");
+  if(lines.length>1){const fs=Math.min(fxPixFit(lines[0],bw*0.84,bh*0.38),fxPixFit(lines[1],bw*0.84,bh*0.38));fxPixText(lines[0],bx+bw/2,by+bh*0.34,fs,"#fff","center");fxPixText(lines[1],bx+bw/2,by+bh*0.68,fs,"#fff","center");}
+  else{const fs=fxPixFit(label,bw*0.84,bh*0.46);fxPixText(label,bx+bw/2,by+bh/2,fs,"#fff","center");}
+  fxc.restore();}
 function fxXY(e){const r=fx.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
 fx.addEventListener("pointermove",e=>{const [mx,my]=fxXY(e);
   if(fxDrag){fxSliderSet(fxDrag,mx,false);return;}
