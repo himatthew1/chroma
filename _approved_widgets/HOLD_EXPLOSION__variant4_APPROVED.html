@@ -1,0 +1,120 @@
+<h2 class="sr-only">홀드 노트 폭발음 5종을 꾹 눌러 체험하는 인터랙티브 데모</h2>
+<div style="background:#0b0f1c;border-radius:16px;padding:18px 18px 20px;font-family:var(--font-sans);">
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;" id="vbtns"></div>
+
+  <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+    <canvas id="pad" width="300" height="220" style="touch-action:none;cursor:pointer;border-radius:12px;background:#070b16;flex:0 0 auto;"></canvas>
+    <div style="flex:1 1 220px;min-width:200px;color:#c7d2f0;font-size:13px;line-height:1.7;">
+      <div id="vname" style="font-size:15px;color:#eaf2ff;margin-bottom:2px;">①</div>
+      <div id="vdesc" style="color:#8b96bd;margin-bottom:12px;"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="preview" style="background:#16213d;color:#cfe0ff;border:1px solid #2b3a63;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;">▶ 미리듣기</button>
+        <label style="display:inline-flex;align-items:center;gap:7px;background:#11182b;border:1px solid #233055;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;color:#bcd0ff;">
+          <input type="checkbox" id="beat" style="width:auto;accent-color:#22a7ff;"> 🎵 배경 비트
+        </label>
+      </div>
+      <div style="margin-top:12px;color:#6f7aa5;font-size:12px;">육각형 패드를 <b style="color:#9fb6ff;">꾹 눌렀다 떼면</b> 폭발음이 납니다.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  let ctx=null,master=null;
+  function actx(){if(!ctx){ctx=new AC();master=ctx.createGain();master.gain.value=0.9;master.connect(ctx.destination);}if(ctx.state==='suspended')ctx.resume();return ctx;}
+
+  const V=[
+    {n:'① 미니멀 팝',d:'깔끔한 팡 — 반짝임 거의 없음',pop:.26,popTop:1900,noise:.18,nHP:850,nDec:.13,body:0,bells:0,bDec:.2,bright:1,fb:.16,amt:.22},
+    {n:'② 둔탁 펀치',d:'저음 몸통 + 고음 절제',pop:.12,popTop:1300,noise:.14,nHP:600,nDec:.12,body:.22,bodyF:110,bells:0,bDec:.2,bright:.55,fb:.18,amt:.2},
+    {n:'③ 에어리 팟',d:'바람 같은 노이즈 + 별 하나',pop:.1,popTop:1700,noise:.3,nHP:1500,nDec:.2,body:0,bells:1,bDec:.26,bright:.85,fb:.2,amt:.24,airy:1},
+    {n:'④ 팝 + 별 둘',d:'팝 + 짧은 별조각 2개',pop:.2,popTop:2000,noise:.16,nHP:850,nDec:.13,body:0,bells:2,bDec:.28,bright:.92,fb:.22,amt:.26},
+    {n:'⑤ 절제된 찰랑',d:'별조각 3개 — 잔향 최소',pop:.18,popTop:2100,noise:.15,nHP:900,nDec:.13,body:0,bells:3,bDec:.24,bright:.95,fb:.16,amt:.2},
+  ];
+  let sel=0;
+
+  function boom(v){
+    const c=actx(),t=c.currentTime;
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=v.bright*7000+1200;
+    const out=c.createGain();lp.connect(out);out.connect(master);
+    const dl=c.createDelay(0.6);dl.delayTime.value=0.17;
+    const fb=c.createGain();fb.gain.value=v.fb;
+    const hp=c.createBiquadFilter();hp.type='highpass';hp.frequency.value=700;
+    const eo=c.createGain();eo.gain.value=v.amt;
+    dl.connect(fb);fb.connect(hp);hp.connect(dl);dl.connect(eo);eo.connect(master);
+    const send=c.createGain();send.gain.value=0.8;send.connect(dl);
+    const bus=x=>{x.connect(lp);x.connect(send);};
+    if(v.pop>0){const o=c.createOscillator(),g=c.createGain();o.type='sine';
+      o.frequency.setValueAtTime(v.popTop*0.42,t);o.frequency.exponentialRampToValueAtTime(v.popTop,t+0.05);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v.pop,t+0.008);g.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+      o.connect(g);bus(g);o.start(t);o.stop(t+0.14);}
+    if(v.noise>0){const dur=0.18,nn=Math.floor(c.sampleRate*dur),buf=c.createBuffer(1,nn,c.sampleRate),d=buf.getChannelData(0);
+      for(let i=0;i<nn;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/nn,1.6);
+      const ns=c.createBufferSource();ns.buffer=buf;
+      const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=v.nHP;
+      const g=c.createGain();g.gain.setValueAtTime(v.noise,t);g.gain.exponentialRampToValueAtTime(0.0001,t+v.nDec);
+      ns.connect(f).connect(g);bus(g);ns.start(t);}
+    if(v.body>0){const o=c.createOscillator(),g=c.createGain();o.type='triangle';
+      o.frequency.setValueAtTime(v.bodyF,t);o.frequency.exponentialRampToValueAtTime(v.bodyF*0.5,t+0.18);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v.body,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.26);
+      o.connect(g);bus(g);o.start(t);o.stop(t+0.28);}
+    const F=v.bright<0.8?[784,1047,1319,1568]:[1318,1760,2093,2637];
+    for(let i=0;i<v.bells;i++){const st=t+0.012+i*0.05;
+      const o=c.createOscillator(),g=c.createGain();o.type='triangle';
+      o.frequency.setValueAtTime(F[i]*(1+(Math.random()-0.5)*0.01),st);
+      const amp=Math.max((0.12-i*0.02),0.02);
+      g.gain.setValueAtTime(0.0001,st);g.gain.exponentialRampToValueAtTime(amp,st+0.006);g.gain.exponentialRampToValueAtTime(0.0001,st+v.bDec);
+      o.connect(g);bus(g);o.start(st);o.stop(st+v.bDec+0.1);}
+    setTimeout(function(){try{[lp,out,dl,fb,hp,eo,send].forEach(function(x){x.disconnect();});}catch(e){}},2600);
+  }
+
+  let beatTimer=null,nextT=0,stp=0;
+  function tick(time,s){const c=ctx;
+    const o=c.createOscillator(),g=c.createGain();o.type='sine';
+    o.frequency.setValueAtTime(140,time);o.frequency.exponentialRampToValueAtTime(50,time+0.12);
+    g.gain.setValueAtTime(0.0001,time);g.gain.exponentialRampToValueAtTime(0.16,time+0.005);g.gain.exponentialRampToValueAtTime(0.0001,time+0.16);
+    o.connect(g).connect(master);o.start(time);o.stop(time+0.18);
+    const nb=Math.floor(c.sampleRate*0.04),buf=c.createBuffer(1,nb,c.sampleRate),d=buf.getChannelData(0);
+    for(let i=0;i<nb;i++)d[i]=(Math.random()*2-1)*(1-i/nb);
+    const ns=c.createBufferSource();ns.buffer=buf;const f=c.createBiquadFilter();f.type='highpass';f.frequency.value=7000;
+    const hg=c.createGain();hg.gain.value=s%2?0.06:0.03;ns.connect(f).connect(hg).connect(master);ns.start(time+0.25);
+  }
+  function sched(){const c=ctx;while(nextT<c.currentTime+0.12){tick(nextT,stp);nextT+=0.5;stp=(stp+1)%4;}}
+  function beat(on){if(on){actx();nextT=ctx.currentTime+0.06;stp=0;beatTimer=setInterval(sched,25);}else{clearInterval(beatTimer);beatTimer=null;}}
+
+  const vb=document.getElementById('vbtns');
+  function paint(){[...vb.children].forEach(function(b,i){b.style.background=i===sel?'#1d3a66':'#121a30';b.style.borderColor=i===sel?'#3d8ff0':'#243254';b.style.color=i===sel?'#eaf4ff':'#aab8e0';});
+    document.getElementById('vname').textContent=V[sel].n;document.getElementById('vdesc').textContent=V[sel].d;}
+  V.forEach(function(v,i){const b=document.createElement('button');b.textContent=v.n;
+    b.style.cssText='border:1px solid #243254;border-radius:9px;padding:8px 12px;font-size:13px;cursor:pointer;font-family:inherit;';
+    b.onclick=function(){sel=i;paint();boom(V[sel]);burst();};vb.appendChild(b);});
+  paint();
+  document.getElementById('preview').onclick=function(){boom(V[sel]);burst();};
+  document.getElementById('beat').onchange=function(e){beat(e.target.checked);};
+
+  const cv=document.getElementById('pad'),g2=cv.getContext('2d');
+  const W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=52;
+  let holding=false,hStart=0,parts=[];
+  function hex(x,y,r){g2.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3;const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?g2.lineTo(px,py):g2.moveTo(px,py);}g2.closePath();}
+  function burst(){for(let i=0;i<34;i++){const a=Math.random()*Math.PI*2,sp=2+Math.random()*7;parts.push({x:cx,y:cy,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.015+Math.random()*0.02,w:Math.random()<0.4,sz:1.2+Math.random()*2.2});}}
+  function loop(){
+    g2.clearRect(0,0,W,H);
+    const hp=holding?Math.min((performance.now()-hStart)/800,1):0;
+    g2.save();g2.globalAlpha=0.22;g2.fillStyle='#22a7ff';hex(cx,cy,R*1.25);g2.fill();g2.restore();
+    g2.fillStyle='#22a7ff';hex(cx,cy,R);g2.fill();
+    g2.lineWidth=2.4;g2.strokeStyle='rgba(255,255,255,0.85)';hex(cx,cy,R);g2.stroke();
+    const cw=Math.max(0.5,hp);g2.globalAlpha=cw;g2.fillStyle='#eaf6ff';hex(cx,cy,R*(0.4+hp*0.3));g2.fill();g2.globalAlpha=1;
+    g2.fillStyle=holding?'#0a1730':'#0a1730';g2.font='600 15px '+getComputedStyle(document.body).fontFamily;g2.textAlign='center';g2.textBaseline='middle';
+    g2.fillText(holding?'…충전':'꾹 누르기',cx,cy);
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.vx*=0.985;p.life-=p.dec;if(p.life<=0){parts.splice(i,1);continue;}
+      g2.globalAlpha=Math.min(1,p.life*1.4);g2.fillStyle=p.w?'#ffffff':'#7fd0ff';g2.beginPath();g2.arc(p.x,p.y,p.sz*p.life+0.5,0,Math.PI*2);g2.fill();}
+    g2.globalAlpha=1;requestAnimationFrame(loop);
+  }
+  loop();
+  cv.addEventListener('pointerdown',function(e){e.preventDefault();actx();holding=true;hStart=performance.now();cv.setPointerCapture(e.pointerId);});
+  function release(){if(holding){holding=false;boom(V[sel]);burst();}}
+  cv.addEventListener('pointerup',release);
+  cv.addEventListener('pointercancel',release);
+  cv.addEventListener('pointerleave',function(){if(holding)release();});
+})();
+</script>

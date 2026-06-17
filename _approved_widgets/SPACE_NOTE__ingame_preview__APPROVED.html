@@ -1,0 +1,98 @@
+<h2 class="sr-only">CHROMA 스페이스 노트의 인게임 렌더링 미리보기 — 왼쪽은 일반 노트, 오른쪽은 홀드 노트가 등장·타격·폭발하는 애니메이션을 반복합니다.</h2>
+<div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;padding:0.5rem 0;">
+  <div style="flex:1;min-width:260px;max-width:320px;">
+    <div style="font-size:13px;color:var(--color-text-secondary);text-align:center;margin-bottom:6px;">일반 스페이스 노트</div>
+    <canvas id="cv-reg" style="width:100%;aspect-ratio:1/1;border-radius:var(--border-radius-lg);display:block;"></canvas>
+  </div>
+  <div style="flex:1;min-width:260px;max-width:320px;">
+    <div style="font-size:13px;color:var(--color-text-secondary);text-align:center;margin-bottom:6px;">홀드 스페이스 노트 (회전 + 모이는 에너지)</div>
+    <canvas id="cv-hold" style="width:100%;aspect-ratio:1/1;border-radius:var(--border-radius-lg);display:block;"></canvas>
+  </div>
+</div>
+<script>
+(function(){
+  const SP_AUR=[[57,227,200],[111,240,160],[169,139,255],[255,143,208],[92,200,255]];
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const _rgba=(c,a)=>"rgba("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+","+clamp(a,0,1)+")";
+  const _briC=c=>[Math.min(255,c[0]+110),Math.min(255,c[1]+110),Math.min(255,c[2]+110)];
+  function _spConic(ctx,x,y,spin){const cg=ctx.createConicGradient(-1.5708+spin,x,y);const s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;}
+  function hexPath(ctx,x,y,R){ctx.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,px=x+Math.cos(a)*R,py=y+Math.sin(a)*R;i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);}ctx.closePath();}
+  function _spShape(ctx,x,y,r,hold){hold?hexPath(ctx,x,y,r):(ctx.beginPath(),ctx.arc(x,y,r,0,6.2832));}
+
+  function makeStage(id,hold){
+    const cv=document.getElementById(id);
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    const L=300; cv.width=L*dpr; cv.height=L*dpr;
+    const ctx=cv.getContext('2d'); ctx.scale(dpr,dpr);
+    const W=L,H=L,cx=W/2,cy=H/2,R=46,maxR=Math.hypot(W,H)*0.62;
+    const AR=1.2, DUR=hold?1.5:0;
+    let parts=[], T0=0.25, n={spState:null,spT0:0,holding:false,charge:0};
+    const stars=[]; for(let i=0;i<46;i++)stars.push({a:Math.random()*6.2832,r:8+Math.random()*maxR,z:0.3+Math.random()*0.7});
+
+    function burst(weak){const N=weak?18:54;for(let i=0;i<N;i++){const a=Math.random()*6.2832;parts.push({a,r:R*1.05,spd:(weak?3:6)+Math.random()*4,life:1,dec:0.006+Math.random()*0.012,lf:0.6+Math.random()*0.9,w:0.6+Math.random()*1.4,col:SP_AUR[(Math.random()*SP_AUR.length)|0]});}}
+
+    function drawParts(){if(!parts.length)return;ctx.save();ctx.globalCompositeOperation="lighter";ctx.lineCap="round";
+      for(let i=parts.length-1;i>=0;i--){const p=parts[i];
+        p.r+=p.spd*(0.6+p.r/maxR*4.8)*1.8;if(p.r>maxR+20){parts.splice(i,1);continue;}
+        p.life-=p.dec;if(p.life<=0){parts.splice(i,1);continue;}
+        const t=Math.min(1,p.r/maxR),len=(4+t*t*34)*p.lf,c=Math.cos(p.a),s=Math.sin(p.a),ri=p.r-len,a=Math.min(1,p.life*1.25),bw=(0.6+t*1.5)*p.w,cc=p.col;
+        ctx.globalAlpha=a*0.2;ctx.strokeStyle=_rgba(cc,1);ctx.lineWidth=bw*3.4;ctx.beginPath();ctx.moveTo(cx+c*ri,cy+s*ri);ctx.lineTo(cx+c*p.r,cy+s*p.r);ctx.stroke();
+        ctx.globalAlpha=a;ctx.strokeStyle=_rgba(_briC(cc),1);ctx.lineWidth=bw*0.8;ctx.beginPath();ctx.moveTo(cx+c*ri,cy+s*ri);ctx.lineTo(cx+c*p.r,cy+s*p.r);ctx.stroke();}
+      ctx.restore();}
+
+    function drawNote(now){
+      const tt=now-T0;
+      if(tt<0)return;
+      let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
+      if(!n.spState){
+        const p=tt,pr=clamp(p/AR,0,1),gp=Math.pow(pr,0.5);
+        const aq=clamp(p/(AR*0.6),0,1); al=aq*aq*(3-2*aq);
+        rs=0.5+0.5*gp; ringAl=al; gl=1.2*al; ap=pr;
+        if(hold&&n.holding){charge=n.charge;rs=1;al=1;ringAl=1;ap=-1;gl=1.2+charge*0.7;}
+      }else{
+        const big=true,r=clamp((now-n.spT0)/0.6,0,1),eo=1-(1-r)*(1-r);
+        rs=1+6.8*eo;al=1-r;ringAl=Math.max(0,1-r*1.5);gl=1.2*Math.max(0,1-r*0.9);lwm=1+(rs-1)*0.08;flash=Math.max(0,1-r/0.28);
+      }
+      if(charge>0)spin=now*0.6;
+      const rr=R*rs;
+      if(charge>0){ctx.save();ctx.globalCompositeOperation="lighter";
+        for(let k=0;k<3;k++){const ph=((now*0.85)+k/3)%1, ringR=rr*(0.98-ph*0.82);
+          ctx.globalAlpha=Math.sin(ph*Math.PI)*0.5*charge;ctx.strokeStyle=_spConic(ctx,cx,cy,spin*1.5);
+          ctx.lineWidth=R*0.05;_spShape(ctx,cx,cy,ringR,true);ctx.stroke();}
+        const er=rr*(0.14+charge*0.5),rg=ctx.createRadialGradient(cx,cy,0,cx,cy,er);
+        rg.addColorStop(0,"rgba(245,248,255,"+(0.4+charge*0.45)+")");rg.addColorStop(1,"rgba(245,248,255,0)");
+        ctx.globalAlpha=1;ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,er,0,6.2832);ctx.fill();
+        ctx.globalAlpha=0.4*charge;ctx.fillStyle=_spConic(ctx,cx,cy,spin*1.7);
+        ctx.beginPath();ctx.arc(cx,cy,er*0.82,0,6.2832);ctx.fill();ctx.restore();}
+      ctx.save();ctx.globalCompositeOperation="lighter";ctx.strokeStyle=_spConic(ctx,cx,cy,spin);
+      ctx.globalAlpha=0.2*gl;ctx.lineWidth=R*0.2*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();
+      ctx.globalAlpha=0.85*gl;ctx.lineWidth=R*0.085*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();ctx.restore();
+      ctx.save();ctx.globalAlpha=0.95*ringAl;ctx.strokeStyle="#f2f6ff";ctx.lineWidth=R*0.06*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();
+      ctx.globalAlpha=0.78*ringAl;ctx.lineWidth=R*0.04;_spShape(ctx,cx,cy,rr*0.6,hold);ctx.stroke();ctx.restore();
+      if(flash>0){ctx.save();ctx.globalCompositeOperation="lighter";const fr=rr*1.15,rg=ctx.createRadialGradient(cx,cy,0,cx,cy,fr);rg.addColorStop(0,"rgba(255,255,255,"+(flash*0.55)+")");rg.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,fr,0,6.2832);ctx.fill();ctx.restore();}
+      if(ap>=0&&ap<1){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;ctx.save();ctx.globalAlpha=aa;ctx.strokeStyle="#e6efff";ctx.lineWidth=2+2.5*ap;_spShape(ctx,cx,cy,radius,hold);ctx.stroke();ctx.restore();}
+    }
+
+    function tick(now){
+      const tt=now-T0;
+      if(!n.spState){
+        if(tt>=AR){
+          if(hold){n.holding=true;n.charge=clamp((tt-AR)/DUR,0,1);
+            if(tt>=AR+DUR){n.spState="perfect";n.spT0=now;burst(false);}}
+          else{n.spState="perfect";n.spT0=now;burst(false);}
+        }
+      }else if((now-n.spT0)/0.6>=1){n.spState=null;n.holding=false;n.charge=0;T0=now+0.5;}
+    }
+
+    function bg(){const rg=ctx.createRadialGradient(cx,cy,0,cx,cy,maxR);rg.addColorStop(0,"#0c1120");rg.addColorStop(1,"#05060d");ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
+      ctx.save();ctx.globalCompositeOperation="lighter";for(const st of stars){const x=cx+Math.cos(st.a)*st.r,y=cy+Math.sin(st.a)*st.r,s=0.6+st.z*1.2;ctx.globalAlpha=0.12+st.z*0.18;ctx.fillStyle="#cfe0ff";ctx.beginPath();ctx.arc(x,y,s,0,6.2832);ctx.fill();}ctx.restore();}
+
+    return {step(now){tick(now);bg();drawParts();drawNote(now);}};
+  }
+
+  const a=makeStage("cv-reg",false), b=makeStage("cv-hold",true);
+  const base=performance.now();
+  function loop(){const now=(performance.now()-base)/1000;a.step(now);b.step(now);requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+})();
+</script>

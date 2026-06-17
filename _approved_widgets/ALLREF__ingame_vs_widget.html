@@ -1,0 +1,72 @@
+<h2 class="sr-only">Side-by-side comparison of every CHROMA in-game element as currently implemented versus the proposed widget design, both under the 256 dot filter.</h2>
+<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:14px;">
+  <canvas id="cmp" width="652" height="520" style="width:100%;height:auto;display:block;border-radius:var(--border-radius-md);image-rendering:pixelated;background:#05060d;"></canvas>
+</div>
+<script>
+(function(){
+  var cv=document.getElementById("cmp"),ctx=cv.getContext("2d");
+  var W=cv.width,H=cv.height;
+  var full=document.createElement("canvas");full.width=W;full.height=H;var f=full.getContext("2d");
+  var lo=document.createElement("canvas"),lc=lo.getContext("2d");
+  var COL=["#ff2e97","#22a7ff","#39e36b","#ffd23f"];
+  function hexp(c,x,y,r,rot){c.beginPath();for(var i=0;i<6;i++){var a=rot+i*Math.PI/3,px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;i?c.lineTo(px,py):c.moveTo(px,py);}c.closePath();}
+  function gemp(c,x,y,r){c.beginPath();c.moveTo(x,y-r);c.lineTo(x+r*0.82,y);c.lineTo(x,y+r);c.lineTo(x-r*0.82,y);c.closePath();}
+  function star4(c,x,y,r){c.beginPath();c.moveTo(x,y-r);c.quadraticCurveTo(x,y,x+r,y);c.quadraticCurveTo(x,y,x,y+r);c.quadraticCurveTo(x,y,x-r,y);c.quadraticCurveTo(x,y,x,y-r);c.closePath();}
+
+  function curNote(c,x,y,r,col,prog){var ease=prog*prog,ar=r*(1+(1-prog)*1.2);
+    c.save();c.shadowColor=col;c.shadowBlur=10+30*ease;c.lineWidth=3+2*ease;c.strokeStyle=col;c.beginPath();c.arc(x,y,ar,0,6.283);c.stroke();
+    c.shadowBlur=10;c.fillStyle=col;c.beginPath();c.arc(x,y,r*0.45,0,6.283);c.fill();
+    c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=12;c.beginPath();c.arc(x,y,r*0.26,0,6.283);c.fill();c.restore();}
+  function curHold(c,x,y,r,col){c.save();c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=12;c.lineWidth=Math.max(8,r*0.8);c.lineCap="round";
+    c.globalAlpha=0.5;c.beginPath();c.moveTo(x,y);c.lineTo(x+54,y);c.stroke();c.globalAlpha=1;
+    c.fillStyle=col;hexp(c,x,y,r,Math.PI/6);c.fill();c.lineWidth=2;c.strokeStyle="#fff";c.globalAlpha=0.6;hexp(c,x,y,r,Math.PI/6);c.stroke();c.globalAlpha=1;
+    c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=12;hexp(c,x,y,r*0.45,Math.PI/6);c.fill();c.restore();}
+  function meteor(c,x,y,r,col,t){c.save();c.translate(x,y);c.rotate(t*1.6);c.shadowColor=col;c.shadowBlur=18;c.fillStyle=col;star4(c,0,0,r*1.25);c.fill();
+    c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=14;star4(c,0,0,r*0.7);c.fill();c.restore();}
+  function curPad(c,x,y,r,col,letter,press){c.save();c.shadowColor=col;c.shadowBlur=press?40:16;c.strokeStyle=col;c.lineWidth=3;c.globalAlpha=press?0.95:0.5;
+    c.beginPath();c.arc(x,y,r,0,6.283);c.stroke();c.globalAlpha=press?0.7:0.3;c.beginPath();c.arc(x,y,r*0.72,0,6.283);c.stroke();
+    var rg=c.createRadialGradient(x,y,2,x,y,r*0.7);rg.addColorStop(0,col);rg.addColorStop(1,"transparent");c.globalAlpha=press?0.9:0.3;c.fillStyle=rg;c.beginPath();c.arc(x,y,r*0.7,0,6.283);c.fill();
+    c.globalAlpha=1;c.fillStyle="#fff";c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(r)+"px monospace";c.lineJoin="round";c.lineWidth=Math.max(3,r*0.2);c.strokeStyle="#05070f";c.strokeText(letter,x,y);c.fillText(letter,x,y);c.restore();}
+
+  function propNote(c,x,y,r,col,prog){var ease=prog*prog,ar=r*(1+(1-prog)*1.2);
+    c.save();c.shadowColor=col;c.shadowBlur=10;c.lineWidth=3;c.strokeStyle=col;c.globalAlpha=0.5+prog*0.5;gemp(c,x,y,ar);c.stroke();
+    c.globalAlpha=1;c.shadowBlur=14+ease*20;c.lineWidth=3.5;gemp(c,x,y,r);c.stroke();c.fillStyle=col;c.shadowBlur=12;gemp(c,x,y,r*0.5);c.fill();
+    c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=12;c.beginPath();c.arc(x,y,r*0.24,0,6.283);c.fill();c.restore();}
+  function propHold(c,x,y,r,col){c.save();c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=12;c.lineWidth=Math.max(8,r*0.8);c.lineCap="round";
+    c.globalAlpha=0.5;c.beginPath();c.moveTo(x,y);c.lineTo(x+54,y);c.stroke();c.globalAlpha=1;
+    c.fillStyle=col;gemp(c,x,y,r);c.fill();c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=12;c.beginPath();c.arc(x,y,r*0.4,0,6.283);c.fill();c.restore();}
+  function propPad(c,x,y,r,col,letter,press){c.save();c.shadowColor=col;c.shadowBlur=press?40:16;c.strokeStyle=col;c.lineWidth=3;c.globalAlpha=press?0.95:0.55;
+    var s=r*1.6,rr=10;c.beginPath();c.moveTo(x-s/2+rr,y-s/2);c.arcTo(x+s/2,y-s/2,x+s/2,y+s/2,rr);c.arcTo(x+s/2,y+s/2,x-s/2,y+s/2,rr);c.arcTo(x-s/2,y+s/2,x-s/2,y-s/2,rr);c.arcTo(x-s/2,y-s/2,x+s/2,y-s/2,rr);c.closePath();c.stroke();
+    if(press){c.globalAlpha=0.42;c.fillStyle=col;c.fill();}
+    c.globalAlpha=1;c.fillStyle="#fff";c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(r)+"px monospace";c.lineJoin="round";c.lineWidth=Math.max(3,r*0.2);c.strokeStyle="#05070f";c.strokeText(letter,x,y);c.fillText(letter,x,y);c.restore();}
+
+  function scene(t){
+    f.clearRect(0,0,W,H);f.fillStyle="#05060d";f.fillRect(0,0,W,H);
+    var prog=(t*0.55)%1,lx=W*0.34,rx=W*0.74,r=24;
+    var ys=[H*0.20,H*0.40,H*0.60];
+    curNote(f,lx,ys[0],r,COL[0],prog); propNote(f,rx,ys[0],r,COL[0],prog);
+    curHold(f,lx-26,ys[1],r,COL[1]); propHold(f,rx-26,ys[1],r,COL[1]);
+    meteor(f,lx,ys[2],r,COL[2],t); meteor(f,rx,ys[2],r,COL[2],t);
+    var active=Math.floor(t*1.6)%4, py=H*0.85, pr=22;
+    var lxs=[W*0.14,W*0.24,W*0.34,W*0.44], rxs=[W*0.56,W*0.66,W*0.76,W*0.86],nm=["A","D","J","L"];
+    for(var i=0;i<4;i++){curPad(f,lxs[i],py,pr,COL[i],nm[i],i===active);propPad(f,rxs[i],py,pr,COL[i],nm[i],i===active);}
+  }
+  function labels(c){
+    c.save();c.fillStyle="#dfe6ff";c.textAlign="center";c.font="13px sans-serif";
+    c.fillText("CURRENT (in-game now)",W*0.30,H*0.06);c.fillText("WIDGET (proposed)",W*0.74,H*0.06);
+    c.strokeStyle="rgba(150,160,200,0.25)";c.lineWidth=1;c.beginPath();c.moveTo(W*0.5,H*0.09);c.lineTo(W*0.5,H*0.93);c.stroke();
+    c.fillStyle="rgba(200,210,240,0.85)";c.textAlign="left";c.font="12px sans-serif";
+    c.fillText("Normal note",W*0.02,H*0.20);c.fillText("Hold note",W*0.02,H*0.40);c.fillText("Meteor / slide",W*0.02,H*0.60);c.fillText("Pads A D J L",W*0.02,H*0.78);
+    c.restore();
+  }
+  function loop(t){
+    scene((t||0)/1000);
+    var lh=160,lw=Math.round(lh*W/H);if(lo.width!==lw||lo.height!==lh){lo.width=lw;lo.height=lh;}
+    lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);lc.drawImage(full,0,0,W,H,0,0,lw,lh);
+    ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,W,H);ctx.drawImage(lo,0,0,lw,lh,0,0,W,H);ctx.imageSmoothingEnabled=true;
+    labels(ctx);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>

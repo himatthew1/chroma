@@ -1,0 +1,86 @@
+<h2 class="sr-only">퍼펙트 타격 시 색상환 띠가 커지며 화면 밖으로 퇴장하는 스페이스 노트 데모</h2>
+<div style="background:#070b16;border-radius:16px;padding:16px 16px 18px;font-family:var(--font-sans);">
+  <div id="btns" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;"></div>
+  <canvas id="stage" width="660" height="360" style="width:100%;height:auto;display:block;border-radius:12px;background:#04060d;cursor:pointer;touch-action:manipulation;"></canvas>
+  <div id="ph" style="color:#9ff0c0;font-size:13px;font-weight:500;margin-top:10px;min-height:18px;"></div>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;">
+    <span style="color:#aeb9e0;font-size:13px;min-width:74px;">글로우 강도</span>
+    <input type="range" id="ai" min="0.5" max="2.4" step="0.1" value="1.2" style="flex:1;min-width:150px;accent-color:#6ff0a0;">
+    <span id="aiv" style="color:#dfe8ff;font-size:14px;min-width:34px;text-align:right;">1.2</span>
+  </div>
+  <div style="color:#8fa0d8;font-size:12px;margin-top:6px;">자동으로 세 결과 번갈아 · 버튼=다시보기 · 클릭/스페이스=퍼펙트</div>
+</div>
+<script>
+(function(){
+  const AC=window.AudioContext||window.webkitAudioContext;let ctx=null,master=null,ir=null;
+  function actx(){if(!ctx){ctx=new AC();master=ctx.createGain();master.gain.value=0.9;master.connect(ctx.destination);const len=Math.floor(ctx.sampleRate*1.3),b=ctx.createBuffer(2,len,ctx.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5);}ir=b;}if(ctx.state==='suspended')ctx.resume();return ctx;}
+  function beatKill(){const c=actx(),t=c.currentTime;const conv=c.createConvolver();conv.buffer=ir;const wet=c.createGain();wet.gain.value=0.55;conv.connect(wet).connect(master);const send=n=>{n.connect(master);n.connect(conv);};
+    const o=c.createOscillator(),g=c.createGain();o.type='sine';o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(38,t+0.5);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.62,t+0.012);g.gain.exponentialRampToValueAtTime(0.0001,t+0.6);o.connect(g);send(g);o.start(t);o.stop(t+0.66);
+    const dur=0.5,n=Math.floor(c.sampleRate*dur),buf=c.createBuffer(1,n,c.sampleRate),dd=buf.getChannelData(0);for(let i=0;i<n;i++)dd[i]=(Math.random()*2-1)*Math.pow(1-i/n,1.4);const ns=c.createBufferSource();ns.buffer=buf;const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(1800,t);lp.frequency.exponentialRampToValueAtTime(180,t+0.4);const ng=c.createGain();ng.gain.setValueAtTime(0.4,t);ng.gain.exponentialRampToValueAtTime(0.0001,t+0.45);ns.connect(lp).connect(ng);send(ng);ns.start(t);
+    setTimeout(function(){try{conv.disconnect();wet.disconnect();}catch(e){}},2000);}
+  function badThud(){const c=actx(),t=c.currentTime;const o=c.createOscillator(),g=c.createGain(),lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=320;o.type='sine';o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(58,t+0.17);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.2,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+0.22);o.connect(lp).connect(g).connect(master);o.start(t);o.stop(t+0.24);}
+
+  const AUR=[[57,227,200],[111,240,160],[169,139,255],[255,143,208],[92,200,255]],WHITE=[242,246,255],GREY=[150,160,188];
+  function rgba(c,a){return 'rgba('+(c[0]|0)+','+(c[1]|0)+','+(c[2]|0)+','+Math.max(0,Math.min(1,a))+')';}
+  function lerp(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
+  function bright(c){return [Math.min(255,c[0]+110),Math.min(255,c[1]+110),Math.min(255,c[2]+110)];}
+  function wGlow(g,x,y,r,a){if(a<=0)return;g.save();g.globalCompositeOperation='lighter';const rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(242,246,255,'+Math.min(1,a)+')');rg.addColorStop(1,'rgba(242,246,255,0)');g.fillStyle=rg;g.beginPath();g.arc(x,y,r,0,7);g.fill();g.restore();}
+
+  const cv=document.getElementById('stage'),g=cv.getContext('2d'),W=cv.width,H=cv.height,CX=W/2,CY=H/2,R=92;
+  const maxR=Math.hypot(W,H)*0.6,stars=[];
+  for(let i=0;i<95;i++)stars.push({a:Math.random()*6.283,r:Math.random()*maxR,s:0.4+Math.random()*1.0});
+  function drawStars(){g.save();g.lineCap='round';g.strokeStyle='#aab8ff';for(const st of stars){st.r+=st.s*(0.6+st.r/maxR*4.8);if(st.r>maxR){st.r=Math.random()*22;st.a=Math.random()*6.283;st.s=0.4+Math.random()*1.0;}const t=st.r/maxR,len=2+t*t*24,c=Math.cos(st.a),s=Math.sin(st.a);g.globalAlpha=Math.min(0.85,0.1+t*0.85);g.lineWidth=0.5+t*1.6;g.beginPath();g.moveTo(CX+c*(st.r-len),CY+s*(st.r-len));g.lineTo(CX+c*st.r,CY+s*st.r);g.stroke();}g.globalAlpha=1;g.restore();}
+
+  let parts=[],emit=0,emitCfg=null;
+  function inGather(){for(let i=0;i<55;i++)parts.push({a:Math.random()*6.283,r:maxR*(0.7+Math.random()*0.3),spd:4.5+Math.random()*4.5,life:1,dec:0.016,col:Math.random()<0.5?WHITE:AUR[i%5],in:true,w:0.7+Math.random()*1.6,lf:0.6+Math.random()*1.6,br:1});}
+  function spawnWave(cf){for(let i=0;i<cf.n;i++){const col=cf.grey?(Math.random()<0.7?GREY:WHITE):(Math.random()<0.5?WHITE:AUR[i%5]);parts.push({a:Math.random()*6.283,r:R*(0.95+Math.random()*0.3),spd:cf.s0+Math.random()*cf.sr,life:1,dec:0.01+Math.random()*0.022,col:col,in:false,w:0.7+Math.random()*2.4,lf:0.4+Math.random()*2.2,br:cf.br});}if(parts.length>1100)parts.splice(0,parts.length-1100);}
+  function drawParts(){g.save();g.globalCompositeOperation='lighter';g.lineCap='round';
+    for(let i=parts.length-1;i>=0;i--){const p=parts[i];const acc=p.spd*(0.6+p.r/maxR*4.8)*(p.in?1.15:1.8);
+      if(p.in){p.r-=acc;if(p.r<18){parts.splice(i,1);continue;}}else{p.r+=acc;if(p.r>maxR+14){parts.splice(i,1);continue;}}
+      p.life-=p.dec;if(p.life<=0){parts.splice(i,1);continue;}
+      const t=Math.min(1,p.r/maxR),len=(4+t*t*34)*p.lf,c=Math.cos(p.a),s=Math.sin(p.a),ro=p.in?p.r+len:p.r,ri=p.in?p.r:p.r-len;
+      const a=Math.min(1,p.life*1.25)*p.br,bw=(0.6+t*1.5)*p.w,x0=CX+c*ri,y0=CY+s*ri,x1=CX+c*ro,y1=CY+s*ro;
+      g.globalAlpha=a*0.20;g.strokeStyle=rgba(p.col,1);g.lineWidth=bw*3.6;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();
+      g.globalAlpha=a;g.strokeStyle=rgba(bright(p.col),1);g.lineWidth=bw*0.8;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();}
+    g.globalAlpha=1;g.restore();}
+
+  function rimGlow(t,vis,rr,spin,lwm){if(vis<=0)return;g.save();g.globalCompositeOperation='lighter';g.lineCap='butt';
+    const N=72;for(let i=0;i<N;i++){const a0=i/N*6.283+spin,a1=(i+1.2)/N*6.283+spin;const hf=(i/N*5)%5,ci=Math.floor(hf),col=lerp(AUR[ci%5],AUR[(ci+1)%5],hf-ci);
+      const sh=0.78+0.22*Math.sin(t*0.0028+i*0.5);
+      g.globalAlpha=0.16*vis*sh;g.strokeStyle=rgba(col,1);g.lineWidth=36*lwm;g.beginPath();g.arc(CX,CY,rr,a0,a1);g.stroke();
+      g.globalAlpha=0.5*vis*sh;g.lineWidth=14*lwm;g.beginPath();g.arc(CX,CY,rr,a0,a1);g.stroke();}
+    g.globalAlpha=1;g.restore();}
+  function drawNote(t,al,ringAl,ap,gl,bloom,rs,spin,lwm){
+    const rr=R*rs;rimGlow(t,gl,rr,spin,lwm||1);
+    g.globalAlpha=0.96*ringAl;g.strokeStyle='#f2f6ff';g.lineWidth=8*(lwm||1);g.beginPath();g.arc(CX,CY,rr,0,7);g.stroke();
+    g.globalAlpha=0.4*ringAl;g.lineWidth=2;g.beginPath();g.arc(CX,CY,rr+9,0,7);g.stroke();
+    g.globalAlpha=0.85*ringAl;g.lineWidth=5;g.beginPath();g.arc(CX,CY,rr*0.58,0,7);g.stroke();g.globalAlpha=1;
+    wGlow(g,CX,CY,16*rs*al,0.16*al+bloom*0.7);
+    if(ap>=0){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;g.globalAlpha=aa*0.6;g.strokeStyle=rgba(AUR[Math.floor(t/1400)%5],1);g.lineWidth=3;g.beginPath();g.arc(CX,CY,radius+3,0,7);g.stroke();g.globalAlpha=aa;g.strokeStyle='#e6efff';g.lineWidth=2+2.5*ap;g.beginPath();g.arc(CX,CY,radius,0,7);g.stroke();g.globalAlpha=1;}}
+
+  const TYPES=['perfect','bad','miss'],LABEL={perfect:'✦ 퍼펙트 — 색상환 띠가 커지며 화면 밖으로 퇴장 + 분산 + 비트킬링',bad:'△ 배드 — 약하게 퍼지다 사그라듦 + 둔탁음',miss:'✕ 미스 — 제자리 오퍼시티 소멸, 무음'};
+  const SP=0.42,HIT=1.7,RES=0.7,END=2.8;let start=0,didGather=false,resolved=false,curType='perfect',forced=null,autoIdx=0,sound=false,AI=1.2;
+  function reset(t){start=t;didGather=false;resolved=false;sound=false;if(forced){curType=forced;forced=null;}else{curType=TYPES[autoIdx%3];autoIdx++;}}
+  function loop(ts){const t=ts/1000;if(start===0)start=t;let p=t-start;if(p>=END){reset(t);p=0;}
+    g.clearRect(0,0,W,H);g.fillStyle='#04060d';g.fillRect(0,0,W,H);drawStars();
+    let al,ringAl,ap=-1,gl=AI,bloom=0,rs,spin=ts*0.00035,lwm=1,label='';
+    if(p<HIT){rs=0.4+0.6*(p/HIT);
+      if(p<SP){const s=p/SP,e=1-Math.pow(1-s,3);al=e;ringAl=Math.max(0,(s-0.35)/0.65);gl=AI*Math.max(0.15,e);bloom=Math.max(0,1-Math.abs(s-0.72)/0.28)*0.5;label='① 생성 (작게)';}
+      else{al=1;ringAl=1;ap=(p-SP)/(HIT-SP);gl=AI;label='② 접근 — 일정하게 커지며 다가옴';}}
+    else{const r=Math.min(1,(p-HIT)/RES),eo=1-(1-r)*(1-r);label=LABEL[curType];
+      if(!resolved){resolved=true;if(curType==='perfect'){emit=11;emitCfg={n:44,s0:4,sr:8,br:1,grey:false};if(sound)beatKill();}else if(curType==='bad'){emit=6;emitCfg={n:15,s0:2.8,sr:4,br:0.5,grey:true};if(sound)badThud();}}
+      if(curType==='perfect'){rs=1+4.8*eo;al=1-r;ringAl=1-r*0.9;gl=AI*(1-r*0.55);lwm=1+(rs-1)*0.10;spin+=(1-r)*r*3;}
+      else if(curType==='bad'){rs=1+1.0*eo;al=1-r;ringAl=1-r;gl=AI*(1-r)*0.6;spin+=(1-r)*r*2;}
+      else{rs=1+0.4*r;al=1-r;ringAl=1-r;gl=AI*(1-r)*0.5;}}
+    if(emit>0){spawnWave(emitCfg);emit--;}
+    drawNote(ts,al,ringAl,ap,gl,bloom,rs,spin,lwm);drawParts();
+    document.getElementById('ph').textContent=label;requestAnimationFrame(loop);}
+  requestAnimationFrame(loop);
+  const bts=[['퍼펙트(클린)','perfect'],['배드(빗나감)','bad'],['미스(놓침)','miss']];const bb=document.getElementById('btns');
+  bts.forEach(it=>{const b=document.createElement('button');b.textContent=it[0];b.style.cssText='border:1px solid #26345a;border-radius:9px;padding:8px 12px;font-size:13px;cursor:pointer;font-family:inherit;background:#111a30;color:#a8b6e0;';b.onclick=()=>{actx();sound=true;forced=it[1];reset(performance.now()/1000);};bb.appendChild(b);});
+  const ai=document.getElementById('ai');ai.oninput=function(){AI=parseFloat(ai.value);document.getElementById('aiv').textContent=AI.toFixed(1);};
+  function perfectNow(){const t=performance.now()/1000,p=t-start;if(p>=HIT||p<SP)return;sound=true;forced='perfect';start=t-HIT;resolved=false;curType='perfect';}
+  cv.tabIndex=0;cv.addEventListener('pointerdown',e=>{e.preventDefault();actx();perfectNow();cv.focus();});
+  window.addEventListener('keydown',e=>{if(e.code==='Space'||e.key===' '){e.preventDefault();actx();perfectNow();}});
+})();
+</script>

@@ -1,0 +1,75 @@
+<h2 class="sr-only">홀드 스페이스 노트: 수축 링이 중심까지 collapse하며 생기던 내부 잔상을 제거해 깔끔하게 정리한 버전.</h2>
+<div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:0.5rem 0;">
+  <canvas id="cv" style="width:300px;height:300px;border-radius:var(--border-radius-lg);display:block;"></canvas>
+  <div style="display:flex;align-items:center;gap:10px;width:300px;">
+    <span id="ph" style="font-size:12px;color:var(--color-text-secondary);min-width:46px;">충전</span>
+    <div style="flex:1;height:6px;background:rgba(150,180,255,0.2);border-radius:3px;overflow:hidden;"><div id="bar" style="height:100%;width:0%;background:linear-gradient(90deg,#6ff0a0,#fff);"></div></div>
+  </div>
+  <div style="font-size:12px;color:var(--color-text-tertiary);text-align:center;">내부 잔상 제거 · 강한 백열+넓은 광채 · 수축 링 · 타격 페이드</div>
+</div>
+<script>
+(function(){
+  const SP=[[57,227,200],[111,240,160],[169,139,255],[255,143,208],[92,200,255]];
+  const rgba=(c,a)=>"rgba("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+","+Math.max(0,Math.min(1,a))+")";
+  const briC=c=>[Math.min(255,c[0]+110),Math.min(255,c[1]+110),Math.min(255,c[2]+110)];
+  const cv=document.getElementById("cv"),bar=document.getElementById("bar"),phEl=document.getElementById("ph");
+  const dpr=Math.min(2,window.devicePixelRatio||1),L=300;cv.width=L*dpr;cv.height=L*dpr;const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
+  const cx=L/2,cy=L/2,R=52,maxR=Math.hypot(L,L)*0.55;
+  function conic(x,y,sp){const g=ctx.createConicGradient(-1.5708+sp,x,y);const s=[SP[0],SP[1],SP[2],SP[3],SP[4],SP[0]];for(let i=0;i<6;i++)g.addColorStop(i/5,rgba(s[i],1));return g;}
+  function hex(x,y,r){ctx.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3;i?ctx.lineTo(x+Math.cos(a)*r,y+Math.sin(a)*r):ctx.moveTo(x+Math.cos(a)*r,y+Math.sin(a)*r);}ctx.closePath();}
+  let t=0,last=performance.now(),charge=0,phase="charge",rT=0,flash=0,embers=[],parts=[];
+  function spawnEmber(ch,rr){const a=Math.random()*6.2832,rd=rr*(0.6+Math.random()*0.5),col=Math.random()<0.5?[242,246,255]:SP[(Math.random()*SP.length)|0];embers.push({x:cx+Math.cos(a)*rd,y:cy+Math.sin(a)*rd,vx:Math.cos(a)*(0.5+Math.random()*1.6*ch),vy:Math.sin(a)*(0.5+Math.random()*1.6*ch),life:1,dec:0.014+Math.random()*0.02,size:1+Math.random()*1.6,col});}
+  function burst(){for(let i=0;i<46;i++)parts.push({a:Math.random()*6.2832,r:R*(0.9+Math.random()*0.3),spd:6+Math.random()*9,life:1,dec:0.006+Math.random()*0.012,w:0.7+Math.random()*2.2,lf:0.4+Math.random()*2.0,col:Math.random()<0.5?[242,246,255]:SP[i%5]});}
+  function frame(now){const dt=Math.min(0.05,(now-last)/1000);last=now;t+=dt;
+    const bgg=ctx.createRadialGradient(cx,cy,0,cx,cy,L*0.7);bgg.addColorStop(0,"#0c1120");bgg.addColorStop(1,"#05060d");ctx.fillStyle=bgg;ctx.fillRect(0,0,L,L);
+    if(phase==="charge"){charge+=dt/2.8;if(charge>=1){charge=1;phase="resolve";rT=0;flash=1;burst();}}
+    else if(phase==="resolve"){rT+=dt/0.65;if(rT>=1){phase="pause";rT=0;}}
+    else if(phase==="pause"){rT+=dt;if(rT>0.5){phase="charge";charge=0;embers=[];}}
+    phEl.textContent=phase==="charge"?"충전":phase==="resolve"?"타격!":"";
+    bar.style.width=Math.round((phase==="charge"?charge:phase==="resolve"?1:0)*100)+"%";
+    const spin=t*0.35;
+    if(parts.length){ctx.save();ctx.globalCompositeOperation="lighter";ctx.lineCap="round";
+      for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.r+=p.spd*(0.6+p.r/maxR*4.8)*1.8;p.life-=p.dec;if(p.r>maxR+20||p.life<=0){parts.splice(i,1);continue;}
+        const tt=Math.min(1,p.r/maxR),len=(4+tt*tt*34)*p.lf,c=Math.cos(p.a),s=Math.sin(p.a),ri=p.r-len,a=Math.min(1,p.life*1.25),bw=(0.6+tt*1.5)*p.w,cc=p.col;
+        ctx.globalAlpha=a*0.2;ctx.strokeStyle=rgba(cc,1);ctx.lineWidth=bw*3.4;ctx.beginPath();ctx.moveTo(cx+c*ri,cy+s*ri);ctx.lineTo(cx+c*p.r,cy+s*p.r);ctx.stroke();
+        ctx.globalAlpha=a;ctx.strokeStyle=rgba(briC(cc),1);ctx.lineWidth=bw*0.8;ctx.beginPath();ctx.moveTo(cx+c*ri,cy+s*ri);ctx.lineTo(cx+c*p.r,cy+s*p.r);ctx.stroke();}
+      ctx.restore();}
+
+    if(phase==="charge"){
+      const ch=charge, eased=ch*ch*(3-2*ch), flick=1-(Math.random()*0.16*ch);
+      const rr=R*(1+eased*0.35), gl=0.55+ch*1.7, ringAl=0.4+0.6*ch;
+      const jx=(Math.random()-0.5)*ch*ch*5, jy=(Math.random()-0.5)*ch*ch*5, ox=cx+jx, oy=cy+jy;
+      if(ch>0.35){const rate=ch*ch*2.0;for(let i=0;i<Math.ceil(rate);i++)if(Math.random()<rate/Math.ceil(rate))spawnEmber(ch,rr);}
+      ctx.save();ctx.globalCompositeOperation="lighter";
+      for(let i=embers.length-1;i>=0;i--){const p=embers[i];p.x+=p.vx;p.y+=p.vy;p.life-=p.dec;if(p.life<=0){embers.splice(i,1);continue;}ctx.fillStyle=rgba(p.col,p.life);ctx.beginPath();ctx.arc(p.x,p.y,p.size*(0.5+p.life*0.6),0,6.2832);ctx.fill();}
+      ctx.restore();
+      // 넓게 번지는 외곽 광채
+      ctx.save();ctx.globalCompositeOperation="lighter";const halo=rr*(1.1+eased*2.4)+ch*40;
+      const hg=ctx.createRadialGradient(ox,oy,0,ox,oy,halo);
+      hg.addColorStop(0,rgba([255,255,255],(0.16+0.34*ch)*flick));hg.addColorStop(0.35,rgba(SP[2],0.18*ch*flick));hg.addColorStop(0.7,rgba(SP[0],0.08*ch));hg.addColorStop(1,"rgba(90,120,255,0)");
+      ctx.fillStyle=hg;ctx.beginPath();ctx.arc(ox,oy,halo,0,6.2832);ctx.fill();ctx.restore();
+      // ★수축 링 — 바깥(0.98)에서 안쪽 0.5까지만 (중심까지 collapse 안 함 → 내부 잔상 제거), 양끝에서 페이드
+      ctx.save();ctx.globalCompositeOperation="lighter";
+      for(let k=0;k<3;k++){const ph=((t*0.7)+k/3)%1, ringR=rr*(0.98-ph*0.48);
+        ctx.globalAlpha=Math.sin(ph*Math.PI)*0.45*ch;ctx.strokeStyle=conic(ox,oy,spin*1.5);ctx.lineWidth=R*0.05;hex(ox,oy,ringR);ctx.stroke();}
+      ctx.restore();
+      // 강한 백열 중앙 (부드러운 원형 글로우만 — 윤곽선 없음)
+      if(ch>0.02){ctx.save();ctx.globalCompositeOperation="lighter";const er=rr*(0.2+0.9*eased);const core=ctx.createRadialGradient(ox,oy,0,ox,oy,er);core.addColorStop(0,rgba([255,255,255],(0.8*ch)*flick));core.addColorStop(0.5,rgba(SP[2],0.38*ch*flick));core.addColorStop(1,"rgba(120,140,255,0)");ctx.fillStyle=core;ctx.beginPath();ctx.arc(ox,oy,er,0,6.2832);ctx.fill();ctx.restore();}
+      // 베이스 림 + 흰 바깥 링 (안쪽 0.6 링은 잔상처럼 보여 제거 → 깔끔)
+      ctx.save();ctx.globalCompositeOperation="lighter";ctx.strokeStyle=conic(ox,oy,spin);
+      ctx.globalAlpha=Math.min(1,0.2*gl)*flick;ctx.lineWidth=R*0.2;hex(ox,oy,rr);ctx.stroke();
+      ctx.globalAlpha=Math.min(1,0.85*gl)*flick;ctx.lineWidth=R*0.085;hex(ox,oy,rr);ctx.stroke();ctx.restore();
+      ctx.save();ctx.globalAlpha=0.95*ringAl;ctx.strokeStyle="#f2f6ff";ctx.lineWidth=R*0.06;hex(ox,oy,rr);ctx.stroke();ctx.restore();
+    } else if(phase==="resolve"){
+      const r=Math.min(1,rT),eo=1-(1-r)*(1-r),rr=R*(1+6.8*eo),ringAl=Math.max(0,1-r*1.5),gl=1.2*Math.max(0,1-r*0.9),lwm=1+(rr/R-1)*0.08;
+      ctx.save();ctx.globalCompositeOperation="lighter";ctx.strokeStyle=conic(cx,cy,spin);
+      ctx.globalAlpha=Math.min(1,0.2*gl);ctx.lineWidth=R*0.2*lwm;hex(cx,cy,rr);ctx.stroke();
+      ctx.globalAlpha=Math.min(1,0.85*gl);ctx.lineWidth=R*0.085*lwm;hex(cx,cy,rr);ctx.stroke();ctx.restore();
+      ctx.save();ctx.globalAlpha=0.95*ringAl;ctx.strokeStyle="#f2f6ff";ctx.lineWidth=R*0.06*lwm;hex(cx,cy,rr);ctx.stroke();ctx.restore();
+    }
+    if(flash>0){flash-=dt*3.4;ctx.save();ctx.globalCompositeOperation="lighter";const fr=R*1.5*(1+(1-flash)*1.8);const fg=ctx.createRadialGradient(cx,cy,0,cx,cy,fr);fg.addColorStop(0,rgba([255,255,255],flash*0.75));fg.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=fg;ctx.beginPath();ctx.arc(cx,cy,fr,0,6.2832);ctx.fill();ctx.restore();}
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
