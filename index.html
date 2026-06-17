@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CHROMA — Color Your Beat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
   :root{
     --pink:#ff2e97; --blue:#22a7ff; --yellow:#ffd23f; --green:#39e36b;
@@ -199,6 +199,28 @@
 
   #toast{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);background:#000c;
     padding:10px 18px;border-radius:10px;font-size:14px;z-index:40;opacity:0;transition:.3s;pointer-events:none;}
+  /* ===== RETRO IDENTITY THEME (html.retro) — 모든 화면 픽셀화 ===== */
+  html.retro, html.retro body{font-family:'VT323',monospace;}
+  html.retro button,html.retro input,html.retro select,html.retro textarea,html.retro .tb-btn,html.retro .menu-btn,html.retro label,html.retro .field,html.retro .muted,html.retro p,html.retro .ar,html.retro .nm,html.retro .set-label,html.retro #ed-help,html.retro #edSteps,html.retro #toast{font-family:'VT323',monospace;letter-spacing:.5px;}
+  html.retro .menu-btn{border-radius:0;font-size:25px;letter-spacing:1px;}
+  html.retro .tb-btn{border-radius:0;border:2px solid #3a4170;font-size:18px;padding:7px 12px;}
+  html.retro .tb-btn.primary,html.retro .menu-btn{box-shadow:none;}
+  html.retro input,html.retro select,html.retro textarea{border-radius:0 !important;}
+  html.retro .songcard,html.retro .overlay-card,html.retro #toast,html.retro .diffchip,html.retro .sfx-item,html.retro .set-row{border-radius:0;}
+  /* 픽셀 디스플레이용 = Press Start 2P (짧은 라벨/숫자/타이틀) */
+  html.retro .topbar .title,html.retro h2,html.retro .selwrap h2,html.retro #result h2,html.retro #playSetup h2,html.retro .pw-title,html.retro .hud-logo,html.retro .hud-combo .num,html.retro .hud-combo .lbl,html.retro .hud-score .num,html.retro .hud-score .meta,html.retro #countdown,html.retro .hs-diff,html.retro .nm{font-family:'Press Start 2P',monospace !important;}
+  html.retro .selwrap h2{font-size:19px;line-height:1.5;}
+  html.retro #result h2{font-size:22px;}
+  html.retro .topbar .title{font-size:12px;}
+  html.retro .hud-logo{font-size:15px;letter-spacing:2px;}
+  html.retro .hud-logo em{font-family:'VT323',monospace;}
+  html.retro .hud-combo .num{font-size:34px;letter-spacing:0;}
+  html.retro .hud-combo .lbl{font-size:8px;}
+  html.retro .hud-score .num{font-size:22px;letter-spacing:1px;}
+  html.retro .hud-score .meta{font-size:8px;}
+  html.retro .hud-score .meta #hRank{font-size:11px;}
+  html.retro .nm{font-size:15px;}
+  html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
 </style>
 </head>
 <body>
@@ -592,7 +614,7 @@ function renderSfxList(){
 $("#setSfxToggle").onclick=()=>{settings.sfxOn=!settings.sfxOn;saveSettings();
   $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
-$("#setRetroToggle").onclick=()=>{settings.retro=!settings.retro;saveSettings();
+$("#setRetroToggle").onclick=()=>{settings.retro=!settings.retro;saveSettings();applyRetroClass();
   $("#setRetroToggle").textContent=settings.retro?"On":"Off";$("#setRetroToggle").classList.toggle("primary",settings.retro);
   if(!screens.play.classList.contains("hidden")){fitCanvas(pcanvas);if(state&&state.notes)layoutPlayPositions(state.notes);}};
 $("#setSfxVol").oninput=()=>{settings.sfxVol=parseFloat($("#setSfxVol").value);saveSettings();};
@@ -905,8 +927,10 @@ function saveStore(o){localStorage.setItem(STORE_KEY,JSON.stringify(o));}
 
 // ---------- 설정 (효과음 / 싱크) ----------
 const SET_KEY="chroma_settings";
-let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"],retro:false};
+let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"],retro:true};
 try{Object.assign(settings,JSON.parse(localStorage.getItem(SET_KEY))||{});}catch{}
+function applyRetroClass(){document.documentElement.classList.toggle("retro",!!settings.retro);}
+applyRetroClass();
 if(Array.isArray(settings.keys)&&settings.keys.length===4)KEYS=settings.keys.slice();
 let playOffset=settings.offset/1000;  // 초 단위 싱크 보정
 function saveSettings(){localStorage.setItem(SET_KEY,JSON.stringify(settings));}
@@ -2188,17 +2212,16 @@ function loop(){
     pctx.save();
     pctx.fillStyle="rgba(2,3,10,0.5)";pctx.fillRect(0,0,W,H);
     pctx.textAlign="center";
-    pctx.fillStyle="#22a7ff";pctx.font="600 14px Segoe UI";pctx.fillText("R U RED E?",W/2,H*0.30);
-    pctx.fillStyle="#eef1ff";pctx.font="600 23px Segoe UI";
-    pctx.fillText(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  hold all for 1.5s to ignite",W/2,H*0.365);
-    const cx=W/2,cy=H*0.5,R=66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
-    pctx.strokeStyle="#2a3158";pctx.lineWidth=8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
-    pctx.strokeStyle="#22a7ff";pctx.lineWidth=8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
+    const RT=settings.retro;
+    const gtxt=(s,gx,gy,sz,col)=>{ if(RT){pctx.font=Math.round(sz*0.7)+"px 'Press Start 2P',monospace";pctx.lineJoin="round";pctx.lineWidth=Math.max(3,sz*0.16);pctx.strokeStyle="#05070f";pctx.strokeText(s,gx,gy);pctx.fillStyle=col;pctx.fillText(s,gx,gy);} else {pctx.font="600 "+sz+"px Segoe UI";pctx.fillStyle=col;pctx.fillText(s,gx,gy);} };
+    gtxt("R U RED E?",W/2,H*0.28,RT?H*0.05:14,"#22a7ff");
+    gtxt(RT?("HOLD "+KEYS.map(k=>k.toUpperCase()).join(" ")):(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  hold all for 1.5s to ignite"),W/2,H*0.37,RT?H*0.034:23,"#eef1ff");
+    const cx=W/2,cy=H*0.52,R=Math.max(66,RT?H*0.12:66),pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
+    pctx.strokeStyle="#2a3158";pctx.lineWidth=RT?12:8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
+    pctx.strokeStyle="#22a7ff";pctx.lineWidth=RT?12:8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
     pctx.beginPath();pctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*pr);pctx.stroke();pctx.shadowBlur=0;
-    pctx.fillStyle="#fff";pctx.font="700 28px Segoe UI";pctx.textBaseline="middle";
-    pctx.fillText(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy);pctx.textBaseline="alphabetic";
-    pctx.fillStyle="#8b90b8";pctx.font="13px Segoe UI";
-    pctx.fillText(heldN<4?"Press all 4 keys":"Hold…",cx,cy+R+26);
+    pctx.textBaseline="middle";gtxt(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy,RT?H*0.07:28,"#fff");pctx.textBaseline="alphabetic";
+    gtxt(heldN<4?"PRESS ALL 4 KEYS":"HOLD...",cx,cy+R+(RT?42:26),RT?H*0.028:13,"#8b90b8");
     pctx.restore();
   }
 
