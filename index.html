@@ -584,49 +584,101 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
 const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART EDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO PLAY",ic:"?",fn:()=>openHelp()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
-function drawFxMenu(t){
-  const W=fx.width,H=fx.height,cx=W/2;
-  const g=fxc.createRadialGradient(cx,H*0.5,30,cx,H*0.5,Math.hypot(W,H)*0.7);
-  g.addColorStop(0,"#0a1233");g.addColorStop(0.6,"#06091c");g.addColorStop(1,"#04050c");fxc.fillStyle=g;fxc.fillRect(0,0,W,H);
-  // 워프 별
-  if(!fxBg){fxBg=[];for(let i=0;i<70;i++)fxBg.push({a:Math.random()*6.2832,r:Math.random(),s:0.0006+Math.random()*0.0016});}
-  const maxR=Math.hypot(W,H)*0.6;fxc.save();fxc.lineCap="round";fxc.strokeStyle="#8b9bff";
-  for(const s of fxBg){s.r+=s.s*(0.6+s.r*4);if(s.r>1)s.r=Math.random()*0.04;const rad=s.r*maxR,len=(4+s.r*s.r*40),px=cx+Math.cos(s.a)*rad,py=H*0.5+Math.sin(s.a)*rad;fxc.globalAlpha=Math.min(0.7,0.12+s.r*0.7);fxc.lineWidth=0.6+s.r*2.2;fxc.beginPath();fxc.moveTo(px-Math.cos(s.a)*len,py-Math.sin(s.a)*len);fxc.lineTo(px,py);fxc.stroke();}
-  fxc.restore();fxc.globalAlpha=1;
-  // 로고 (네온 CHROMA + 글로우) — 필터가 픽셀화
-  const lsz=Math.min(W*0.16,H*0.16,120),ly=H*0.24;
-  fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
+// 공용: 네온 CHROMA 로고
+function fxLogo(cx,ly,lsz){fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
   const word="CHROMA",sp=lsz*0.92,startx=cx-(word.length-1)*sp/2;
   for(let i=0;i<word.length;i++){fxc.shadowColor=FX_COLS[i];fxc.shadowBlur=lsz*0.5;fxc.fillStyle="#fff";fxc.lineWidth=lsz*0.06;fxc.strokeStyle=FX_COLS[i];
     fxc.fillText(word[i],startx+i*sp,ly);fxc.strokeText(word[i],startx+i*sp,ly);}
-  fxc.shadowBlur=0;fxc.fillStyle="#aab4e0";fxc.font="600 "+Math.round(lsz*0.16)+"px 'Segoe UI',sans-serif";fxc.fillText("C O L O R   Y O U R   B E A T",cx,ly+lsz*0.62);
-  fxc.restore();
-  // 버튼들
-  fxBtns=[];const bw=Math.min(W*0.66,440),bh=Math.max(54,H*0.092),gap=bh*0.34,n=FX_MENU.length;
-  let by=H*0.44;
-  for(let i=0;i<n;i++){const bx=cx-bw/2,yy=by+i*(bh+gap),hov=fxHover===i;
-    fxBtns.push({x:bx,y:yy,w:bw,h:bh,fn:FX_MENU[i].fn});
-    fxc.save();fxc.shadowColor="#22a7ff";fxc.shadowBlur=hov?26:10;
-    fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,yy,bw,bh);
-    fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#9fd0ff":"#3a4a86";fxc.strokeRect(bx,yy,bw,bh);
-    fxc.shadowBlur=0;fxc.fillStyle="#fff";fxc.textAlign="center";fxc.textBaseline="middle";
-    fxc.font="700 "+Math.round(bh*0.42)+"px 'Century Gothic','Segoe UI',sans-serif";
-    fxc.fillText(FX_MENU[i].ic+"  "+FX_MENU[i].t,cx,yy+bh/2);fxc.restore();}
-  // 키 힌트
-  fxc.save();fxc.textAlign="center";fxc.font="700 "+Math.round(bh*0.4)+"px 'Segoe UI',sans-serif";
-  const keys=["A","D","J","L"],kc=["#ff2e97","#22a7ff","#39e36b","#ffd23f"],ky=by+n*(bh+gap)+bh*0.4;let kw=0;keys.forEach(k=>kw+=fxc.measureText(k+"   ").width);let kx=cx-kw/2;
-  keys.forEach((k,i)=>{fxc.fillStyle=kc[i];fxc.shadowColor=kc[i];fxc.shadowBlur=12;fxc.textAlign="left";fxc.fillText(k,kx,ky);kx+=fxc.measureText(k+"   ").width;});
+  fxc.restore();}
+function fxTitle(s,cx,y,sz,col){fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.shadowColor=col||"#22a7ff";fxc.shadowBlur=sz*0.4;fxc.fillStyle="#fff";fxc.font="700 "+Math.round(sz)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(s,cx,y);fxc.restore();}
+function drawFxMenu(t){
+  const W=fx.width,H=fx.height,cx=W/2;
+  fxBgDraw();
+  fxLogo(cx,H*0.24,Math.min(W*0.16,H*0.16,120));
+  fxc.save();fxc.shadowBlur=0;fxc.fillStyle="#aab4e0";fxc.textAlign="center";fxc.font="600 "+Math.round(Math.min(W*0.16,H*0.16,120)*0.16)+"px 'Segoe UI',sans-serif";fxc.fillText("C O L O R   Y O U R   B E A T",cx,H*0.24+Math.min(W*0.16,H*0.16,120)*0.62);fxc.restore();
+  fxBtns=[];const bw=Math.min(W*0.66,440),bh=Math.max(54,H*0.092),gap=bh*0.34,n=FX_MENU.length;let by=H*0.44;
+  for(let i=0;i<n;i++)fxButton(cx-bw/2,by+i*(bh+gap),bw,bh,FX_MENU[i].ic+"  "+FX_MENU[i].t,FX_MENU[i].fn,i);
+  fxc.save();fxc.textAlign="left";fxc.font="700 "+Math.round(bh*0.4)+"px 'Segoe UI',sans-serif";
+  const keys=["A","D","J","L"],kc=FX_COLS,ky=by+n*(bh+gap)+bh*0.5;let kw=0;keys.forEach(k=>kw+=fxc.measureText(k+"   ").width);let kx=cx-kw/2;
+  keys.forEach((k,i)=>{fxc.fillStyle=kc[i];fxc.shadowColor=kc[i];fxc.shadowBlur=12;fxc.fillText(k,kx,ky);kx+=fxc.measureText(k+"   ").width;});
   fxc.restore();
   fxPixelate();
 }
-function fxLoop(ts){if(fxScreen!=="menu"){fxRaf=null;return;}if(fxT0==null)fxT0=ts;drawFxMenu((ts-fxT0)/1000);fxRaf=requestAnimationFrame(fxLoop);}
+// ===== 결과 화면 (HTML 결과값을 캔버스로 미러링 + 필터) =====
+function drawFxResult(t){
+  const W=fx.width,H=fx.height,cx=W/2,txt=id=>{const e=document.getElementById(id);return e?e.textContent:"";};
+  fxBgDraw();
+  fxTitle(txt("rRank")||"CLEAR!",cx,H*0.13,Math.min(W*0.07,H*0.07,46),"#ffd23f");
+  const rows=[["SCORE","rScore","#fff"],["MAX COMBO","rCombo","#fff"],["ACCURACY","rAcc","#fff"],["PERFECT","rPerfect","#39e36b"],["GREAT","rGreat","#22a7ff"],["GOOD","rGood","#ffd23f"],["BAD","rBad","#ff9a3c"],["MISS","rMiss","#ff2e97"]];
+  const fs=Math.max(15,Math.min(W*0.028,H*0.032)),lh=fs*1.9,gx=cx-W*0.28,vx=cx+W*0.28,y0=H*0.24;
+  fxc.save();fxc.textBaseline="middle";
+  for(let i=0;i<rows.length;i++){const y=y0+i*lh;
+    fxc.font="700 "+Math.round(fs)+"px 'Century Gothic','Segoe UI',sans-serif";
+    fxc.textAlign="left";fxc.fillStyle=rows[i][2];fxc.shadowColor=rows[i][2];fxc.shadowBlur=8;fxc.fillText(rows[i][0],gx,y);
+    fxc.textAlign="right";fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=6;fxc.fillText(txt(rows[i][1]),vx,y);}
+  fxc.restore();
+  // 버튼: HTML 결과 버튼을 미러 (보이는 것만)
+  fxBtns=[];const defs=[["[data-home]","MENU"],["#toSongSel","SONGS"],["#toEditor","EDITOR"],["#retryBtn","RETRY"]].map(([sel,lab])=>({el:document.querySelector("#result "+sel),lab})).filter(d=>d.el&&getComputedStyle(d.el).display!=="none"&&!d.el.classList.contains("hidden"));
+  const bw=Math.min(W*0.2,200),bh=Math.max(44,H*0.07),gap=W*0.02,total=defs.length*bw+(defs.length-1)*gap,bx0=cx-total/2,by=H*0.82;
+  defs.forEach((d,i)=>fxButton(bx0+i*(bw+gap),by,bw,bh,d.lab,()=>d.el.click(),i,i===defs.length-1?"#ff2e97":"#22a7ff"));
+  fxPixelate();
+}
+// ===== 곡 선택 (HTML 카드/난이도 구조를 미러 + 필터) =====
+function drawFxSongsel(t){
+  const W=fx.width,H=fx.height,cx=W/2;
+  fxBgDraw();fxBtns=[];
+  const diffOpen=!document.getElementById("diffView").classList.contains("hidden");
+  fxTitle(diffOpen?(document.getElementById("diffSongTitle").textContent||"DIFFICULTY"):"SONG SELECT",cx,H*0.10,Math.min(W*0.05,H*0.055,34));
+  // 뒤로 버튼
+  fxButton(W*0.04,H*0.04,Math.min(W*0.2,150),Math.max(38,H*0.06),diffOpen?"← SONGS":"← MENU",()=>{(diffOpen?document.getElementById("backToSongs"):document.querySelector("#songsel [data-home]")).click();},900);
+  const list=document.querySelectorAll(diffOpen?"#diffList .diffcard":"#songList .songcard");
+  const top=H*0.18,bh=diffOpen?Math.max(50,H*0.1):Math.max(58,H*0.13),gap=bh*0.22,bw=Math.min(W*0.86,560),bx=cx-bw/2;
+  list.forEach((el,i)=>{const yy=top+i*(bh+gap);if(yy>H-bh)return;
+    const nmEl=el.querySelector(".nm")||el.querySelector(".lv")||el.querySelector("h3");
+    const nm=(nmEl||el).textContent.trim().split("\n")[0].replace("🔒","").trim().slice(0,40);
+    const subEl=el.querySelector(".ar")||el.querySelector(".sub")||el.querySelector(".cnt");
+    const sub=subEl?subEl.textContent.trim().slice(0,40):"";
+    const locked=/🔒|locked/i.test(el.textContent);
+    const idx=fxBtns.length;fxBtns.push({x:bx,y:yy,w:bw,h:bh,fn:()=>el.click()});const hov=fxHover===idx;
+    fxc.save();fxc.shadowColor=hov?"#bfe3ff":"#22a7ff";fxc.shadowBlur=hov?22:9;
+    fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,yy,bw,bh);
+    fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#bfe3ff":"#3a4a86";fxc.strokeRect(bx,yy,bw,bh);
+    const pad=Math.max(16,bw*0.045);
+    // 커버 스와치
+    fxc.shadowBlur=0;const sw=bh*0.56,swx=bx+pad,swy=yy+(bh-sw)/2;const cg=fxc.createLinearGradient(swx,swy,swx+sw,swy+sw);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(swx,swy,sw,sw);
+    const tx=swx+sw+pad;
+    fxc.shadowBlur=5;fxc.textBaseline="alphabetic";fxc.textAlign="left";
+    fxc.fillStyle="#fff";fxc.font="700 "+Math.round(Math.min(bh*0.3,(bw-(tx-bx)-pad)/Math.max(8,nm.length)*1.7))+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText((locked?"🔒 ":"")+nm,tx,yy+bh*0.46);
+    if(sub){fxc.shadowBlur=0;fxc.fillStyle="#9fb0d8";fxc.font="600 "+Math.round(bh*0.18)+"px 'Segoe UI',sans-serif";fxc.fillText(sub,tx,yy+bh*0.72);}
+    fxc.restore();});
+  fxPixelate();
+}
+const FX_SCREENS={menu:1,result:1,songsel:1};
+function fxLoop(ts){if(!fxScreen){fxRaf=null;return;}if(fxT0==null)fxT0=ts;const t=(ts-fxT0)/1000;
+  if(fxScreen==="menu")drawFxMenu(t);else if(fxScreen==="result")drawFxResult(t);else if(fxScreen==="songsel")drawFxSongsel(t);
+  fxRaf=requestAnimationFrame(fxLoop);}
 function fxUpdate(name){
-  const on=(name==="menu"&&settings.retro);
-  fxScreen=on?"menu":null;
+  const on=(!!FX_SCREENS[name]&&settings.retro);
+  fxScreen=on?name:null;fxHover=-1;
   document.documentElement.classList.toggle("fxon",on);
   if(on){fxFit();if(!fxRaf){fxT0=null;fxRaf=requestAnimationFrame(fxLoop);}}
   else if(fxRaf){cancelAnimationFrame(fxRaf);fxRaf=null;}
 }
+// 공용: 워프 별 배경
+function fxBgDraw(){const W=fx.width,H=fx.height,cx=W/2;
+  const g=fxc.createRadialGradient(cx,H*0.5,30,cx,H*0.5,Math.hypot(W,H)*0.7);
+  g.addColorStop(0,"#0a1233");g.addColorStop(0.6,"#06091c");g.addColorStop(1,"#04050c");fxc.fillStyle=g;fxc.fillRect(0,0,W,H);
+  if(!fxBg){fxBg=[];for(let i=0;i<70;i++)fxBg.push({a:Math.random()*6.2832,r:Math.random(),s:0.0006+Math.random()*0.0016});}
+  const maxR=Math.hypot(W,H)*0.6;fxc.save();fxc.lineCap="round";fxc.strokeStyle="#8b9bff";
+  for(const s of fxBg){s.r+=s.s*(0.6+s.r*4);if(s.r>1)s.r=Math.random()*0.04;const rad=s.r*maxR,len=(4+s.r*s.r*40),px=cx+Math.cos(s.a)*rad,py=H*0.5+Math.sin(s.a)*rad;fxc.globalAlpha=Math.min(0.7,0.12+s.r*0.7);fxc.lineWidth=0.6+s.r*2.2;fxc.beginPath();fxc.moveTo(px-Math.cos(s.a)*len,py-Math.sin(s.a)*len);fxc.lineTo(px,py);fxc.stroke();}
+  fxc.restore();fxc.globalAlpha=1;}
+// 공용: 버튼 그리기 + 히트영역 등록
+function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxHover===idx;fxBtns.push({x:bx,y:by,w:bw,h:bh,fn});
+  fxc.save();fxc.shadowColor=accent||"#22a7ff";fxc.shadowBlur=hov?26:10;
+  fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,by,bw,bh);
+  fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#bfe3ff":(accent||"#3a4a86");fxc.strokeRect(bx,by,bw,bh);
+  fxc.shadowBlur=0;fxc.fillStyle="#fff";fxc.textAlign="center";fxc.textBaseline="middle";
+  fxc.font="700 "+Math.round(bh*0.42)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(label,bx+bw/2,by+bh/2);fxc.restore();}
 fx.addEventListener("pointermove",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let h=-1;fxBtns.forEach((b,i)=>{if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)h=i;});fxHover=h;fx.style.cursor=h>=0?"pointer":"default";});
 fx.addEventListener("pointerdown",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}});
 window.addEventListener("resize",()=>{if(fxScreen)fxFit();});
@@ -962,7 +1014,7 @@ function openDiffs(song){
     }else{
       card.style.borderColor=col;
       card.innerHTML=`<span class="lv" style="color:${col}">${d.name}</span>
-        <span class="cnt">노트 ${d.chart.notes.length}개</span>`;
+        <span class="cnt">${d.chart.notes.length} notes</span>`;
       card.onclick=()=>playEmbedded(song,d);
     }
     list.appendChild(card);
