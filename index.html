@@ -583,7 +583,8 @@ let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
 function fxFlushText(lc,k){lc.save();lc.textBaseline="middle";
   for(const o of fxTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
+    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.22);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);
+    lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);lc.lineWidth=Math.max(1,sz*0.13);lc.strokeStyle=o.c;lc.strokeText(o.t,o.x*k,o.y*k);}   // ★동색 보강 스트로크=볼드
   try{lc.letterSpacing="0px";}catch(_){}lc.restore();fxTextQ.length=0;}
 function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
   if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
@@ -2103,7 +2104,7 @@ function drawSpaceNote(n,now,AR){
     if(r>=1){n.done=true;return;}
     if(n.spState==="bad"){rs=1+1.0*eo;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.6;}
     else if(n.spState==="miss"||n.spState==="break"){rs=1+0.35*r;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.45;}
-    else{rs=1+6.8*eo;al=1-r;ringAl=Math.max(0,1-r*1.5);gl=1.2*Math.max(0,1-r*0.9);lwm=1+(rs-1)*0.08;flash=Math.max(0,1-r/0.28);}
+    else{rs=1;al=1-r;ringAl=Math.max(0,1-r*1.8);gl=1.2*Math.max(0,1-r*0.9);lwm=1;flash=0;}   // ★원형 확산 링·섬광 제거 — 제자리 페이드만(입자 분출은 유지)
   }
   const rr=R*rs;
   // 매끈한 색상환 림 (conic, 회전)
@@ -2153,7 +2154,8 @@ function updateHUD(){
 let pTextQ=[];
 function pPixText(t,x,y,sz,col,align,bl){pTextQ.push({t:String(t),x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",bl:bl||"middle"});}
 function pFlushText(lc,k){lc.save();for(const o of pTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
+    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.22);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);
+    lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);lc.lineWidth=Math.max(1,sz*0.13);lc.strokeStyle=o.c;lc.strokeText(o.t,o.x*k,o.y*k);}   // ★동색 보강 스트로크=볼드
   try{lc.letterSpacing="0px";}catch(_){}lc.restore();pTextQ.length=0;}
 // ★레트로: HUD를 캔버스에 직접 그려 도트필터를 함께 통과시킴 (HTML HUD는 retro일 때 CSS로 숨김)
 function drawHudCanvas(now){
