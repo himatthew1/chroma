@@ -1109,7 +1109,7 @@ function drawFxHowto(t){
   }
   if(n.judged){n.dt=n.dt||now;if(now-n.dt>0.75)n.done=1;}
   // ★인게임과 동일한 패드 + 스페이스 콘솔 (하단). htD.down = 현재 눌린 키 반영
-  {const gp=padGeomFor(W,H);NoteFX_pads(fxc,gp,W,H,htD.down,null,(tt,x,y,sz,col)=>fxPixText(tt,x,y,sz,col,"center","middle"));}
+  {const gp=padGeomFor(W,H);NoteFX_pads(fxc,gp,W,H,htD.down,null,(tt,x,y,sz,col)=>fxPixText(tt,x,y,sz,col,"center","middle"),htD.space);}
   _htFx();
   fxPixelate();
 }
@@ -1732,8 +1732,8 @@ function padGeomFor(W,H){
 }
 function padGeom(){return padGeomFor(pcanvas.width,pcanvas.height);}
 // SHARED 패드+스페이스 콘솔 — 인게임(pctx)·How-to(fxc)가 동일 호출. txt(t,x,y,sz,col)=픽셀텍스트 콜백.
-function NoteFX_pads(ctx,g,W,H,held,padFx,txt){
-  {const sw=Math.min(W*0.82,(g.xs[3]-g.xs[0])+g.r*3.0),sx=W/2-sw/2,ex=W/2+sw/2,bt=g.y,bb=H-16,ch=g.r*0.42,nr=g.r*1.16,allHeld=held&&held.every(Boolean);
+function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
+  {const sw=Math.min(W*0.82,(g.xs[3]-g.xs[0])+g.r*3.0),sx=W/2-sw/2,ex=W/2+sw/2,bt=g.y,bb=H-16,ch=g.r*0.42,nr=g.r*1.16,allHeld=!!spaceLit;   // ★스페이스바 입력 시 콘솔 발광 (ADJL 4키와 무관)
    const ag=ctx.createLinearGradient(sx,0,ex,0);for(let k=0;k<5;k++)ag.addColorStop(k/4,_rgba(SP_AUR[k],1));
    const barPath=()=>{ctx.beginPath();ctx.moveTo(sx+ch,bt);for(let c=0;c<4;c++){ctx.lineTo(g.xs[c]-nr,bt);ctx.arc(g.xs[c],bt,nr,Math.PI,0,true);}ctx.lineTo(ex-ch,bt);ctx.lineTo(ex,bt+ch);ctx.lineTo(ex,bb-ch);ctx.lineTo(ex-ch,bb);ctx.lineTo(sx+ch,bb);ctx.lineTo(sx,bb-ch);ctx.lineTo(sx,bt+ch);ctx.closePath();};
    ctx.save();
@@ -2042,7 +2042,7 @@ function startPlay(startAt){
   const AR0=approachSec();
   notes.forEach(n=>{n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);});   // 노트별 워프 상수
   state={notes,score:0,combo:0,maxCombo:0,counts:{perfect:0,great:0,good:0,bad:0,miss:0},
-    held:[false,false,false,false],padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,warp,
+    held:[false,false,false,false],spaceDown:false,padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,warp,
     started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:AR0,startAt:startAt,
     readyGate:false,holdStart:0,readyProg:0};
   updateHUD();
@@ -2443,7 +2443,7 @@ function drawHudCanvas(now){
 document.addEventListener("keydown",e=>{
   if(state&&!screens.play.classList.contains("hidden")){
     if(e.key==="Escape"){stopPlay();openSongSelect();return;}
-    if(e.code==="Space"){e.preventDefault();if(!e.repeat&&state.started&&!state.readyGate)pressSpace();return;}
+    if(e.code==="Space"){e.preventDefault();if(state.started&&!state.readyGate){state.spaceDown=true;if(!e.repeat)pressSpace();}return;}
     const col=KEYS.indexOf(e.key.toLowerCase());
     if(col>=0){
       if(e.repeat)return;                                                // OS 자동반복은 무시(씹힘 방지)
@@ -2454,10 +2454,10 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("keyup",e=>{
   if(state){
-    if(e.code==="Space"){if(state.started&&!state.readyGate)releaseSpace();return;}
+    if(e.code==="Space"){state.spaceDown=false;if(state.started&&!state.readyGate)releaseSpace();return;}
     const col=KEYS.indexOf(e.key.toLowerCase());if(col>=0){state.held[col]=false;if(state.started&&!state.readyGate)releaseCol(col);}}
 });
-window.addEventListener("blur",()=>{if(state)state.held=[false,false,false,false];});  // 포커스 이탈 시 키 고정 해제
+window.addEventListener("blur",()=>{if(state){state.held=[false,false,false,false];state.spaceDown=false;}});  // 포커스 이탈 시 키 고정 해제
 let _ptrCol=-1;
 pcanvas.addEventListener("pointerdown",e=>{if(!state)return;const r=pcanvas.getBoundingClientRect();
   const c=padAt(e.clientX-r.left,e.clientY-r.top);if(c>=0&&state.started&&!state.held[c]){_ptrCol=c;state.held[c]=true;pressCol(c);}});
@@ -2732,7 +2732,7 @@ function loop(){
   NoteFX_pads(pctx,g,W,H,state.held,state.padFx,(t,x,y,sz,col)=>{
     if(settings.retro)pPixText(t,x,y,sz,col,"center","middle");
     else{pctx.save();pctx.fillStyle=col;pctx.textAlign="center";pctx.textBaseline="middle";pctx.font="bold "+Math.round(sz)+"px monospace";pctx.fillText(t,x,y);pctx.restore();}
-  });
+  },state.spaceDown);
 
   // particles · 섬광 · 충격파 — 공유 함수(How-to와 동일한 그리기)
   if(state.particles.length>260)state.particles.splice(0,state.particles.length-260);  // 상한
