@@ -999,11 +999,8 @@ const HT_MODES=[{k:"tap",label:"Tap",desc:"Press the note's colour key once when
 let htD={note:null,parts:[],shocks:[],flashes:[],floats:[],down:[0,0,0,0],space:0};
 function _htReset(){htD.note=null;htD.parts.length=0;htD.shocks.length=0;htD.flashes.length=0;htD.floats.length=0;htD.down=[0,0,0,0];htD.space=0;}
 function _htBurst(kind,x,y,col){if(htD.note)htD.note.judged=1;htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});
-  if(kind==="bad"||kind==="miss")return;hitSound(kind,col);const cc=COLHEX[col],n=kind==="perfect"?34:24;
-  for(let i=0;i<n;i++){const a=Math.random()*6.283,sp=4+Math.random()*10;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2,life:1,dec:0.018+Math.random()*0.02,col:cc,size:1.6+Math.random()*2.6,streak:Math.random()<0.6});}
-  for(let i=0;i<12;i++){const a=Math.random()*6.283,sp=1+Math.random()*5;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.05,col:"#fff",size:1.8,white:1});}
-  htD.shocks.push({x,y,r:fx.height*0.04,vr:fx.height*0.02,life:1,col:cc});htD.shocks.push({x,y,r:fx.height*0.03,vr:fx.height*0.016,life:1,col:"#fff"});
-  htD.flashes.push({x,y,r:fx.height*(kind==="perfect"?0.13:0.1),life:1});}
+  if(kind==="bad"||kind==="miss")return;hitSound(kind,col);
+  NoteFX_burst(htD.parts,htD.shocks,htD.flashes,col,kind,x,y,1,Math.max(26,fx.height*0.075));}   // ★공유 폭발(인게임 padBurst와 동일 — 파티클 하나까지)
 function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(performance.now()-(fxT0||performance.now()))/1000;htD.note.spKind=kind;}htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // ★스페이스 = 오로라 폭발(위젯) + 링 퇴장 시작점 기록
   if(kind==="bad"||kind==="miss")return;hitSound(kind,0);
   for(let i=0;i<50;i++){const a=Math.random()*6.283,sp=4+Math.random()*12;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.015+Math.random()*0.02,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
@@ -1012,11 +1009,9 @@ function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(per
   htD.flashes.push({x,y,r:fx.height*0.15,life:1});}
 function _htStar(x,y,r,rot,col){fxc.save();fxc.globalCompositeOperation="lighter";fxc.fillStyle=col;fxc.shadowColor=col;fxc.shadowBlur=14;star4Path(fxc,x,y,r,rot);fxc.fill();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=8;star4Path(fxc,x,y,r*0.55,rot);fxc.fill();fxc.restore();}
 function _htFx(){
-  fxc.save();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";fxc.shadowBlur=0;
-  for(const p of htD.parts){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=p.dec;if(p.life<=0)continue;const pc=p.white?"#fff":p.col;fxc.globalAlpha=Math.min(1,p.life*1.4);fxc.strokeStyle=pc;fxc.fillStyle=pc;if(p.streak){fxc.lineWidth=p.size+2;fxc.beginPath();fxc.moveTo(p.px,p.py);fxc.lineTo(p.x,p.y);fxc.stroke();}else{fxc.beginPath();fxc.arc(p.x,p.y,p.size*p.life+1,0,6.283);fxc.fill();}}
-  for(const fl of htD.flashes){fl.life-=0.085;if(fl.life<=0)continue;const rr=fl.r*(1+(1-fl.life)*1.5);fxc.globalAlpha=fl.life*0.9;const g=fxc.createRadialGradient(fl.x,fl.y,0,fl.x,fl.y,rr);g.addColorStop(0,"rgba(255,255,255,0.95)");g.addColorStop(0.45,"rgba(255,255,255,0.3)");g.addColorStop(1,"rgba(255,255,255,0)");fxc.fillStyle=g;fxc.beginPath();fxc.arc(fl.x,fl.y,rr,0,6.283);fxc.fill();}
-  for(const s of htD.shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;fxc.globalAlpha=s.life*0.85;fxc.strokeStyle=s.col;fxc.shadowColor=s.col;fxc.shadowBlur=12;fxc.lineWidth=3+4*s.life;fxc.beginPath();fxc.arc(s.x,s.y,s.r,0,6.283);fxc.stroke();}
-  fxc.restore();
+  NoteFX_drawParts(fxc,htD.parts,1);                 // ★공유 그리기(인게임과 동일)
+  NoteFX_drawFlashes(fxc,htD.flashes);
+  NoteFX_drawShocks(fxc,htD.shocks,1);
   htD.parts=htD.parts.filter(p=>p.life>0);htD.flashes=htD.flashes.filter(f=>f.life>0);htD.shocks=htD.shocks.filter(s=>s.life>0);
   for(const f of htD.floats){f.life-=0.02;}
   htD.floats=htD.floats.filter(f=>f.life>0);
@@ -1045,17 +1040,18 @@ function drawFxHowto(t){
   fxc.save();fxc.shadowColor="#22a7ff";fxc.shadowBlur=4;fxPixText(dm.desc,cx,H*0.30,Math.max(11,H*0.021),"#dfe6ff","center");fxc.restore();
   fxPixText("A=PINK   D=BLUE   J=GREEN   L=YELLOW",cx,H*0.37,Math.max(10,H*0.017),"#9fb0d8","center");
   // ── 중앙 데모 노트 (인게임처럼 랜덤색 하나) ──
-  if(!htD.note||htD.note.done){htD.spaceN=htD.spaceN||0;htD.note={t0:now,dur:1.5,col:(Math.random()*4)|0,x:cx,y:cyc,variant:(_htMode==="space"&&(htD.spaceN++%2===1))?"hold":"tap",caught:0,charge:0,charging:0,judged:0,done:0,_ig:{}};}
+  if(!htD.note||htD.note.done){htD.spaceN=htD.spaceN||0;htD.note={t0:now,dur:1.5,col:(Math.random()*4)|0,x:cx,y:cyc,variant:(_htMode==="space"&&(htD.spaceN++%2===1))?"hold":"tap",caught:0,charge:0,charging:0,judged:0,done:0,_ig:{},_ox:(Math.random()<0.5?-1:1)*r*(4+Math.random()*3),_oy:(Math.random()-0.5)*r*5};}   // ★_ox/_oy = 가장자리에서 날아 들어와 안착(인게임 생성 드리프트)
   const n=htD.note,prog=(now-n.t0)/n.dur,col=COLHEX[n.col];
   if(_htMode==="tap"){
     if(prog>1.25&&!n.judged)_htBurst("miss",cx,cyc,n.col);   // ★미스 제때(인게임 유예와 동일 ~0.37s)
-    if(!n.judged){const near=Math.min(prog,1),ease=near*near,br=r*(0.86+0.22*ease),a=Math.min(1,prog*3),flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
-      NoteFX_approach(fxc,cx,cyc,br,r,near,ease,a,col,false);                       // 어프로치 링(공유)
-      NoteFX_noteBody(fxc,cx,cyc,br,col,{a,ease,flash,hold:false});}                // 오브 본체(공유)
+    if(!n.judged){const near=Math.min(prog,1),ease=near*near,din=near*near*(3-2*near),br=r*(0.86+0.22*ease),a=Math.min(1,prog*3),flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
+      const dx=cx+(n._ox||0)*(1-din),dy=cyc+(n._oy||0)*(1-din);   // ★가장자리→중앙 안착(인게임 생성 드리프트)
+      NoteFX_approach(fxc,dx,dy,br,r,near,ease,a,col,false);                       // 어프로치 링(공유)
+      NoteFX_noteBody(fxc,dx,dy,br,col,{a,ease,flash,hold:false});}                // 오브 본체(공유)
   } else if(_htMode==="hold"){
     if(prog>=1&&!n.judged&&htD.down[n.col]){n.charging=1;n.charge=Math.min(1,n.charge+1/(60*0.8));}
     if(!n.judged&&((prog>1.25&&!n.charging)||prog>2.8))_htBurst("miss",cx,cyc,n.col);   // ★안 잡으면 제때 미스
-    if(!n.judged){const near=Math.min(prog,1),ease=near*near,a=Math.min(1,prog*3);let br=r*(0.86+0.22*ease)*1.18,glowB=0,whiten=0,dx=cx,dy=cyc;
+    if(!n.judged){const near=Math.min(prog,1),ease=near*near,din=near*near*(3-2*near),a=Math.min(1,prog*3);let br=r*(0.86+0.22*ease)*1.18,glowB=0,whiten=0,dx=cx+(n._ox||0)*(1-din),dy=cyc+(n._oy||0)*(1-din);   // ★생성 드리프트
       if(prog>=1&&htD.down[n.col]){const h=n.charge;br*=1+h*0.55;glowB=h*48;whiten=0.25+h*0.72;const jit=2+h*6;dx+=(Math.random()-0.5)*jit;dy+=(Math.random()-0.5)*jit;   // 지글지글 흔들림(인게임 동일)
         const rate=2+Math.floor(h*5);for(let s2=0;s2<rate;s2++){const ang=Math.random()*6.283,sp=1.4+Math.random()*(3+h*5);htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.3,life:1,dec:0.05+Math.random()*0.04,col:COLHEX[n.col],size:1+Math.random()*(1.6+h*1.6),streak:Math.random()<0.5,white:Math.random()<h*0.5});}}   // 스파크
       const flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
@@ -2277,6 +2273,43 @@ function NoteFX_approach(ctx,x,y,br,r,prog,ease,a,col,hold){
   if(hold)hexPath(ctx,x,y,rr);else{ctx.beginPath();ctx.arc(x,y,rr,0,Math.PI*2);}
   ctx.stroke();ctx.restore();
 }
+// SHARED hit explosion — spawn (verbatim from in-game padBurst) + draw, used by in-game AND How-to.
+// S = velocity/size scale (in-game 1; How-to = fx.height/pcanvas.height), NR = note radius in target canvas.
+function NoteFX_burst(parts,shocks,flashes,col,kind,x,y,S,NR){
+  if(kind==="miss"||kind==="bad")return;   // BAD/미스는 파티클 없음(인게임 동일)
+  const n=kind==="perfect"?34:kind==="great"?24:16;
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=(3+Math.random()*9)*S;
+    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2*S,life:1,decay:0.016+Math.random()*0.022,col,size:(1.4+Math.random()*2.6)*S,streak:Math.random()<0.6});}
+  for(let i=0;i<Math.ceil(n*0.35);i++){const a=Math.random()*Math.PI*2,sp=(1+Math.random()*5)*S;   // 흰 코어 입자
+    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:(1.5+Math.random()*2)*S,white:true});}
+  shocks.push({x,y,r:NR*0.55,vr:NR*0.55,life:1,col:(typeof col==="number"?COLHEX[col]:col)});   // 색 충격파
+  shocks.push({x,y,r:NR*0.4,vr:NR*0.42,life:1,col:"#ffffff"});                                    // 흰 충격파(2중)
+  flashes.push({x,y,r:NR*(kind==="perfect"?1.5:1.2),life:1});                                      // 흰 섬광
+}
+function NoteFX_drawParts(ctx,parts,S){
+  const pb=(settings.retro?2.2:0)*S;
+  ctx.save();ctx.lineCap="round";ctx.globalCompositeOperation="lighter";ctx.shadowBlur=0;
+  for(const p of parts){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=(p.decay!=null?p.decay:p.dec);
+    if(p.life<=0)continue;
+    const pc=p.white?"#fff":(typeof p.col==="number"?COLHEX[p.col]:p.col);ctx.globalAlpha=Math.min(1,p.life*1.4);ctx.strokeStyle=pc;ctx.fillStyle=pc;
+    if(p.streak){ctx.lineWidth=p.size+pb;ctx.beginPath();ctx.moveTo(p.px,p.py);ctx.lineTo(p.x,p.y);ctx.stroke();}
+    else{ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life+0.6*S+pb,0,Math.PI*2);ctx.fill();}}
+  ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
+}
+function NoteFX_drawShocks(ctx,shocks,S){
+  ctx.save();ctx.globalCompositeOperation="lighter";
+  for(const s of shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;
+    ctx.globalAlpha=s.life*0.85;ctx.strokeStyle=s.col;ctx.shadowColor=s.col;ctx.shadowBlur=12;ctx.lineWidth=((settings.retro?3:2)+4*s.life)*S;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.stroke();}
+  ctx.restore();
+}
+function NoteFX_drawFlashes(ctx,flashes){
+  ctx.save();ctx.globalCompositeOperation="lighter";
+  for(const fl of flashes){fl.life-=0.085;if(fl.life<=0)continue;const rr=fl.r*(1+(1-fl.life)*1.5);ctx.globalAlpha=fl.life*0.9;
+    const g=ctx.createRadialGradient(fl.x,fl.y,0,fl.x,fl.y,rr);g.addColorStop(0,"rgba(255,255,255,0.95)");g.addColorStop(0.45,"rgba(255,255,255,0.3)");g.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(fl.x,fl.y,rr,0,6.2832);ctx.fill();}
+  ctx.restore();
+}
 function drawSpaceNote(n,now,AR){
   const G=spaceGeom(),cx=G.cx,cy=G.cy,R=G.R,appear=n.time-AR,hold=(n.duration||0)>0;
   {const wp=(typeof state!=="undefined"&&state&&state.warp)?state.warp:null;   // ★워프 등장(슬로우=일찍 가까이서, 스피드=늦게)
@@ -2321,21 +2354,7 @@ function padBurst(col,kind,nx,ny){
   state.padFx[col]={life:1,kind};
   if(kind==="miss"||kind==="bad")return;   // BAD/미스는 파티클 없음
   const g=padGeom(),x=(nx!=null?nx:g.xs[col]),y=(ny!=null?ny:g.y);   // ★노트 위치에서 폭발(위젯)
-  const n=kind==="perfect"?34:kind==="great"?24:16;
-  for(let i=0;i<n;i++){
-    const a=Math.random()*Math.PI*2, sp=3+Math.random()*9;
-    state.particles.push({x,y,px:x,py:y,
-      vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-2,
-      life:1, decay:0.016+Math.random()*0.022,
-      col, size:1.4+Math.random()*2.6, streak:Math.random()<0.6});
-  }
-  for(let i=0;i<Math.ceil(n*0.35);i++){          // 흰 코어 입자(위젯 supernova)
-    const a=Math.random()*Math.PI*2, sp=1+Math.random()*5;
-    state.particles.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:1.5+Math.random()*2,white:true});
-  }
-  (state.shocks||(state.shocks=[])).push({x,y,r:noteR()*0.55,vr:noteR()*0.55,life:1,col:COLHEX[col]});   // ★충격파 확산 링(위젯)
-  state.shocks.push({x,y,r:noteR()*0.4,vr:noteR()*0.42,life:1,col:"#ffffff"});                            // 흰 충격파(2중)
-  (state.flashes||(state.flashes=[])).push({x,y,r:noteR()*(kind==="perfect"?1.5:1.2),life:1});            // ★흰 섬광(위젯)
+  NoteFX_burst(state.particles,(state.shocks||(state.shocks=[])),(state.flashes||(state.flashes=[])),col,kind,x,y,1,noteR());   // ★공유 폭발(How-to와 동일)
 }
 function updateHUD(){
   $("#hScore").textContent=String(state.score).padStart(7,"0");
@@ -2710,32 +2729,11 @@ function loop(){
   }
   pctx.textBaseline="alphabetic";
 
-  // particles (스파크 버스트) — 위젯처럼 발광(가산합성)
+  // particles · 섬광 · 충격파 — 공유 함수(How-to와 동일한 그리기)
   if(state.particles.length>260)state.particles.splice(0,state.particles.length-260);  // 상한
-  pctx.save();pctx.lineCap="round";pctx.globalCompositeOperation="lighter";pctx.shadowBlur=0;   // ★그림자 제거(성능) — lighter 가산합성만으로 발광 느낌
-  for(const p of state.particles){
-    p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=p.decay;
-    if(p.life<=0)continue;
-    const pc=p.white?"#fff":COLHEX[p.col];pctx.globalAlpha=Math.min(1,p.life*1.4);
-    pctx.strokeStyle=pc;pctx.fillStyle=pc;
-    const pb=settings.retro?2.2:0;
-    if(p.streak){pctx.lineWidth=p.size+pb;pctx.beginPath();pctx.moveTo(p.px,p.py);pctx.lineTo(p.x,p.y);pctx.stroke();}
-    else{pctx.beginPath();pctx.arc(p.x,p.y,p.size*p.life+0.6+pb,0,Math.PI*2);pctx.fill();}
-  }
-  pctx.restore();pctx.globalAlpha=1;pctx.shadowBlur=0;
-  state.particles=state.particles.filter(p=>p.life>0);
-  // ★타격 흰 섬광 (위젯) — 밝게 퍼졌다 사라짐
-  if(state.flashes&&state.flashes.length){pctx.save();pctx.globalCompositeOperation="lighter";
-    for(const fl of state.flashes){fl.life-=0.085;if(fl.life<=0)continue;const rr=fl.r*(1+(1-fl.life)*1.5);pctx.globalAlpha=fl.life*0.9;
-      const g=pctx.createRadialGradient(fl.x,fl.y,0,fl.x,fl.y,rr);g.addColorStop(0,"rgba(255,255,255,0.95)");g.addColorStop(0.45,"rgba(255,255,255,0.3)");g.addColorStop(1,"rgba(255,255,255,0)");
-      pctx.fillStyle=g;pctx.beginPath();pctx.arc(fl.x,fl.y,rr,0,6.2832);pctx.fill();}
-    pctx.restore();state.flashes=state.flashes.filter(fl=>fl.life>0);}
-  // ★타격 충격파 확산 링 (색 + 흰 2중, 위젯과 동일)
-  if(state.shocks&&state.shocks.length){pctx.save();pctx.globalCompositeOperation="lighter";
-    for(const s of state.shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;
-      pctx.globalAlpha=s.life*0.85;pctx.strokeStyle=s.col;pctx.shadowColor=s.col;pctx.shadowBlur=12;pctx.lineWidth=(settings.retro?3:2)+4*s.life;
-      pctx.beginPath();pctx.arc(s.x,s.y,s.r,0,Math.PI*2);pctx.stroke();}
-    pctx.restore();state.shocks=state.shocks.filter(s=>s.life>0);}
+  NoteFX_drawParts(pctx,state.particles,1);state.particles=state.particles.filter(p=>p.life>0);
+  if(state.flashes&&state.flashes.length){NoteFX_drawFlashes(pctx,state.flashes);state.flashes=state.flashes.filter(fl=>fl.life>0);}
+  if(state.shocks&&state.shocks.length){NoteFX_drawShocks(pctx,state.shocks,1);state.shocks=state.shocks.filter(s=>s.life>0);}
 
   // 판정 문구 — 노트가 있던 자리에 볼드로 떠오름
   pctx.textAlign="center";
