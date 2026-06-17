@@ -225,6 +225,7 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
   /* 레트로 전체화면 픽셀 필터 오버레이 캔버스 */
   #fx{position:fixed;inset:0;z-index:60;display:none;image-rendering:pixelated;background:#04050c;}
+  #playCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;}   /* 캡된 백킹을 화면 가득 nearest 업스케일(도트 유지) */
   html.retro.fxon #fx{display:block;}
   /* 레트로: 인게임 HUD는 캔버스에 직접 그리므로 HTML HUD(글자)는 숨김 (✕ 종료 버튼 클릭영역은 유지) */
   html.retro #playUI .hud-logo,html.retro #playUI .hud-song,html.retro #playUI .hud-combo,html.retro #playUI .hud-score,html.retro #playUI .hud-prog,html.retro #countdown{opacity:0!important;}
@@ -588,6 +589,7 @@ const fx=document.getElementById("fx"),fxc=fx.getContext("2d");window.__fxc=fxc;
 const _fxLow=document.createElement("canvas");
 const _fxTxt=document.createElement("canvas");   // ★글자 전용 고밀도 도트 버퍼
 const TXT_LH=384;   // 글자 버퍼 세로 해상도(장면 192의 2배 → 도트 유지하면서 또렷)
+const RENDER_CAP=540;   // ★백킹 세로 상한(192 다운샘플·384 텍스트 버퍼 보존, 큰 화면 렌더 비용 절감)
 let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null,fxTextQ=[];
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
 function fxFlushText(){if(!fxTextQ.length)return;
@@ -1679,7 +1681,7 @@ $("#retryBtn").onclick=()=>{show("play");startPlay();};
 $("#toSongSel").onclick=()=>{stopPlay();openSongSelect();};
 $("#toEditor").onclick=()=>{stopPlay();playFromEditor=false;show("editor");};
 
-function fitCanvas(cv){cv.width=window.innerWidth;cv.height=window.innerHeight;}   // 레트로는 화면 꽉 채움(레터박스 없음) — 거칠기는 모자이크 후처리가 담당
+function fitCanvas(cv){const W=window.innerWidth,H=window.innerHeight,s=H>RENDER_CAP?RENDER_CAP/H:1;cv.width=Math.max(1,Math.round(W*s));cv.height=Math.max(1,Math.round(H*s));}   // ★백킹 캡 — CSS는 100%로 늘려 화면 꽉 채움(image-rendering:pixelated)
 function approachSec(){return clamp(1.7-parseFloat($("#speed").value)*0.11,0.32,1.4);}
 function noteR(){return clamp(Math.min(pcanvas.width,pcanvas.height)*0.055,26,60);}
 // ===== 스피드 구간(연출용 시각 시간워프) — 노트·별이 느리거나 빨라 "보이되" 판정 타이밍·노래는 그대로 =====
