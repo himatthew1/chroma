@@ -221,12 +221,9 @@
   html.retro .hud-score .meta #hRank{font-size:11px;}
   html.retro .nm{font-size:15px;}
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
-  /* 픽셀 로고 (레트로일 때 SVG 대신) */
-  .logo-px{display:none;}
-  html.retro #logoSvg{display:none;}
-  html.retro .logo-px{display:block;text-align:center;margin:24px 0 14px;font-family:'Press Start 2P',monospace;font-size:clamp(26px,8.5vw,46px);letter-spacing:4px;line-height:1;}
-  html.retro .logo-px span{text-shadow:0 0 6px currentColor,0 0 14px currentColor,0 0 24px currentColor;}
-  html.retro .logo-px .sub{display:block;font-size:9px;letter-spacing:7px;color:#9fb0d8;margin-top:14px;text-shadow:0 0 6px #9fb0d8aa;}
+  /* 레트로 전체화면 픽셀 필터 오버레이 캔버스 */
+  #fx{position:fixed;inset:0;z-index:60;display:none;image-rendering:pixelated;}
+  html.retro.fxon #fx{display:block;}
 </style>
 </head>
 <body>
@@ -266,7 +263,6 @@
         <circle cx="647" cy="224" r="2.4" fill="#ffd23f"/>
       </g>
     </svg>
-    <div id="logoPx" class="logo-px" aria-hidden="true"><span style="color:#ff2e97">C</span><span style="color:#22a7ff">H</span><span style="color:#39e36b">R</span><span style="color:#ffd23f">O</span><span style="color:#ff2e97">M</span><span style="color:#22a7ff">A</span><span class="sub">COLOR YOUR BEAT</span></div>
     <button class="menu-btn" id="goPlay">▶  PLAY</button>
     <button class="menu-btn" id="goEditor">✎  Chart Editor</button>
     <button class="menu-btn" id="goSettings" style="font-size:16px;padding:12px">⚙  Settings (SFX · Sync)</button>
@@ -552,6 +548,7 @@
 
   <div id="toast"></div>
 </div>
+<canvas id="fx"></canvas>
 
 <script src="songs.js"></script>
 <script>
@@ -574,7 +571,66 @@ let KEYS=["a","d","j","l"];   // 설정에서 커스텀 가능
 const NCOL=4;
 
 const screens={menu:$("#menu"),songsel:$("#songsel"),play:$("#play"),result:$("#result"),settings:$("#settings"),edhub:$("#edhub"),editor:$("#editor")};
-function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);}
+function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);}
+// ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
+const fx=document.getElementById("fx"),fxc=fx.getContext("2d");
+const _fxLow=document.createElement("canvas");
+let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null;
+function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
+function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
+  if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
+  const lc=_fxLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
+  lc.drawImage(fx,0,0,W,H,0,0,lw,lh);
+  fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
+const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART EDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO PLAY",ic:"?",fn:()=>openHelp()}];
+const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
+function drawFxMenu(t){
+  const W=fx.width,H=fx.height,cx=W/2;
+  const g=fxc.createRadialGradient(cx,H*0.5,30,cx,H*0.5,Math.hypot(W,H)*0.7);
+  g.addColorStop(0,"#0a1233");g.addColorStop(0.6,"#06091c");g.addColorStop(1,"#04050c");fxc.fillStyle=g;fxc.fillRect(0,0,W,H);
+  // 워프 별
+  if(!fxBg){fxBg=[];for(let i=0;i<70;i++)fxBg.push({a:Math.random()*6.2832,r:Math.random(),s:0.0006+Math.random()*0.0016});}
+  const maxR=Math.hypot(W,H)*0.6;fxc.save();fxc.lineCap="round";fxc.strokeStyle="#8b9bff";
+  for(const s of fxBg){s.r+=s.s*(0.6+s.r*4);if(s.r>1)s.r=Math.random()*0.04;const rad=s.r*maxR,len=(4+s.r*s.r*40),px=cx+Math.cos(s.a)*rad,py=H*0.5+Math.sin(s.a)*rad;fxc.globalAlpha=Math.min(0.7,0.12+s.r*0.7);fxc.lineWidth=0.6+s.r*2.2;fxc.beginPath();fxc.moveTo(px-Math.cos(s.a)*len,py-Math.sin(s.a)*len);fxc.lineTo(px,py);fxc.stroke();}
+  fxc.restore();fxc.globalAlpha=1;
+  // 로고 (네온 CHROMA + 글로우) — 필터가 픽셀화
+  const lsz=Math.min(W*0.16,H*0.16,120),ly=H*0.24;
+  fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
+  const word="CHROMA",sp=lsz*0.92,startx=cx-(word.length-1)*sp/2;
+  for(let i=0;i<word.length;i++){fxc.shadowColor=FX_COLS[i];fxc.shadowBlur=lsz*0.5;fxc.fillStyle="#fff";fxc.lineWidth=lsz*0.06;fxc.strokeStyle=FX_COLS[i];
+    fxc.fillText(word[i],startx+i*sp,ly);fxc.strokeText(word[i],startx+i*sp,ly);}
+  fxc.shadowBlur=0;fxc.fillStyle="#aab4e0";fxc.font="600 "+Math.round(lsz*0.16)+"px 'Segoe UI',sans-serif";fxc.fillText("C O L O R   Y O U R   B E A T",cx,ly+lsz*0.62);
+  fxc.restore();
+  // 버튼들
+  fxBtns=[];const bw=Math.min(W*0.66,440),bh=Math.max(54,H*0.092),gap=bh*0.34,n=FX_MENU.length;
+  let by=H*0.44;
+  for(let i=0;i<n;i++){const bx=cx-bw/2,yy=by+i*(bh+gap),hov=fxHover===i;
+    fxBtns.push({x:bx,y:yy,w:bw,h:bh,fn:FX_MENU[i].fn});
+    fxc.save();fxc.shadowColor="#22a7ff";fxc.shadowBlur=hov?26:10;
+    fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,yy,bw,bh);
+    fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#9fd0ff":"#3a4a86";fxc.strokeRect(bx,yy,bw,bh);
+    fxc.shadowBlur=0;fxc.fillStyle="#fff";fxc.textAlign="center";fxc.textBaseline="middle";
+    fxc.font="700 "+Math.round(bh*0.42)+"px 'Century Gothic','Segoe UI',sans-serif";
+    fxc.fillText(FX_MENU[i].ic+"  "+FX_MENU[i].t,cx,yy+bh/2);fxc.restore();}
+  // 키 힌트
+  fxc.save();fxc.textAlign="center";fxc.font="700 "+Math.round(bh*0.4)+"px 'Segoe UI',sans-serif";
+  const keys=["A","D","J","L"],kc=["#ff2e97","#22a7ff","#39e36b","#ffd23f"],ky=by+n*(bh+gap)+bh*0.4;let kw=0;keys.forEach(k=>kw+=fxc.measureText(k+"   ").width);let kx=cx-kw/2;
+  keys.forEach((k,i)=>{fxc.fillStyle=kc[i];fxc.shadowColor=kc[i];fxc.shadowBlur=12;fxc.textAlign="left";fxc.fillText(k,kx,ky);kx+=fxc.measureText(k+"   ").width;});
+  fxc.restore();
+  fxPixelate();
+}
+function fxLoop(ts){if(fxScreen!=="menu"){fxRaf=null;return;}if(fxT0==null)fxT0=ts;drawFxMenu((ts-fxT0)/1000);fxRaf=requestAnimationFrame(fxLoop);}
+function fxUpdate(name){
+  const on=(name==="menu"&&settings.retro);
+  fxScreen=on?"menu":null;
+  document.documentElement.classList.toggle("fxon",on);
+  if(on){fxFit();if(!fxRaf){fxT0=null;fxRaf=requestAnimationFrame(fxLoop);}}
+  else if(fxRaf){cancelAnimationFrame(fxRaf);fxRaf=null;}
+}
+fx.addEventListener("pointermove",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let h=-1;fxBtns.forEach((b,i)=>{if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)h=i;});fxHover=h;fx.style.cursor=h>=0?"pointer":"default";});
+fx.addEventListener("pointerdown",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}});
+window.addEventListener("resize",()=>{if(fxScreen)fxFit();});
+setTimeout(()=>{if(!screens.menu.classList.contains("hidden"))fxUpdate("menu");},0);   // 시작 시 홈 화면이면 픽셀 필터 켜기
 document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{stopPlay();stopEditor();stopSettingsMetro();show("menu");});
 $("#goPlay").onclick=()=>{openSongSelect();};
 $("#goEditor").onclick=()=>{requestEditor();};
