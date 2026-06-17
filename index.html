@@ -581,16 +581,17 @@ const fx=document.getElementById("fx"),fxc=fx.getContext("2d");
 const _fxLow=document.createElement("canvas");
 let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null,fxTextQ=[];
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
-function fxFlushText(lc,k){lc.save();lc.textBaseline="middle";
-  for(const o of fxTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
-  try{lc.letterSpacing="0px";}catch(_){}lc.restore();fxTextQ.length=0;}
+function fxFlushText(c){c.save();c.textBaseline="middle";
+  for(const o of fxTextQ){const sz=Math.max(8,o.sz);c.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{c.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
+    c.textAlign=o.a;c.lineJoin="round";c.lineWidth=Math.max(2,sz*0.2);c.strokeStyle="#05070f";c.strokeText(o.t,o.x,o.y);c.fillStyle=o.c;c.fillText(o.t,o.x,o.y);}
+  try{c.letterSpacing="0px";}catch(_){}c.restore();fxTextQ.length=0;}
 function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
   if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
   const lc=_fxLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
   lc.drawImage(fx,0,0,W,H,0,0,lw,lh);
-  fxFlushText(lc,lh/H);   // ★텍스트는 저해상도 버퍼에 직접 렌더 → 니어리스트 업스케일 시 칼같이 선명(닌텐도식)
-  fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
+  fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;
+  fxFlushText(fxc);   // ★텍스트는 모자이크 위에 풀해상도 픽셀폰트로 또렷하게(최대 선명도)
+}
 const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHelp()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
 // 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
@@ -2157,9 +2158,9 @@ function updateHUD(){
 // ★레트로 인게임 텍스트 큐 — 저해상도 버퍼에 직접 렌더해 도트필터에서도 칼같이 선명 (닌텐도식)
 let pTextQ=[];
 function pPixText(t,x,y,sz,col,align,bl){pTextQ.push({t:String(t),x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",bl:bl||"middle"});}
-function pFlushText(lc,k){lc.save();for(const o of pTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
-  try{lc.letterSpacing="0px";}catch(_){}lc.restore();pTextQ.length=0;}
+function pFlushText(c){c.save();for(const o of pTextQ){const sz=Math.max(8,o.sz);c.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{c.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
+    c.textAlign=o.a;c.textBaseline=o.bl;c.lineJoin="round";c.lineWidth=Math.max(2,sz*0.2);c.strokeStyle="#05070f";c.strokeText(o.t,o.x,o.y);c.fillStyle=o.c;c.fillText(o.t,o.x,o.y);}
+  try{c.letterSpacing="0px";}catch(_){}c.restore();pTextQ.length=0;}
 // ★레트로: HUD를 캔버스에 직접 그려 도트필터를 함께 통과시킴 (HTML HUD는 retro일 때 CSS로 숨김)
 function drawHudCanvas(now){
   if(!state)return;
@@ -2597,8 +2598,9 @@ function loop(){
     const lb=_retroLow();if(lb.width!==lw||lb.height!==lh){lb.width=lw;lb.height=lh;}const lc=lb.getContext("2d");
     lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
     lc.drawImage(pcanvas,0,0,W,H,0,0,lw,lh);
-    pFlushText(lc,lh/H);   // ★인게임 텍스트(HUD·판정·패드·게이트)를 저해상도에 직접 렌더 → 선명
-    pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;}
+    pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;
+    pFlushText(pctx);   // ★인게임 텍스트를 모자이크 위에 풀해상도 픽셀폰트로 또렷하게
+  }
   else{pTextQ.length=0;}   // 비레트로면 큐 비우기(직접 그려짐)
 
   // progress
