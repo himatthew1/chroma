@@ -535,7 +535,7 @@
       <div id="pwErr" class="pw-err hidden">Wrong password</div>
       <div class="pw-row">
         <button class="tb-btn" id="pwCancel">Cancel</button>
-        <button class="tb-btn primary" id="pwOk">확인</button>
+        <button class="tb-btn primary" id="pwOk">OK</button>
       </div>
     </div>
   </div>
@@ -575,7 +575,7 @@ function show(name){for(const k in screens)screens[k].classList.toggle("hidden",
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
 const fx=document.getElementById("fx"),fxc=fx.getContext("2d");
 const _fxLow=document.createElement("canvas");
-let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null;
+let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null;
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
 function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
   if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
@@ -653,9 +653,68 @@ function drawFxSongsel(t){
     fxc.restore();});
   fxPixelate();
 }
-const FX_SCREENS={menu:1,result:1,songsel:1};
+// ===== 설정 화면 (HTML 컨트롤을 캔버스로 미러링 + 필터) =====
+function fxSliderSet(s,mx,fireChange){
+  let p=(mx-s.x)/s.w;p=Math.max(0,Math.min(1,p));
+  let v=s.min+p*(s.max-s.min);const step=parseFloat(s.el.step)||0;if(step)v=Math.round(v/step)*step;
+  s.el.value=v;s.el.dispatchEvent(new Event("input",{bubbles:true}));
+  if(fireChange)s.el.dispatchEvent(new Event("change",{bubbles:true}));}
+function fxSlider(x,y,w,el){
+  const min=parseFloat(el.min),max=parseFloat(el.max),val=parseFloat(el.value);
+  const p=Math.max(0,Math.min(1,(val-min)/((max-min)||1))),kr=Math.max(8,fx.height*0.013);
+  fxc.save();fxc.lineCap="round";
+  fxc.strokeStyle="#2a3360";fxc.lineWidth=kr*0.7;fxc.beginPath();fxc.moveTo(x,y);fxc.lineTo(x+w,y);fxc.stroke();
+  fxc.strokeStyle="#22a7ff";fxc.shadowColor="#22a7ff";fxc.shadowBlur=10;fxc.beginPath();fxc.moveTo(x,y);fxc.lineTo(x+w*p,y);fxc.stroke();
+  fxc.shadowBlur=14;fxc.fillStyle="#bfe3ff";fxc.beginPath();fxc.arc(x+w*p,y,kr,0,6.2832);fxc.fill();fxc.restore();
+  fxSliders.push({x,y:y-kr*2.4,w,h:kr*4.8,el,min,max});}
+function drawFxSettings(t){
+  const W=fx.width,H=fx.height,cx=W/2;
+  fxBgDraw();fxBtns=[];fxSliders=[];
+  fxTitle("SETTINGS",cx,H*0.075,Math.min(W*0.05,H*0.055,34));
+  fxButton(W*0.04,H*0.032,Math.min(W*0.18,140),Math.max(36,H*0.055),"← MENU",()=>document.querySelector("#settings [data-home]").click(),900);
+  const pw=Math.min(W*0.86,720),px=cx-pw/2,rowH=Math.max(46,H*0.084),adv=rowH*1.32;let y=H*0.17;
+  const lab=(s,yy,col,sz)=>{fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle=col||"#e6ecff";fxc.shadowColor="#060a22";fxc.shadowBlur=2;fxc.font="700 "+Math.round(sz||rowH*0.36)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(s,px,yy);fxc.restore();};
+  const small=(s,xx,yy,col,sz)=>{fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle=col||"#9fb0d8";fxc.font="600 "+Math.round(sz||rowH*0.26)+"px 'Segoe UI',sans-serif";fxc.fillText(s,xx,yy);fxc.restore();};
+  // SFX 토글 + 볼륨
+  lab("SFX",y+rowH/2);
+  fxButton(px+pw*0.14,y+rowH*0.12,pw*0.13,rowH*0.76,settings.sfxOn?"ON":"OFF",()=>document.getElementById("setSfxToggle").click(),901,settings.sfxOn?"#39e36b":"#3a4a86");
+  small("VOL",px+pw*0.31,y+rowH/2);
+  fxSlider(px+pw*0.43,y+rowH/2,pw*0.52,document.getElementById("setSfxVol"));
+  y+=adv;
+  // 레트로 토글
+  lab("RETRO MODE",y+rowH/2);
+  fxButton(px+pw*0.55,y+rowH*0.12,pw*0.13,rowH*0.76,settings.retro?"ON":"OFF",()=>{document.getElementById("setRetroToggle").click();fxUpdate("settings");},902,settings.retro?"#39e36b":"#3a4a86");
+  small("256x192 pixel look",px+pw*0.7,y+rowH/2);
+  y+=adv;
+  // 키 바인딩
+  lab("KEYS",y+rowH/2);
+  const kbw=pw*0.12,kgap=pw*0.018,kx0=px+pw*0.14;
+  for(let c=0;c<4;c++){const rb=(typeof rebindIdx!=="undefined"&&rebindIdx===c);
+    fxButton(kx0+c*(kbw+kgap),y+rowH*0.12,kbw,rowH*0.76,rb?"...":(KEYS[c]||"").toUpperCase(),((cc)=>()=>{const b=document.querySelectorAll("#keyBtns button")[cc];if(b)b.click();})(c),910+c,COLHEX[c]);}
+  fxButton(kx0+4*(kbw+kgap),y+rowH*0.12,pw*0.2,rowH*0.76,"RESET A D J L",()=>document.getElementById("keyReset").click(),914);
+  y+=adv;
+  // SFX 종류 (사이클)
+  lab("SFX TYPE",y+rowH/2);
+  const cur=Math.max(0,SFX_LIST.findIndex(s=>s[0]===settings.sfx));
+  const cyc=(d)=>{const c=Math.max(0,SFX_LIST.findIndex(s=>s[0]===settings.sfx)),i=(c+d+SFX_LIST.length)%SFX_LIST.length;settings.sfx=SFX_LIST[i][0];saveSettings();renderSfxList();if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
+  const ab=rowH*0.76;
+  fxButton(px+pw*0.14,y+rowH*0.12,ab,ab,"◀",()=>cyc(-1),920);
+  fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";fxc.fillStyle="#fff";fxc.shadowColor="#22a7ff";fxc.shadowBlur=6;fxc.font="700 "+Math.round(rowH*0.34)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(SFX_LIST[cur][0].toUpperCase(),px+pw*0.14+ab+pw*0.18,y+rowH/2);fxc.restore();
+  fxButton(px+pw*0.14+ab+pw*0.36,y+rowH*0.12,ab,ab,"▶",()=>cyc(1),921);
+  fxButton(px+pw*0.72,y+rowH*0.12,pw*0.16,rowH*0.76,"▶ PREVIEW",()=>playSfx(settings.sfx,"perfect",0),922,"#ffd23f");
+  y+=adv;
+  // 싱크 오프셋
+  lab("SYNC OFFSET",y+rowH/2);
+  fxSlider(px+pw*0.2,y+rowH/2,pw*0.42,document.getElementById("setOffset"));
+  fxc.save();fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle="#ffd23f";fxc.shadowColor="#ffd23f";fxc.shadowBlur=5;fxc.font="700 "+Math.round(rowH*0.32)+"px 'Century Gothic',monospace";fxc.fillText(document.getElementById("offsetVal").textContent,px+pw*0.64,y+rowH/2);fxc.restore();
+  fxButton(px+pw*0.8,y+rowH*0.12,pw*0.09,rowH*0.76,"0",()=>document.getElementById("offsetReset").click(),930);
+  y+=adv*0.72;
+  small(document.getElementById("calibLive").textContent||"Tap A D J L to the beat",px,y+rowH*0.4,"#9fb0d8",rowH*0.32);
+  fxPixelate();
+}
+const FX_SCREENS={menu:1,result:1,songsel:1,settings:1};
 function fxLoop(ts){if(!fxScreen){fxRaf=null;return;}if(fxT0==null)fxT0=ts;const t=(ts-fxT0)/1000;
-  if(fxScreen==="menu")drawFxMenu(t);else if(fxScreen==="result")drawFxResult(t);else if(fxScreen==="songsel")drawFxSongsel(t);
+  if(fxScreen==="menu")drawFxMenu(t);else if(fxScreen==="result")drawFxResult(t);else if(fxScreen==="songsel")drawFxSongsel(t);else if(fxScreen==="settings")drawFxSettings(t);
   fxRaf=requestAnimationFrame(fxLoop);}
 function fxUpdate(name){
   const on=(!!FX_SCREENS[name]&&settings.retro);
@@ -679,8 +738,16 @@ function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxH
   fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#bfe3ff":(accent||"#3a4a86");fxc.strokeRect(bx,by,bw,bh);
   fxc.shadowBlur=0;fxc.fillStyle="#fff";fxc.textAlign="center";fxc.textBaseline="middle";
   fxc.font="700 "+Math.round(bh*0.42)+"px 'Century Gothic','Segoe UI',sans-serif";fxc.fillText(label,bx+bw/2,by+bh/2);fxc.restore();}
-fx.addEventListener("pointermove",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;let h=-1;fxBtns.forEach((b,i)=>{if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)h=i;});fxHover=h;fx.style.cursor=h>=0?"pointer":"default";});
-fx.addEventListener("pointerdown",e=>{const r=fx.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}});
+function fxXY(e){const r=fx.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
+fx.addEventListener("pointermove",e=>{const [mx,my]=fxXY(e);
+  if(fxDrag){fxSliderSet(fxDrag,mx,false);return;}
+  let h=-1;fxBtns.forEach((b,i)=>{if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)h=i;});fxHover=h;
+  const onSl=fxSliders.some(s=>mx>=s.x-12&&mx<=s.x+s.w+12&&my>=s.y&&my<=s.y+s.h);
+  fx.style.cursor=(h>=0||onSl)?"pointer":"default";});
+fx.addEventListener("pointerdown",e=>{const [mx,my]=fxXY(e);
+  for(const s of fxSliders){if(mx>=s.x-14&&mx<=s.x+s.w+14&&my>=s.y&&my<=s.y+s.h){fxDrag=s;fxSliderSet(s,mx,false);try{fx.setPointerCapture(e.pointerId);}catch(_){}return;}}
+  for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}});
+fx.addEventListener("pointerup",e=>{if(fxDrag){fxDrag.el.dispatchEvent(new Event("change",{bubbles:true}));fxDrag=null;}});
 window.addEventListener("resize",()=>{if(fxScreen)fxFit();});
 setTimeout(()=>{if(!screens.menu.classList.contains("hidden"))fxUpdate("menu");},0);   // 시작 시 홈 화면이면 픽셀 필터 켜기
 document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{stopPlay();stopEditor();stopSettingsMetro();show("menu");});
@@ -720,7 +787,7 @@ function renderSfxList(){
   const el=$("#sfxList");el.innerHTML="";
   SFX_LIST.forEach(([k,label])=>{
     const d=document.createElement("div");d.className="sfx-item"+(settings.sfx===k?" sel":"");
-    d.innerHTML=`<span class="dot"></span><span class="nm">${label}</span><button class="play">▶ 듣기</button>`;
+    d.innerHTML=`<span class="dot"></span><span class="nm">${label}</span><button class="play">▶ Play</button>`;
     d.onclick=e=>{if(e.target.classList.contains("play"))return;settings.sfx=k;saveSettings();renderSfxList();};
     d.querySelector(".play").onclick=e=>{e.stopPropagation();playSfx(k,"perfect",0);};
     el.appendChild(d);
@@ -744,7 +811,7 @@ function renderKeyButtons(){
   for(let c=0;c<4;c++){
     const b=document.createElement("button");b.className="tb-btn"+(rebindIdx===c?" on":"");
     b.style.minWidth="78px";
-    b.innerHTML=`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${COLHEX[c]};vertical-align:middle;margin-right:8px"></span>`+(rebindIdx===c?"입력…":KEYS[c].toUpperCase());
+    b.innerHTML=`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${COLHEX[c]};vertical-align:middle;margin-right:8px"></span>`+(rebindIdx===c?"press…":KEYS[c].toUpperCase());
     b.onclick=()=>{rebindIdx=(rebindIdx===c?null:c);renderKeyButtons();};
     el.appendChild(b);
   }
@@ -825,28 +892,28 @@ $("#edBackHub").onclick=()=>{stopEditor();openEdHub();};
 function hrow(k,v){return `<div class="ov-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;}
 function openHelp(){
   $("#overlayBody").innerHTML=
-    `<div class="ov-h">채보 에디터 도움말</div>`+
-    `<div class="ov-sec">상단 바</div>`+
-    hrow("🎵 Load track","채보를 만들 음원 선택")+
-    hrow("▶ / ❚❚ (Space)","음원 재생·정지 (미리듣기)")+
-    hrow("▶ 테스트 플레이","지금 만든 채보 바로 플레이")+
-    hrow("곡 / 난이도","곡 제목·난이도 이름 입력")+
-    hrow("💾 Save","곡 목록에 등록·갱신")+
-    hrow("JSON↓ / JSON↑","채보 파일 내보내기·가져오기")+
-    `<div class="ov-sec">자동 생성</div>`+
-    hrow("⚡ 자동생성","음파를 분석해 노트 자동 배치")+
-    hrow("Sensitivity / 최소간격","노트 촘촘함 / 노트 사이 최소 시간")+
-    hrow("🎲 Reshuffle positions","노트 화면 위치를 새로 배치(고정 저장)")+
-    `<div class="ov-sec">도구</div>`+
-    hrow("선택/이동","클릭=선택, 드래그=이동, 빈곳=재생위치")+
-    hrow("+Note / +Press","노트 추가 / 드래그로 롱노트")+
-    hrow("🎨 Color group","구간 드래그로 묶기")+
-    `<div class="ov-sec">단축키 · 기타</div>`+
-    hrow("휠 / Ctrl+휠","스크롤 / 확대")+
-    hrow("우클릭 / Del","노트 삭제")+
-    `<div class="ov-sec">인게임 조작</div>`+
-    hrow("A D J L","핑크·블루·그린·옐로우 (노트 색 = 키)")+
-    `<div class="ov-note">🎨 <b>컬러군</b> — 노트 색은 매 판 랜덤입니다. 연타 구간을 컬러군으로 묶으면, 무슨 색이 걸리든 그 구간은 한 색으로 통일돼 같은 키로 연타할 수 있어요.</div>`;
+    `<div class="ov-h">Chart Editor Help</div>`+
+    `<div class="ov-sec">Top bar</div>`+
+    hrow("🎵 Load track","Pick the audio to chart")+
+    hrow("▶ / ❚❚ (Space)","Play / pause the track (preview)")+
+    hrow("▶ Test play","Play the chart you just made")+
+    hrow("Song / Difficulty","Enter song title & difficulty name")+
+    hrow("💾 Save","Register / update in the song list")+
+    hrow("JSON↓ / JSON↑","Export / import chart file")+
+    `<div class="ov-sec">Auto-generate</div>`+
+    hrow("⚡ Auto-gen","Analyze the waveform & place notes")+
+    hrow("Sensitivity / Min gap","Note density / minimum time between notes")+
+    hrow("🎲 Reshuffle positions","Re-lay note screen positions (saved fixed)")+
+    `<div class="ov-sec">Tools</div>`+
+    hrow("Select/Move","Click=select, drag=move, empty=set playhead")+
+    hrow("+Note / +Press","Add note / drag for a long note")+
+    hrow("🎨 Color group","Drag over a range to group")+
+    `<div class="ov-sec">Shortcuts · misc</div>`+
+    hrow("Wheel / Ctrl+Wheel","Scroll / zoom")+
+    hrow("Right-click / Del","Delete note")+
+    `<div class="ov-sec">In-game controls</div>`+
+    hrow("A D J L","Pink · Blue · Green · Yellow (note color = key)")+
+    `<div class="ov-note">🎨 <b>Color group</b> — note colors are random each run. Group a fast-tap run as a color group and that whole stretch locks to one color, so you can hammer it with a single key.</div>`;
   $("#overlay").classList.remove("hidden");
 }
 function closeHelp(){$("#overlay").classList.add("hidden");}
@@ -1176,7 +1243,7 @@ const SFX={
     o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+0.13);
   }
 };
-const SFX_LIST=[["percussion","타악 — 탁! 위주"],["impact","임팩트 — 팍+팡+스파클 (에코·여운)"],["tambourine","탬버린 — 청량 짤랑"],["bell","벨 — 맑은 딩"],["click","클릭 — 또각"],["soft","소프트 — 부드러운 블립"],["arcade","아케이드 — 레트로"]];
+const SFX_LIST=[["percussion","Percussion — punchy tap"],["impact","Impact — pow + sparkle (echo/tail)"],["tambourine","Tambourine — crisp jingle"],["bell","Bell — clear ding"],["click","Click — sharp tick"],["soft","Soft — gentle blip"],["arcade","Arcade — retro"]];
 function playSfx(name,kind,col,vol){try{(SFX[name]||SFX.tambourine)(kind||"perfect",col||0,vol!=null?vol:settings.sfxVol);}catch(e){}}
 function hitSound(kind,col){if(!settings.sfxOn||kind==="miss")return;playSfx(settings.sfx,kind,col);}
 // BAD 타격음 — 심심하고 밍밍한 둔탁음
@@ -2441,6 +2508,7 @@ function endPlay(){
 //   EDITOR  (timeline)
 //============================================================
 const tl=$("#edTimeline"),tctx=tl.getContext("2d");
+const _edLow=document.createElement("canvas");   // ★에디터 타임라인용 도트 필터 버퍼
 let edAudio=null,edBuffer=null,edPeaks=null,edRaf=null,edNotes=[],edTime=0,edPlaying=false,edBeat=true,_edPrevT=null;
 let edMusicVol=1, edSfxVol=0.8;   // ★에디터 전용 미리듣기 음량 (실제 게임 settings 와 분리)
 let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null;
@@ -3232,7 +3300,7 @@ function edLoop(){
     // auto-scroll to keep playhead in view
     const px=xOf(edTime);if(px<tl.width*0.15||px>tl.width*0.85)view.scroll=edTime-tl.width*0.3/view.pps;
   }else _edPrevT=null;
-  const W2=tl.width,H=tl.height,my=midY();
+  const W2=tl.width,H=tl.height,my=midY(),RT=!!settings.retro;
   tctx.clearRect(0,0,W2,H);
   tctx.fillStyle="#080912";tctx.fillRect(0,0,W2,H);
   // waveform
@@ -3251,12 +3319,12 @@ function edLoop(){
     tctx.fillStyle=L%2?"#0c1024":"#0a0d1c";tctx.fillRect(0,yy,W2,lh);
     tctx.strokeStyle="#1c2348";tctx.lineWidth=1;tctx.beginPath();tctx.moveTo(0,yy);tctx.lineTo(W2,yy);tctx.stroke();
     tctx.strokeStyle="#2a3158";tctx.setLineDash([4,5]);tctx.beginPath();tctx.moveTo(0,laneY(L));tctx.lineTo(W2,laneY(L));tctx.stroke();tctx.setLineDash([]);
-    tctx.fillStyle="#3a4170";tctx.font="11px Segoe UI";tctx.textAlign="left";tctx.fillText("줄 "+(L+1),4,yy+13);
+    tctx.fillStyle="#5a6190";tctx.font=(RT?"bold 18px":"11px")+" Segoe UI";tctx.textAlign="left";tctx.fillText("L"+(L+1),4,yy+(RT?20:13));
   }
   // second ticks
-  tctx.fillStyle="#5a6190";tctx.font="11px Segoe UI";tctx.textAlign="left";
+  tctx.fillStyle="#7a82b0";tctx.font=(RT?"bold 16px":"11px")+" Segoe UI";tctx.textAlign="left";
   const t0=Math.floor(view.scroll),t1=Math.ceil(tOf(W2));
-  for(let s=t0;s<=t1;s++){const x=xOf(s);if(x<0||x>W2)continue;tctx.strokeStyle="#1a2040";tctx.beginPath();tctx.moveTo(x,0);tctx.lineTo(x,H);tctx.stroke();tctx.fillStyle="#5a6190";tctx.fillText(s+"s",x+3,14);}
+  for(let s=t0;s<=t1;s++){const x=xOf(s);if(x<0||x>W2)continue;tctx.strokeStyle=RT?"#243056":"#1a2040";tctx.lineWidth=RT?2:1;tctx.beginPath();tctx.moveTo(x,0);tctx.lineTo(x,H);tctx.stroke();tctx.fillStyle="#7a82b0";tctx.fillText(s+"s",x+3,RT?17:14);}
   // ★속도 구간 밴드 (스피드업=보라/슬로우=파랑), 진입/이탈 램프 표시
   for(const z of edZones){const a=xOf(z.t0),b=xOf(z.t1);if(b<-20||a>W2+20)continue;
     const up=z.type!=="down", base=up?"137,90,255":"60,135,255", sel=(z===edZoneSel);
@@ -3267,7 +3335,7 @@ function edLoop(){
     if(z.rampIn>0){const rx=xOf(z.t0+z.rampIn);tctx.beginPath();tctx.moveTo(rx,0);tctx.lineTo(rx,H);tctx.stroke();}
     if(z.rampOut>0){const rx=xOf(z.t1-z.rampOut);tctx.beginPath();tctx.moveTo(rx,0);tctx.lineTo(rx,H);tctx.stroke();}
     tctx.setLineDash([]);
-    tctx.fillStyle="rgba("+base+",1)";tctx.font="11px Segoe UI";tctx.textAlign="left";tctx.fillText((up?"⏩ 스피드업":"🐢 슬로우"),a+4,H-22);}
+    tctx.fillStyle="rgba("+base+",1)";tctx.font=(RT?"bold 15px":"11px")+" Segoe UI";tctx.textAlign="left";tctx.fillText((up?"⏩ SPEED UP":"🐢 SLOW"),a+4,H-22);}
   // 드래그 박스 (2D: 시간 x 라인) — 컬러군 선택 / 박스 선택
   const boxDrag=grpDrag||(edDrag&&edDrag.mode==="box"?edDrag:null);
   if(boxDrag){const a=Math.min(boxDrag.x0,boxDrag.x1),b=Math.max(boxDrag.x0,boxDrag.x1),
@@ -3317,24 +3385,29 @@ function edLoop(){
     if(n.type==="slide"&&Array.isArray(n.pts)){slideEnsurePtt(n);const dur=n.duration||0.3;
       for(let j=0;j<n.pts.length;j++){const tx=xOf(n.time+n.ptt[j]*dur);if(tx<-10||tx>W2+10)continue;
         tctx.fillStyle=j===0?"#ffd54f":"#bfe3ff";tctx.strokeStyle="#0a0d1c";tctx.lineWidth=1;
-        tctx.beginPath();tctx.arc(tx,yy,sel?5:3.5,0,Math.PI*2);tctx.fill();tctx.stroke();
+        tctx.beginPath();tctx.arc(tx,yy,sel?(RT?7:5):(RT?5:3.5),0,Math.PI*2);tctx.fill();tctx.stroke();
         if(sel&&j>0&&j<n.pts.length-1){tctx.strokeStyle="#bfe3ff";tctx.globalAlpha=0.5;tctx.beginPath();tctx.arc(tx,yy,8,0,Math.PI*2);tctx.stroke();tctx.globalAlpha=1;}}}
     tctx.fillStyle=base;
-    tctx.beginPath();tctx.arc(x,yy,sel?11:8,0,Math.PI*2);tctx.fill();
-    if(sel){tctx.strokeStyle="#fff";tctx.lineWidth=2;tctx.beginPath();tctx.arc(x,yy,14,0,Math.PI*2);tctx.stroke();}
+    tctx.beginPath();tctx.arc(x,yy,sel?(RT?15:11):(RT?12:8),0,Math.PI*2);tctx.fill();
+    if(sel){tctx.strokeStyle="#fff";tctx.lineWidth=RT?3:2;tctx.beginPath();tctx.arc(x,yy,RT?19:14,0,Math.PI*2);tctx.stroke();}
   }
   // playhead
   const px=xOf(edTime);
-  tctx.strokeStyle="#ff4fa3";tctx.lineWidth=2;tctx.beginPath();tctx.moveTo(px,0);tctx.lineTo(px,H);tctx.stroke();
+  tctx.strokeStyle="#ff4fa3";tctx.lineWidth=RT?4:2;tctx.beginPath();tctx.moveTo(px,0);tctx.lineTo(px,H);tctx.stroke();
   // 빈 상태 안내
   if(!edPeaks){
-    tctx.fillStyle="#5a6190";tctx.textAlign="center";
-    tctx.font="bold 20px Segoe UI";tctx.fillText("🎵 먼저 상단의 '곡 불러오기'를 누르세요",W2/2,my-14);
-    tctx.font="14px Segoe UI";tctx.fillText("그다음 아래 [⚡ 음파 분석 → 채보 자동생성] 버튼으로 채보를 만들 수 있어요",W2/2,my+14);
+    tctx.fillStyle="#8a93c0";tctx.textAlign="center";
+    tctx.font="bold "+(RT?28:20)+"px Segoe UI";tctx.fillText("🎵 Load a track first (top bar)",W2/2,my-14);
+    tctx.font=(RT?"bold 18px":"14px")+" Segoe UI";tctx.fillText("Then use [⚡ Auto-generate] below to build a chart",W2/2,my+(RT?22:14));
   }
   // info
-  tctx.fillStyle="#fff";tctx.font="13px Segoe UI";tctx.textAlign="left";
+  tctx.fillStyle="#fff";tctx.font=(RT?"bold 17px":"13px")+" Segoe UI";tctx.textAlign="left";
   tctx.fillText("t="+edTime.toFixed(2)+"s  ·  notes:"+edNotes.length+"  ·  zoom:"+Math.round(view.pps)+"px/s",10,H-10);
+  // ★도트 필터 (레트로 모드일 때 사이트 전체와 동일한 픽셀 밀도로 모자이크)
+  if(settings.retro){const lh=Math.max(1,Math.round(192*H/window.innerHeight)),lw=Math.max(1,Math.round(lh*W2/H));
+    if(_edLow.width!==lw||_edLow.height!==lh){_edLow.width=lw;_edLow.height=lh;}
+    const lc=_edLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);lc.drawImage(tl,0,0,W2,H,0,0,lw,lh);
+    tctx.imageSmoothingEnabled=false;tctx.drawImage(_edLow,0,0,lw,lh,0,0,W2,H);tctx.imageSmoothingEnabled=true;}
 }
 let _lastW=0,_lastH=0;
 function fitTimelineIfNeeded(){const r=tl.getBoundingClientRect();if(Math.abs(r.width-_lastW)>2||Math.abs(r.height-_lastH)>2){_lastW=r.width;_lastH=r.height;tl.width=r.width;tl.height=r.height;}}
