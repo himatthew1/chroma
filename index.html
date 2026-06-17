@@ -583,8 +583,7 @@ let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
 function fxFlushText(lc,k){lc.save();lc.textBaseline="middle";
   for(const o of fxTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.22);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);
-    lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);lc.lineWidth=Math.max(1,sz*0.13);lc.strokeStyle=o.c;lc.strokeText(o.t,o.x*k,o.y*k);}   // ★동색 보강 스트로크=볼드
+    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
   try{lc.letterSpacing="0px";}catch(_){}lc.restore();fxTextQ.length=0;}
 function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
   if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
@@ -2154,8 +2153,7 @@ function updateHUD(){
 let pTextQ=[];
 function pPixText(t,x,y,sz,col,align,bl){pTextQ.push({t:String(t),x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",bl:bl||"middle"});}
 function pFlushText(lc,k){lc.save();for(const o of pTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
-    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.22);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);
-    lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);lc.lineWidth=Math.max(1,sz*0.13);lc.strokeStyle=o.c;lc.strokeText(o.t,o.x*k,o.y*k);}   // ★동색 보강 스트로크=볼드
+    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
   try{lc.letterSpacing="0px";}catch(_){}lc.restore();pTextQ.length=0;}
 // ★레트로: HUD를 캔버스에 직접 그려 도트필터를 함께 통과시킴 (HTML HUD는 retro일 때 CSS로 숨김)
 function drawHudCanvas(now){
