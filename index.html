@@ -268,7 +268,6 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
       </g>
     </svg>
     <button class="menu-btn" id="goPlay">▶  PLAY</button>
-    <button class="menu-btn" id="goEditor">✎  Chart Editor</button>
     <button class="menu-btn" id="goSettings" style="font-size:16px;padding:12px">⚙  Settings (SFX · Sync)</button>
     <button class="menu-btn" id="goHelp" style="font-size:16px;padding:12px">❓  How to Play / Controls</button>
     <p style="margin-top:26px;font-size:13px;letter-spacing:1px"><b style="color:var(--pink)">A</b> · <b style="color:var(--blue)">D</b> · <b style="color:var(--green)">J</b> · <b style="color:var(--yellow)">L</b></p>
@@ -599,28 +598,30 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;
   fxFlushText();   // ★글자만 고밀도 도트 버퍼에 네이티브로 → 도트 유지 + 또렷
 }
-const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHowToPlay()}];
+const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHowToPlay()}];   // ★에디터는 숨김 — 홈에서 "edit" 타이핑 시크릿으로만 진입
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
 // 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
 function fxLogo(cx,ly,lsz,t){t=t||0;
   fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";
   fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
   fxc.lineJoin="round";
-  const word="CHROMA",sp=lsz*0.94,startx=cx-(word.length-1)*sp/2;
+  const word="CHROMA",sp=lsz*0.94,eg=lsz*0.22;   // ★O(링) 주변에 여유 간격
+  const xof=(i)=> i<3 ? i*sp : (i===3 ? 3*sp+eg : i*sp+2*eg);
+  const startx=cx-(5*sp+2*eg)/2;
   // ★4색(마젠타·블루·그린·옐로우)만 부드럽게 슬라이딩 — 색상환 회전(원치 않는 색) 아님
   const BRAND=[[255,46,151],[34,167,255],[57,227,107],[255,210,63]];
   const slide=(ph)=>{const n=4,f=(((ph%1)+1)%1)*n,k0=Math.floor(f)%n,k1=(k0+1)%n,kk=f-Math.floor(f),a=BRAND[k0],b=BRAND[k1];
     return "rgb("+Math.round(a[0]+(b[0]-a[0])*kk)+","+Math.round(a[1]+(b[1]-a[1])*kk)+","+Math.round(a[2]+(b[2]-a[2])*kk)+")";};
   for(let i=0;i<word.length;i++){
-    const gx=startx+i*sp,ph=t*0.13+i*0.12,col=slide(ph);
-    if(i===3){   // O → 그라데이션 링 + 흰색 4꼭짓점 별
-      const r=lsz*0.46;
-      const grad=fxc.createLinearGradient(gx-r,ly+r,gx+r,ly-r);
+    const gx=startx+xof(i),ph=t*0.13+i*0.12,col=slide(ph);
+    if(i===3){   // O → 그라데이션 링 + 흰색 4꼭짓점 별 (살짝 위로 + 약간 작게)
+      const r=lsz*0.43,oy=ly-lsz*0.06;
+      const grad=fxc.createLinearGradient(gx-r,oy+r,gx+r,oy-r);
       grad.addColorStop(0,slide(ph));grad.addColorStop(.5,slide(ph+0.18));grad.addColorStop(1,slide(ph+0.36));
       fxc.shadowColor=col;fxc.shadowBlur=lsz*0.45;
-      fxc.lineWidth=lsz*0.1;fxc.strokeStyle=grad;fxc.beginPath();fxc.arc(gx,ly,r,0,6.2832);fxc.stroke();
+      fxc.lineWidth=lsz*0.1;fxc.strokeStyle=grad;fxc.beginPath();fxc.arc(gx,oy,r,0,6.2832);fxc.stroke();
       const R=r*0.62;fxc.shadowColor="#fff";fxc.shadowBlur=lsz*0.3;fxc.fillStyle="#fff";
-      fxc.beginPath();fxc.moveTo(gx,ly-R);fxc.quadraticCurveTo(gx,ly,gx+R,ly);fxc.quadraticCurveTo(gx,ly,gx,ly+R);fxc.quadraticCurveTo(gx,ly,gx-R,ly);fxc.quadraticCurveTo(gx,ly,gx,ly-R);fxc.closePath();fxc.fill();
+      fxc.beginPath();fxc.moveTo(gx,oy-R);fxc.quadraticCurveTo(gx,oy,gx+R,oy);fxc.quadraticCurveTo(gx,oy,gx,oy+R);fxc.quadraticCurveTo(gx,oy,gx-R,oy);fxc.quadraticCurveTo(gx,oy,gx,oy-R);fxc.closePath();fxc.fill();
       continue;
     }
     // 네온 외곽선 글자 (색 순환) + 옅은 동색 채움으로 가독성 확보
@@ -815,7 +816,16 @@ window.addEventListener("resize",()=>{if(fxScreen)fxFit();});
 setTimeout(()=>{if(!screens.menu.classList.contains("hidden"))fxUpdate("menu");},0);   // 시작 시 홈 화면이면 픽셀 필터 켜기
 document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{stopPlay();stopEditor();stopSettingsMetro();show("menu");});
 $("#goPlay").onclick=()=>{openSongSelect();};
-$("#goEditor").onclick=()=>{requestEditor();};
+// ★시크릿 커맨드: 홈 화면에서 "edit" 타이핑 → 에디터 비밀번호창
+let _editSeq="";
+document.addEventListener("keydown",e=>{
+  if(screens.menu.classList.contains("hidden"))return;            // 홈에서만
+  if(!$("#pwGate").classList.contains("hidden"))return;            // 비번창 열려있으면 무시
+  const k=(e.key||"").toLowerCase();
+  if(k.length!==1||!/[a-z]/.test(k)){if(k!=="shift")_editSeq="";return;}
+  _editSeq=(_editSeq+k).slice(-5);
+  if(_editSeq.endsWith("edit")){_editSeq="";requestEditor();}
+});
 
 // ---------- 채보 에디터 비밀번호 잠금 (소프트 잠금: 한 세션 동안 1회만 입력) ----------
 const EDITOR_PW="4391"; let editorUnlocked=false;
@@ -2235,7 +2245,9 @@ function padBurst(col,kind,nx,ny){
     const a=Math.random()*Math.PI*2, sp=1+Math.random()*5;
     state.particles.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:1.5+Math.random()*2,white:true});
   }
-  (state.shocks||(state.shocks=[])).push({x,y,r:noteR()*0.55,vr:noteR()*0.5,life:1,col:COLHEX[col]});   // ★충격파 확산 링(위젯)
+  (state.shocks||(state.shocks=[])).push({x,y,r:noteR()*0.55,vr:noteR()*0.55,life:1,col:COLHEX[col]});   // ★충격파 확산 링(위젯)
+  state.shocks.push({x,y,r:noteR()*0.4,vr:noteR()*0.42,life:1,col:"#ffffff"});                            // 흰 충격파(2중)
+  (state.flashes||(state.flashes=[])).push({x,y,r:noteR()*(kind==="perfect"?1.5:1.2),life:1});            // ★흰 섬광(위젯)
 }
 function updateHUD(){
   $("#hScore").textContent=String(state.score).padStart(7,"0");
@@ -2641,24 +2653,30 @@ function loop(){
   }
   pctx.textBaseline="alphabetic";
 
-  // particles (스파크 버스트) — 글로우 없이(성능), 밝은 색으로
-  if(state.particles.length>240)state.particles.splice(0,state.particles.length-240);  // 상한
-  pctx.save();pctx.lineCap="round";pctx.shadowBlur=0;
+  // particles (스파크 버스트) — 위젯처럼 발광(가산합성)
+  if(state.particles.length>260)state.particles.splice(0,state.particles.length-260);  // 상한
+  pctx.save();pctx.lineCap="round";pctx.globalCompositeOperation="lighter";
   for(const p of state.particles){
     p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=p.decay;
     if(p.life<=0)continue;
     const pc=p.white?"#fff":COLHEX[p.col];pctx.globalAlpha=Math.min(1,p.life*1.4);
-    pctx.strokeStyle=pc;pctx.fillStyle=pc;
-    const pb=settings.retro?2.2:0;   // ★레트로: 파티클 굵게(다운샘플에 안 묻히게)
+    pctx.strokeStyle=pc;pctx.fillStyle=pc;pctx.shadowColor=pc;pctx.shadowBlur=settings.retro?6:9;   // ★글로우
+    const pb=settings.retro?2.2:0;
     if(p.streak){pctx.lineWidth=p.size+pb;pctx.beginPath();pctx.moveTo(p.px,p.py);pctx.lineTo(p.x,p.y);pctx.stroke();}
     else{pctx.beginPath();pctx.arc(p.x,p.y,p.size*p.life+0.6+pb,0,Math.PI*2);pctx.fill();}
   }
   pctx.restore();pctx.globalAlpha=1;pctx.shadowBlur=0;
   state.particles=state.particles.filter(p=>p.life>0);
-  // ★타격 충격파 확산 링 (위젯과 동일)
+  // ★타격 흰 섬광 (위젯) — 밝게 퍼졌다 사라짐
+  if(state.flashes&&state.flashes.length){pctx.save();pctx.globalCompositeOperation="lighter";
+    for(const fl of state.flashes){fl.life-=0.085;if(fl.life<=0)continue;const rr=fl.r*(1+(1-fl.life)*1.5);pctx.globalAlpha=fl.life*0.9;
+      const g=pctx.createRadialGradient(fl.x,fl.y,0,fl.x,fl.y,rr);g.addColorStop(0,"rgba(255,255,255,0.95)");g.addColorStop(0.45,"rgba(255,255,255,0.3)");g.addColorStop(1,"rgba(255,255,255,0)");
+      pctx.fillStyle=g;pctx.beginPath();pctx.arc(fl.x,fl.y,rr,0,6.2832);pctx.fill();}
+    pctx.restore();state.flashes=state.flashes.filter(fl=>fl.life>0);}
+  // ★타격 충격파 확산 링 (색 + 흰 2중, 위젯과 동일)
   if(state.shocks&&state.shocks.length){pctx.save();pctx.globalCompositeOperation="lighter";
     for(const s of state.shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;
-      pctx.globalAlpha=s.life*0.8;pctx.strokeStyle=s.col;pctx.shadowColor=s.col;pctx.shadowBlur=12;pctx.lineWidth=(settings.retro?3:2)+4*s.life;
+      pctx.globalAlpha=s.life*0.85;pctx.strokeStyle=s.col;pctx.shadowColor=s.col;pctx.shadowBlur=12;pctx.lineWidth=(settings.retro?3:2)+4*s.life;
       pctx.beginPath();pctx.arc(s.x,s.y,s.r,0,Math.PI*2);pctx.stroke();}
     pctx.restore();state.shocks=state.shocks.filter(s=>s.life>0);}
 
