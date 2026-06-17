@@ -1004,7 +1004,7 @@ function _htBurst(kind,x,y,col){if(htD.note)htD.note.judged=1;htD.floats.push({k
   for(let i=0;i<12;i++){const a=Math.random()*6.283,sp=1+Math.random()*5;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.05,col:"#fff",size:1.8,white:1});}
   htD.shocks.push({x,y,r:fx.height*0.04,vr:fx.height*0.02,life:1,col:cc});htD.shocks.push({x,y,r:fx.height*0.03,vr:fx.height*0.016,life:1,col:"#fff"});
   htD.flashes.push({x,y,r:fx.height*(kind==="perfect"?0.13:0.1),life:1});}
-function _htBurstAur(kind,x,y){if(htD.note)htD.note.judged=1;htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // ★스페이스 = 오로라 폭발(위젯)
+function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(performance.now()-(fxT0||performance.now()))/1000;htD.note.spKind=kind;}htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // ★스페이스 = 오로라 폭발(위젯) + 링 퇴장 시작점 기록
   if(kind==="bad"||kind==="miss")return;hitSound(kind,0);
   for(let i=0;i<50;i++){const a=Math.random()*6.283,sp=4+Math.random()*12;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.015+Math.random()*0.02,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
   for(let i=0;i<16;i++){const a=Math.random()*6.283,sp=1.5+Math.random()*6;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.045,col:"#fff",size:1.9,white:1});}
@@ -1076,29 +1076,34 @@ function drawFxHowto(t){
       for(const fr of FR){const P=SP(fr);if(rt<fr){const prox=Math.max(0,1-(fr-rt)/0.16),sc=pe*(1+prox*0.7);fxc.save();fxc.globalCompositeOperation="lighter";fxc.globalAlpha=Math.min(1,pe)*0.95;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=10;fxc.lineWidth=2.4;hexPath(fxc,P.x,P.y,r*0.28*sc);fxc.stroke();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.beginPath();fxc.arc(P.x,P.y,r*0.1*sc,0,6.283);fxc.fill();fxc.restore();}else if(!n._ig[fr]){n._ig[fr]=1;hitSound("perfect",n.col);htD.shocks.push({x:P.x,y:P.y,r:r*0.3,vr:r*0.18,life:1,col});htD.shocks.push({x:P.x,y:P.y,r:r*0.2,vr:r*0.14,life:1,col:"#fff"});for(let p=0;p<8;p++){const a=Math.random()*6.283,sp=1.5+Math.random()*4;htD.parts.push({x:P.x,y:P.y,px:P.x,py:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,dec:0.04,col,size:1.4+Math.random()*1.8,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
       const S=SP(rt);_htStar(S.x,S.y,r*0.95,-now*5,col);
       if(rt>=1)_htBurst(n.ck,SP(1).x,SP(1).y,n.col); }
-  } else { // space — 인게임 drawSpaceNote 동일 (탭=원 오로라링, 홀드=육각 충전→자동완성)
+  } else { // space — SHARED NoteFX 에셋 (인게임 drawSpaceNote와 100% 동일한 그리기 함수 호출)
     const R=r*1.7,isHold=n.variant==="hold",spin=now*0.35;
-    const conic=()=>{const cg=fxc.createConicGradient(-1.5708+spin,cx,cyc),s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;};
-    const shp=(ox,oy,rr,hex)=>{if(hex)hexPath(fxc,ox,oy,rr);else{fxc.beginPath();fxc.arc(ox,oy,rr,0,6.283);}};
-    const base=(ox,oy,rr,hex,gl)=>{fxc.save();fxc.globalCompositeOperation="lighter";fxc.strokeStyle=conic();fxc.globalAlpha=Math.min(1,0.2*gl);fxc.lineWidth=R*0.2;shp(ox,oy,rr,hex);fxc.stroke();fxc.globalAlpha=Math.min(1,0.85*gl);fxc.lineWidth=R*0.085;shp(ox,oy,rr,hex);fxc.stroke();fxc.restore();fxc.save();fxc.globalAlpha=0.95;fxc.strokeStyle="#f2f6ff";fxc.lineWidth=R*0.06;shp(ox,oy,rr,hex);fxc.stroke();fxc.globalAlpha=0.78;fxc.lineWidth=R*0.04;shp(ox,oy,rr*0.6,hex);fxc.stroke();fxc.restore();};
+    const despawn=()=>{   // 타격/미스 후 퇴장: 퍼펙트/그레잇 = 색상환 링이 화면 밖으로 폭발, 그 외 = 잔잔히 소멸 (인게임 동일)
+      const big=(n.spKind!=="bad"&&n.spKind!=="miss"),r2=Math.min(1,(now-n.spT0)/(big?0.6:0.45)),eo=1-(1-r2)*(1-r2);
+      if(r2>=1)return;let p;
+      if(big)p={rs:1+6.8*eo,al:1-r2,ringAl:Math.max(0,1-r2*1.5),gl:1.2*Math.max(0,1-r2*0.9),lwm:1+(6.8*eo)*0.08,flash:Math.max(0,1-r2/0.28)};
+      else if(n.spKind==="bad")p={rs:1+1.0*eo,al:1-r2,ringAl:1-r2,gl:1.2*(1-r2)*0.6};
+      else p={rs:1+0.35*r2,al:1-r2,ringAl:1-r2,gl:1.2*(1-r2)*0.45};
+      p.ap=-1;p.spin=spin;p.hold=isHold;NoteFX_spaceFrame(fxc,cx,cyc,R,p);
+    };
     if(!isHold){
-      if(prog>1.55&&!n.judged)_htBurstAur("miss",cx,cyc);
-      if(!n.judged){base(cx,cyc,R,false,1.2*Math.min(1,prog*2.2));
-        if(prog<1){const ar=R*(1+(1-prog)*1.6);fxc.save();fxc.globalAlpha=0.12+0.7*prog;fxc.strokeStyle="#e6efff";fxc.lineWidth=Math.max(2.5,R*0.05);fxc.beginPath();fxc.arc(cx,cyc,ar,0,6.283);fxc.stroke();fxc.restore();}}
-      fxPixText("HIT ALL 4 / SPACE",cx,cyc+R*1.45,Math.max(10,H*0.016),"#9fb0d8","center");
+      if(!n.judged){
+        if(prog>1.55)_htBurstAur("miss",cx,cyc);          // ★미스 제때 판정
+        else{const pr=Math.min(1,prog),gp=Math.pow(pr,1.9),aq=Math.min(1,pr/0.65),al=aq*aq*(3-2*aq);
+          NoteFX_spaceFrame(fxc,cx,cyc,R,{rs:0.08+0.92*gp,al,ringAl:al,gl:1.2*al,ap:pr,spin,hold:false});}   // 생성(작게)→가속 진입 + 어프로치 링
+      } else despawn();
+      fxPixText("HIT ALL 4 / SPACE",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
     } else {
       const held=(htD.space||htD.down.every(Boolean));
       if(prog>=1&&!n.judged&&held){n.charging=1;n.charge=Math.min(1,n.charge+1/60);}
-      if(n.charge>=1&&!n.judged)_htBurstAur("perfect",cx,cyc);
+      if(n.charge>=1&&!n.judged)_htBurstAur("perfect",cx,cyc);     // 가득 차면 자동 초신성(위젯 메커니즘)
       else if(prog>2.6&&!n.judged)_htBurstAur("miss",cx,cyc);
-      if(!n.judged){const ch=n.charge,eased=ch*ch*(3-2*ch),rr=R*(1+eased*0.35),ox=cx+(Math.random()-0.5)*ch*ch*5,oy=cyc+(Math.random()-0.5)*ch*ch*5;
-        if(prog>=1&&ch>0.3&&Math.random()<ch*ch*0.6){const a=Math.random()*6.283,rd=rr*(0.6+Math.random()*0.5);htD.parts.push({x:cx+Math.cos(a)*rd,y:cyc+Math.sin(a)*rd,px:cx,py:cyc,vx:Math.cos(a)*(0.4+ch),vy:Math.sin(a)*(0.4+ch),life:1,dec:0.02,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.4+Math.random()*1.8,white:Math.random()<0.4});}
-        if(prog>=1){fxc.save();fxc.globalCompositeOperation="lighter";const halo=rr*(1.1+eased*2)+ch*R*0.5,hg=fxc.createRadialGradient(ox,oy,0,ox,oy,halo);hg.addColorStop(0,"rgba(255,255,255,"+(0.16+0.34*ch)+")");hg.addColorStop(0.4,_rgba(SP_AUR[2],0.16*ch));hg.addColorStop(1,"rgba(90,120,255,0)");fxc.fillStyle=hg;fxc.beginPath();fxc.arc(ox,oy,halo,0,6.283);fxc.fill();fxc.restore();
-          for(let k=0;k<3;k++){const ph=((now*0.7)+k/3)%1,ringR=rr*(0.98-ph*0.48);fxc.save();fxc.globalCompositeOperation="lighter";fxc.globalAlpha=Math.sin(ph*Math.PI)*0.45*ch;fxc.strokeStyle=_rgba(SP_AUR[(k+1)%5],1);fxc.lineWidth=R*0.05;hexPath(fxc,ox,oy,ringR);fxc.stroke();fxc.restore();}
-          fxc.save();fxc.globalCompositeOperation="lighter";const er=rr*(0.2+0.9*eased),core=fxc.createRadialGradient(ox,oy,0,ox,oy,er);core.addColorStop(0,"rgba(255,255,255,"+(0.8*ch)+")");core.addColorStop(0.5,_rgba(SP_AUR[2],0.38*ch));core.addColorStop(1,"rgba(120,140,255,0)");fxc.fillStyle=core;fxc.beginPath();fxc.arc(ox,oy,er,0,6.283);fxc.fill();fxc.restore();}
-        base(ox,oy,rr,true,0.55+ch*1.7);
-        if(prog<1){const ar=R*(1+(1-prog)*1.4);fxc.save();fxc.globalAlpha=0.12+0.6*prog;fxc.strokeStyle="#e6efff";fxc.lineWidth=Math.max(2.5,R*0.05);hexPath(fxc,cx,cyc,ar);fxc.stroke();fxc.restore();}}
-      fxPixText("HOLD ALL 4 / SPACE",cx,cyc+R*1.45,Math.max(10,H*0.016),"#9fb0d8","center");
+      if(!n.judged){
+        if(prog<1){const pr=Math.min(1,prog),gp=Math.pow(pr,1.9),aq=Math.min(1,pr/0.65),al=aq*aq*(3-2*aq);
+          NoteFX_spaceFrame(fxc,cx,cyc,R,{rs:0.3+0.7*gp,al,ringAl:al,gl:1.2*al,ap:pr,spin,hold:true});}   // 생성→접근(육각)
+        else{if(!n._em)n._em=[];NoteFX_spaceCharge(fxc,cx,cyc,R,n.charge,now,n._em);}                      // 충전(공유)
+      } else despawn();
+      fxPixText("HOLD ALL 4 / SPACE",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
     }
   }
   if(n.judged){n.dt=n.dt||now;if(now-n.dt>0.75)n.done=1;}
@@ -2171,8 +2176,50 @@ function spaceBurst(weak){const G=spaceGeom(),n=weak?18:54;
   for(let i=0;i<n;i++)state.spaceParts.push({a:Math.random()*6.283,r:G.R*(0.9+Math.random()*0.3),
     spd:(weak?3:6)+Math.random()*(weak?3:9),life:1,dec:0.006+Math.random()*0.012,
     col:(Math.random()<0.5?null:SP_AUR[i%5]),w:0.7+Math.random()*2.2,lf:0.4+Math.random()*2.0});}
-function _spConic(x,y,spin){const cg=pctx.createConicGradient(-1.5708+spin,x,y);const s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;}
-function _spShape(x,y,r,hold){if(hold)hexPath(pctx,x,y,r);else{pctx.beginPath();pctx.arc(x,y,r,0,6.2832);}}
+function _spConic(ctx,x,y,spin){const cg=ctx.createConicGradient(-1.5708+spin,x,y);const s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;}
+function _spShape(ctx,x,y,r,hold){if(hold)hexPath(ctx,x,y,r);else{ctx.beginPath();ctx.arc(x,y,r,0,6.2832);}}
+// ──────────────────────────────────────────────────────────────────────────
+// NoteFX (SHARED ASSET): the SAME space-note drawing primitives are used by
+// in-game (drawSpaceNote → pctx) AND How-to-Play (fx ctx). Ported verbatim from
+// approved widgets _approved_widgets/SPACE_NOTE__ringexit + SPACE_HOLD__v5_clean.
+// Only the timeline differs (song-time+judging vs demo loop) — never the pixels.
+// ──────────────────────────────────────────────────────────────────────────
+// One frame of a space note: conic color-wheel rim + white double ring + flash + approach ring.
+// p = {rs, al, ringAl, gl, ap(-1=none), spin, lwm, flash, hold}
+function NoteFX_spaceFrame(ctx,cx,cy,R,p){
+  const rs=p.rs,ringAl=p.ringAl,gl=p.gl,ap=(p.ap==null?-1:p.ap),spin=p.spin||0,lwm=p.lwm||1,flash=p.flash||0,hold=!!p.hold,rr=R*rs;
+  ctx.save();ctx.globalCompositeOperation="lighter";ctx.strokeStyle=_spConic(ctx,cx,cy,spin);
+  ctx.globalAlpha=0.2*gl;ctx.lineWidth=R*0.2*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();
+  ctx.globalAlpha=0.85*gl;ctx.lineWidth=R*0.085*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha=0.95*ringAl;ctx.strokeStyle="#f2f6ff";ctx.lineWidth=R*0.06*lwm;_spShape(ctx,cx,cy,rr,hold);ctx.stroke();
+  ctx.globalAlpha=0.78*ringAl;ctx.lineWidth=R*0.04;_spShape(ctx,cx,cy,rr*0.6,hold);ctx.stroke();ctx.restore();
+  if(flash>0){ctx.save();ctx.globalCompositeOperation="lighter";const fr=rr*1.15,rg=ctx.createRadialGradient(cx,cy,0,cx,cy,fr);rg.addColorStop(0,"rgba(255,255,255,"+(flash*0.55)+")");rg.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,fr,0,6.2832);ctx.fill();ctx.restore();}
+  if(ap>=0&&ap<1){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;ctx.save();ctx.globalAlpha=aa;ctx.strokeStyle="#e6efff";ctx.lineWidth=2+2.5*ap;_spShape(ctx,cx,cy,radius,hold);ctx.stroke();ctx.restore();}
+}
+// Space HOLD charging visual (hexagon): embers + wide halo + contraction rings + incandescent core + base rim + white ring.
+// ch=0..1 charge, now=time(s) for spin/ring phase, em=ember array (persists per note).
+function NoteFX_spaceCharge(ctx,cx,cy,R,ch,now,em){
+  const eased=ch*ch*(3-2*ch);
+  const rr2=R*(1+eased*0.35), gl2=0.55+ch*1.7, ringAl2=0.4+0.6*ch, flick=1-(Math.random()*0.16*ch);
+  const jx=(Math.random()-0.5)*ch*ch*5, jy=(Math.random()-0.5)*ch*ch*5, ox=cx+jx, oy=cy+jy, sp=now*0.35;
+  if(ch>0.35&&Math.random()<ch*ch*0.6){const a=Math.random()*6.2832,rd=rr2*(0.6+Math.random()*0.5);em.push({x:cx+Math.cos(a)*rd,y:cy+Math.sin(a)*rd,vx:Math.cos(a)*(0.5+Math.random()*1.6*ch),vy:Math.sin(a)*(0.5+Math.random()*1.6*ch),life:1,dec:0.014+Math.random()*0.02,size:1+Math.random()*1.6,col:Math.random()<0.5?[242,246,255]:SP_AUR[(Math.random()*5)|0]});}
+  ctx.save();ctx.globalCompositeOperation="lighter";
+  for(let i=em.length-1;i>=0;i--){const pp=em[i];pp.x+=pp.vx;pp.y+=pp.vy;pp.life-=pp.dec;if(pp.life<=0){em.splice(i,1);continue;}ctx.fillStyle=_rgba(pp.col,pp.life);ctx.beginPath();ctx.arc(pp.x,pp.y,pp.size*(0.5+pp.life*0.6),0,6.2832);ctx.fill();}
+  ctx.restore();
+  ctx.save();ctx.globalCompositeOperation="lighter";const halo=rr2*(1.1+eased*2.4)+ch*40,hg=ctx.createRadialGradient(ox,oy,0,ox,oy,halo);
+  hg.addColorStop(0,_rgba([255,255,255],(0.16+0.34*ch)*flick));hg.addColorStop(0.35,_rgba(SP_AUR[2],0.18*ch*flick));hg.addColorStop(0.7,_rgba(SP_AUR[0],0.08*ch));hg.addColorStop(1,"rgba(90,120,255,0)");
+  ctx.fillStyle=hg;ctx.beginPath();ctx.arc(ox,oy,halo,0,6.2832);ctx.fill();ctx.restore();
+  ctx.save();ctx.globalCompositeOperation="lighter";
+  for(let k=0;k<3;k++){const ph=((now*0.7)+k/3)%1, ringR=rr2*(0.98-ph*0.48);ctx.globalAlpha=Math.sin(ph*Math.PI)*0.45*ch;ctx.strokeStyle=_spConic(ctx,ox,oy,sp*1.5);ctx.lineWidth=R*0.05;_spShape(ctx,ox,oy,ringR,true);ctx.stroke();}
+  ctx.restore();
+  ctx.save();ctx.globalCompositeOperation="lighter";const er=rr2*(0.2+0.9*eased),core=ctx.createRadialGradient(ox,oy,0,ox,oy,er);
+  core.addColorStop(0,_rgba([255,255,255],0.8*ch*flick));core.addColorStop(0.5,_rgba(SP_AUR[2],0.38*ch*flick));core.addColorStop(1,"rgba(120,140,255,0)");
+  ctx.fillStyle=core;ctx.beginPath();ctx.arc(ox,oy,er,0,6.2832);ctx.fill();ctx.restore();
+  ctx.save();ctx.globalCompositeOperation="lighter";ctx.strokeStyle=_spConic(ctx,ox,oy,sp);
+  ctx.globalAlpha=Math.min(1,0.2*gl2)*flick;ctx.lineWidth=R*0.2;_spShape(ctx,ox,oy,rr2,true);ctx.stroke();
+  ctx.globalAlpha=Math.min(1,0.85*gl2)*flick;ctx.lineWidth=R*0.085;_spShape(ctx,ox,oy,rr2,true);ctx.stroke();ctx.restore();
+  ctx.save();ctx.globalAlpha=0.95*ringAl2;ctx.strokeStyle="#f2f6ff";ctx.lineWidth=R*0.06;_spShape(ctx,ox,oy,rr2,true);ctx.stroke();ctx.restore();
+}
 function pressSpace(){
   const now=gameNow();let best=null,bd=1e9;
   for(const n of state.notes){ if(n.type!=="space"||n.done||n.headJudged)continue;
@@ -2204,31 +2251,9 @@ function drawSpaceNote(n,now,AR){
   if(hold&&n.holding&&!n.spState&&now>=n.time+n.duration){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,cx,cy);beatKill();spaceBurst(false);}
   // ★홀드 충전 연출: 일반 스페이스 베이스(색상환 림+흰 링) + 백열 가열·넓은 광채 + 수축 링 + 성장/절제된 떨림
   if(hold&&n.holding&&!n.spState){
-    const ch=clamp((now-n.time)/Math.max(n.duration,0.001),0,1), eased=ch*ch*(3-2*ch);
-    const rr2=R*(1+eased*0.35), gl2=0.55+ch*1.7, ringAl2=0.4+0.6*ch, flick=1-(Math.random()*0.16*ch);
-    const jx=(Math.random()-0.5)*ch*ch*5, jy=(Math.random()-0.5)*ch*ch*5, ox=cx+jx, oy=cy+jy, sp=now*0.35;
+    const ch=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);
     if(!n._em)n._em=[];
-    if(ch>0.35&&Math.random()<ch*ch*0.6){const a=Math.random()*6.2832,rd=rr2*(0.6+Math.random()*0.5);n._em.push({x:cx+Math.cos(a)*rd,y:cy+Math.sin(a)*rd,vx:Math.cos(a)*(0.5+Math.random()*1.6*ch),vy:Math.sin(a)*(0.5+Math.random()*1.6*ch),life:1,dec:0.014+Math.random()*0.02,size:1+Math.random()*1.6,col:Math.random()<0.5?[242,246,255]:SP_AUR[(Math.random()*5)|0]});}
-    pctx.save();pctx.globalCompositeOperation="lighter";
-    for(let i=n._em.length-1;i>=0;i--){const p=n._em[i];p.x+=p.vx;p.y+=p.vy;p.life-=p.dec;if(p.life<=0){n._em.splice(i,1);continue;}pctx.fillStyle=_rgba(p.col,p.life);pctx.beginPath();pctx.arc(p.x,p.y,p.size*(0.5+p.life*0.6),0,6.2832);pctx.fill();}
-    pctx.restore();
-    // 넓게 번지는 광채
-    pctx.save();pctx.globalCompositeOperation="lighter";const halo=rr2*(1.1+eased*2.4)+ch*40,hg=pctx.createRadialGradient(ox,oy,0,ox,oy,halo);
-    hg.addColorStop(0,_rgba([255,255,255],(0.16+0.34*ch)*flick));hg.addColorStop(0.35,_rgba(SP_AUR[2],0.18*ch*flick));hg.addColorStop(0.7,_rgba(SP_AUR[0],0.08*ch));hg.addColorStop(1,"rgba(90,120,255,0)");
-    pctx.fillStyle=hg;pctx.beginPath();pctx.arc(ox,oy,halo,0,6.2832);pctx.fill();pctx.restore();
-    // 수축 링 (바깥→안쪽 0.5에서 사라짐, 중심 잔상 없음)
-    pctx.save();pctx.globalCompositeOperation="lighter";
-    for(let k=0;k<3;k++){const ph=((now*0.7)+k/3)%1, ringR=rr2*(0.98-ph*0.48);pctx.globalAlpha=Math.sin(ph*Math.PI)*0.45*ch;pctx.strokeStyle=_spConic(ox,oy,sp*1.5);pctx.lineWidth=R*0.05;_spShape(ox,oy,ringR,true);pctx.stroke();}
-    pctx.restore();
-    // 백열 가열 중앙
-    pctx.save();pctx.globalCompositeOperation="lighter";const er=rr2*(0.2+0.9*eased),core=pctx.createRadialGradient(ox,oy,0,ox,oy,er);
-    core.addColorStop(0,_rgba([255,255,255],0.8*ch*flick));core.addColorStop(0.5,_rgba(SP_AUR[2],0.38*ch*flick));core.addColorStop(1,"rgba(120,140,255,0)");
-    pctx.fillStyle=core;pctx.beginPath();pctx.arc(ox,oy,er,0,6.2832);pctx.fill();pctx.restore();
-    // 베이스: 색상환 림 + 흰 바깥 링 (안쪽 0.6 링 없음)
-    pctx.save();pctx.globalCompositeOperation="lighter";pctx.strokeStyle=_spConic(ox,oy,sp);
-    pctx.globalAlpha=Math.min(1,0.2*gl2)*flick;pctx.lineWidth=R*0.2;_spShape(ox,oy,rr2,true);pctx.stroke();
-    pctx.globalAlpha=Math.min(1,0.85*gl2)*flick;pctx.lineWidth=R*0.085;_spShape(ox,oy,rr2,true);pctx.stroke();pctx.restore();
-    pctx.save();pctx.globalAlpha=0.95*ringAl2;pctx.strokeStyle="#f2f6ff";pctx.lineWidth=R*0.06;_spShape(ox,oy,rr2,true);pctx.stroke();pctx.restore();
+    NoteFX_spaceCharge(pctx,cx,cy,R,ch,now,n._em);   // ★공유 에셋(How-to와 동일)
     return;
   }
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
@@ -2245,18 +2270,7 @@ function drawSpaceNote(n,now,AR){
     else if(n.spState==="miss"||n.spState==="break"){rs=1+0.35*r;al=1-r;ringAl=1-r;gl=1.2*(1-r)*0.45;}
     else{rs=1+6.8*eo;al=1-r;ringAl=Math.max(0,1-r*1.5);gl=1.2*Math.max(0,1-r*0.9);lwm=1+(rs-1)*0.08;flash=Math.max(0,1-r/0.28);}   // ★위젯 폭발: 오로라 링이 바깥으로 확 터짐 + 섬광 (입자는 spaceBurst)
   }
-  const rr=R*rs;
-  // 매끈한 색상환 림 (conic, 회전)
-  pctx.save();pctx.globalCompositeOperation="lighter";pctx.strokeStyle=_spConic(cx,cy,spin);
-  pctx.globalAlpha=0.2*gl;pctx.lineWidth=R*0.2*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();
-  pctx.globalAlpha=0.85*gl;pctx.lineWidth=R*0.085*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();pctx.restore();
-  // 흰 이중 링
-  pctx.save();pctx.globalAlpha=0.95*ringAl;pctx.strokeStyle="#f2f6ff";pctx.lineWidth=R*0.06*lwm;_spShape(cx,cy,rr,hold);pctx.stroke();
-  pctx.globalAlpha=0.78*ringAl;pctx.lineWidth=R*0.04;_spShape(cx,cy,rr*0.6,hold);pctx.stroke();pctx.restore();
-  // 섬광 (빠르게 사라짐)
-  if(flash>0){pctx.save();pctx.globalCompositeOperation="lighter";const fr=rr*1.15,rg=pctx.createRadialGradient(cx,cy,0,cx,cy,fr);rg.addColorStop(0,"rgba(255,255,255,"+(flash*0.55)+")");rg.addColorStop(1,"rgba(255,255,255,0)");pctx.fillStyle=rg;pctx.beginPath();pctx.arc(cx,cy,fr,0,6.2832);pctx.fill();pctx.restore();}
-  // 어프로치
-  if(ap>=0&&ap<1){const radius=R*(1+(1-ap)*1.6),aa=0.12+0.7*ap;pctx.save();pctx.globalAlpha=aa;pctx.strokeStyle="#e6efff";pctx.lineWidth=2+2.5*ap;_spShape(cx,cy,radius,hold);pctx.stroke();pctx.restore();}
+  NoteFX_spaceFrame(pctx,cx,cy,R,{rs,al,ringAl,gl,ap,spin,lwm,flash,hold});   // ★공유 에셋(How-to와 동일)
 }
 function drawSpaceParts(){ if(!state.spaceParts||!state.spaceParts.length)return;
   const G=spaceGeom(),cx=G.cx,cy=G.cy,maxR=G.maxR;
