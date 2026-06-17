@@ -232,7 +232,9 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
 </head>
 <body>
 <!-- 부팅 오버레이: 로드 즉시 검정으로 덮어 필터 변환 깜빡임 가림 → 로고 페이드인 → 검정 페이드아웃(최초 1회) -->
-<div id="boot" style="position:fixed;inset:0;background:#05060d;z-index:99999;display:block;transition:opacity .7s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;"></canvas></div>
+<div id="boot" style="position:fixed;inset:0;background:#05060d;z-index:99999;display:block;transition:opacity 1s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;"></canvas></div>
+<!-- 화면 전환용 검정 페이드(게임 진입/곡 시작 첫 프레임 플래시 가림) -->
+<div id="scrFade" style="position:fixed;inset:0;background:#05060d;z-index:9000;opacity:0;pointer-events:none;transition:opacity .45s ease;"></div>
 <div id="app">
 
   <!-- MENU -->
@@ -2025,9 +2027,13 @@ function slidePos(n,s){
   const cr=(a,b,c,d)=>0.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
   return {x:cr(p0[0],p1[0],p2[0],p3[0]), y:cr(p0[1],p1[1],p2[1],p3[1])};
 }
+function fadeFromBlack(sec){const el=document.getElementById("scrFade");if(!el)return;   // 검정에서 페이드인 — 전환 첫 프레임 플래시 가림
+  el.style.transition="none";el.style.opacity="1";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.style.transition="opacity "+(sec||0.45)+"s ease";el.style.opacity="0";}));}
 function startPlay(startAt){
   startAt=Math.max(0,startAt||0);
   fitCanvas(pcanvas);
+  fadeFromBlack(0.4);                 // 플레이 화면 진입 첫 프레임 가림
   $("#playUI").classList.remove("hidden");$("#playBack").style.display="flex";
   $("#hudSongTitle").textContent=curSongMeta.title||"—";
   $("#hudSongArtist").textContent=curSongMeta.artist||"";
@@ -2084,6 +2090,7 @@ function beginPlay(){
   state.t0=performance.now()/1000;
   state.audioStarted=false;
   state.started=true;                 // 노트 보이기 시작 + 입력 허용
+  fadeFromBlack(0.45);                // ★곡 시작(카운트다운→게임플레이) 전환 첫 프레임 플래시 확실히 가림
 }
 
 const JW={perfect:0.06,great:0.12,good:0.17};   // 판정 완화
@@ -3742,18 +3749,20 @@ window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidde
   const bo=document.getElementById("boot"),bc=document.getElementById("bootCv");
   if(!bo||!bc)return;
   const ctx=bc.getContext("2d");
-  function fit(){const d=Math.min(2,window.devicePixelRatio||1);bc.width=Math.round(innerWidth*d);bc.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0);}
-  fit();
-  const t0=performance.now(),FADE_IN=0.7,HOLD=0.5;   // 로고 페이드인 0.7s + 유지 0.5s
+  const full=document.createElement("canvas"),fctx=full.getContext("2d");   // 풀해상도 로고
+  const lo=document.createElement("canvas"),lctx=lo.getContext("2d");        // 192 저해상도 버퍼(도트 필터)
+  let lw=1,lh=192;
+  function fit(){const W=innerWidth,H=innerHeight;bc.width=W;bc.height=H;full.width=W;full.height=H;lh=192;lw=Math.max(1,Math.round(lh*W/H));lo.width=lw;lo.height=lh;}
+  fit();window.addEventListener("resize",fit);
+  const t0=performance.now(),FADE_IN=1.0,HOLD=0.2;   // 로고 1초 페이드인 + 살짝 유지 → 블랙 1초 페이드아웃
   function frame(now){
     const el=(now-t0)/1000,W=innerWidth,H=innerHeight,lsz=Math.min(W*0.16,H*0.16,120);
-    ctx.clearRect(0,0,W,H);
     let a=Math.min(1,el/FADE_IN);a*=a;            // 로고 페이드인(ease)
-    ctx.globalAlpha=a;
-    fxLogo(W/2,H*0.235,lsz,el*7,ctx);             // 메뉴와 같은 위치/로고 → 검정 페이드아웃 시 자연스럽게 이어짐
-    ctx.globalAlpha=1;
+    fctx.clearRect(0,0,W,H);fctx.globalAlpha=a;fxLogo(W/2,H*0.235,lsz,el*7,fctx);fctx.globalAlpha=1;   // 풀해상도로 로고
+    lctx.imageSmoothingEnabled=true;lctx.clearRect(0,0,lw,lh);lctx.drawImage(full,0,0,W,H,0,0,lw,lh);   // 192로 다운샘플(픽셀 필터 적용)
+    ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,W,H);ctx.drawImage(lo,0,0,lw,lh,0,0,W,H);ctx.imageSmoothingEnabled=true;   // nearest 업스케일 → 도트 픽셀화(메뉴와 동일)
     if(el<FADE_IN+HOLD)requestAnimationFrame(frame);
-    else{bo.style.opacity="0";setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},760);}   // 검정 솔리드 페이드아웃 → 메뉴 드러남
+    else{bo.style.opacity="0";setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},1050);}   // 블랙 솔리드 1초 페이드아웃 → 메뉴 드러남
   }
   requestAnimationFrame(frame);
 })();
