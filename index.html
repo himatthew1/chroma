@@ -979,30 +979,45 @@ function openHelp(){
     `<div class="ov-note">🎨 <b>Color group</b> — note colors are random each run. Group a fast-tap run as a color group and that whole stretch locks to one color, so you can hammer it with a single key.</div>`;
   $("#overlay").classList.remove("hidden");
 }
+let _htRaf=null,_htState=null,_htKey=null;
+function _htStop(){if(_htRaf){cancelAnimationFrame(_htRaf);_htRaf=null;}if(_htKey){document.removeEventListener("keydown",_htKey);_htKey=null;}_htState=null;}
+function _htStart(){
+  _htStop();
+  const cv=$("#htCv");if(!cv)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height;
+  const xs=[W*0.2,W*0.4,W*0.6,W*0.8],padY=H-30,padR=Math.max(14,H*0.12);
+  const st={notes:[],floats:[],spawnAt:0,lane:0};_htState=st;
+  _htKey=function(e){const lane=KEYS.indexOf(e.key.toLowerCase());if(lane<0)return;e.preventDefault();
+    let best=null,bd=9;for(const n of st.notes){if(n.lane!==lane||n.judged)continue;const d=Math.abs((performance.now()/1000-n.t0)/n.dur-1);if(d<bd){bd=d;best=n;}}
+    if(best&&bd<0.4){best.judged=true;const kind=bd<0.06?"perfect":bd<0.14?"great":bd<0.26?"good":"bad";st.floats.push({kind,x:xs[lane],y:padY-padR-12,life:1});if(kind!=="bad")hitSound(kind,lane);}
+  };
+  document.addEventListener("keydown",_htKey);
+  function loop(ms){if(!_htState){return;}_htRaf=requestAnimationFrame(loop);const now=ms/1000;
+    if(now-st.spawnAt>0.95){st.spawnAt=now;st.notes.push({lane:st.lane%4,t0:now,dur:1.3});st.lane++;}
+    c.clearRect(0,0,W,H);c.fillStyle="#05060d";c.fillRect(0,0,W,H);
+    for(let i=0;i<4;i++){c.save();c.strokeStyle=COLHEX[i];c.shadowColor=COLHEX[i];c.shadowBlur=8;c.lineWidth=Math.max(2.5,padR*0.14);c.globalAlpha=0.6;c.beginPath();c.arc(xs[i],padY,padR,0,6.283);c.stroke();c.shadowBlur=0;c.globalAlpha=1;c.fillStyle="#fff";c.font="bold "+Math.round(padR*0.85)+"px 'Press Start 2P',monospace";c.textAlign="center";c.textBaseline="middle";c.fillText(["A","D","J","L"][i],xs[i],padY);c.restore();}
+    for(const n of st.notes){const prog=(now-n.t0)/n.dur;if(prog>1.4)n.judged=true;if(n.judged)continue;const col=COLHEX[n.lane],x=xs[n.lane],ar=padR*(1+(1-prog)*3.0);
+      c.save();c.globalAlpha=Math.min(1,prog*3)*0.85;c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=6;c.lineWidth=2.4;c.beginPath();c.arc(x,padY,Math.max(padR,ar),0,6.283);c.stroke();
+      c.globalAlpha=1;c.fillStyle=col;c.beginPath();c.arc(x,padY,padR*0.5,0,6.283);c.fill();c.fillStyle="#fff";c.shadowColor="#fff";c.beginPath();c.arc(x,padY,padR*0.28,0,6.283);c.fill();c.restore();}
+    st.notes=st.notes.filter(n=>!n.judged&&(now-n.t0)/n.dur<1.5);
+    for(const f of st.floats){f.life-=0.022;if(f.life<=0)continue;c.save();c.globalAlpha=Math.max(0,f.life);c.fillStyle={perfect:"#39e36b",great:"#22a7ff",good:"#ffd23f",bad:"#ff9a3c"}[f.kind];c.font="bold "+Math.round(padR*0.7)+"px 'Press Start 2P',monospace";c.textAlign="center";c.fillText(f.kind.toUpperCase(),f.x,f.y);c.restore();}
+    st.floats=st.floats.filter(f=>f.life>0);
+  }
+  _htRaf=requestAnimationFrame(loop);
+}
 function openHowToPlay(){
   $("#overlayBody").innerHTML=
     `<div class="ov-h">How to Play</div>`+
-    `<div class="ov-note">Notes drift in from space. Each note has a <b>color</b> — press the key of that color the moment the note lands (the approach ring closes in on it).</div>`+
-    `<div class="ov-sec">Keys = colors</div>`+
-    hrow("<b style='color:#ff2e97'>A</b>","Pink notes")+
-    hrow("<b style='color:#22a7ff'>D</b>","Blue notes")+
-    hrow("<b style='color:#39e36b'>J</b>","Green notes")+
-    hrow("<b style='color:#ffd23f'>L</b>","Yellow notes")+
-    `<div class="ov-sec">Starting a song</div>`+
-    hrow("Hold A·D·J·L","Hold all four together to ignite the ship → 3·2·1 → GO")+
-    `<div class="ov-sec">Note types</div>`+
-    hrow("● Tap (orb)","Press the matching key once, on the beat")+
-    hrow("⬡ Hold (hexagon)","Press & HOLD the key until it fills, then release")+
-    hrow("✦ Meteor (drag)","A comet draws a path to a star — catch it, then keep holding as the star retraces the path, lighting each point")+
-    hrow("◎ Space (big ring)","Press ALL 4 keys (or the Spacebar) at once")+
-    hrow("⬡ Space hold","Hold all 4 (or Space) to charge it to the end")+
-    `<div class="ov-sec">Judgment</div>`+
-    hrow("PERFECT › GREAT › GOOD","Closer to the beat = higher score & combo")+
-    hrow("BAD / MISS","Off-time or missed — combo breaks")+
-    `<div class="ov-note">⚙ Timing feels early/late? Open <b>Settings → Sync Offset</b> and tap A·D·J·L to the beat to auto-calibrate. Press <b>Esc</b> to quit a song.</div>`;
+    hrow("A · D · J · L","Press the key of the note's colour — pink · blue · green · yellow.")+
+    hrow("Tap (orb)","Press the key once when the ring lands.")+
+    hrow("Hold (hexagon)","Hold the key, then release at the end.")+
+    hrow("Meteor (star)","Catch it, then keep holding as it retraces its path.")+
+    hrow("Space","Hit all four keys (or Spacebar) at once.")+
+    `<div class="ov-sec">Try it — press A·D·J·L when the ring lands</div>`+
+    `<canvas id="htCv" width="600" height="150" style="width:100%;height:auto;display:block;border-radius:8px;background:#05060d;image-rendering:pixelated;margin-top:6px"></canvas>`;
   $("#overlay").classList.remove("hidden");
+  _htStart();
 }
-function closeHelp(){$("#overlay").classList.add("hidden");}
+function closeHelp(){$("#overlay").classList.add("hidden");_htStop();}
 $("#overlayClose").onclick=closeHelp;
 $("#overlay").onclick=e=>{if(e.target.id==="overlay")closeHelp();};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(!$("#overlay").classList.contains("hidden"))closeHelp();if(!$("#coach").classList.contains("hidden"))closeCoach();}});
