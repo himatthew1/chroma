@@ -1709,7 +1709,8 @@ function warpAt(wp,t){
 // 육각형(pointy-top) 경로 — 홀드 노트 실루엣
 function hexPath(c,x,y,R){c.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,px=x+Math.cos(a)*R,py=y+Math.sin(a)*R;if(i===0)c.moveTo(px,py);else c.lineTo(px,py);}c.closePath();}
 // 4꼭짓점 별 — 슬라이드(유성) 노트 실루엣
-function star4Path(c,x,y,R,rot){const ir=R*0.36;c.beginPath();for(let i=0;i<8;i++){const a=rot+i*Math.PI/4,rr=(i%2===0)?R:ir,px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;if(i===0)c.moveTo(px,py);else c.lineTo(px,py);}c.closePath();}
+// ★승인본 위젯 v4 star4 — 각진 수리검(X) → 변이 중심으로 오목하게 휘는 곡선 반짝이 별(O). 인게임·How-to 메테오가 공유.
+function star4Path(c,x,y,R,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.beginPath();c.moveTo(0,-R);c.quadraticCurveTo(0,0,R,0);c.quadraticCurveTo(0,0,0,R);c.quadraticCurveTo(0,0,-R,0);c.quadraticCurveTo(0,0,0,-R);c.closePath();c.restore();}
 // 게임 시계: 오디오 currentTime을 고해상도 시계로 보간 → 판정이 안 느려짐
 function gameNow(){
   if(!state||!state.started)return 0;
