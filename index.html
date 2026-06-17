@@ -579,12 +579,17 @@ function show(name){for(const k in screens)screens[k].classList.toggle("hidden",
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
 const fx=document.getElementById("fx"),fxc=fx.getContext("2d");
 const _fxLow=document.createElement("canvas");
-let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null;
+let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null,fxTextQ=[];
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
+function fxFlushText(lc,k){lc.save();lc.textBaseline="middle";
+  for(const o of fxTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
+    lc.textAlign=o.a;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
+  try{lc.letterSpacing="0px";}catch(_){}lc.restore();fxTextQ.length=0;}
 function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.round(lh*W/H));
   if(_fxLow.width!==lw||_fxLow.height!==lh){_fxLow.width=lw;_fxLow.height=lh;}
   const lc=_fxLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
   lc.drawImage(fx,0,0,W,H,0,0,lw,lh);
+  fxFlushText(lc,lh/H);   // ★텍스트는 저해상도 버퍼에 직접 렌더 → 니어리스트 업스케일 시 칼같이 선명(닌텐도식)
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;}
 const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHelp()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
@@ -779,8 +784,7 @@ function fxBgDraw(){const W=fx.width,H=fx.height,cx=W/2;
 // 픽셀폰트(도트필터에서도 또렷)로 maxW 안에 들어가게 크기 맞춤
 function _ls(sz){return Math.max(1,Math.round(sz*0.16))+"px";}   // 자간(가독성): 닌텐도식 또렷한 분리
 function fxPixFit(text,maxW,sz){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{fxc.letterSpacing=_ls(sz);}catch(_){}const w=fxc.measureText(text).width;try{fxc.letterSpacing="0px";}catch(_){}if(w>maxW)sz=sz*maxW/w;return Math.max(8,Math.round(sz));}
-function fxPixText(text,x,y,sz,col,align){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{fxc.letterSpacing=_ls(sz);}catch(_){}fxc.textAlign=align||"center";fxc.textBaseline="middle";
-  fxc.lineJoin="round";fxc.lineWidth=Math.max(2,sz*0.18);fxc.strokeStyle="#05070f";fxc.strokeText(text,x,y);fxc.fillStyle=col||"#fff";fxc.fillText(text,x,y);try{fxc.letterSpacing="0px";}catch(_){}}
+function fxPixText(text,x,y,sz,col,align){fxTextQ.push({t:text,x:x,y:y,sz:sz,c:col||"#fff",a:align||"center"});}
 function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxHover===idx;fxBtns.push({x:bx,y:by,w:bw,h:bh,fn});
   fxc.save();fxc.shadowColor=accent||"#22a7ff";fxc.shadowBlur=hov?26:10;
   fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,by,bw,bh);
@@ -2145,13 +2149,17 @@ function updateHUD(){
   const acc=j?((c.perfect+c.great*0.7+c.good*0.4+(c.bad||0)*0.15)/j*100):100;
   $("#hAcc").textContent=acc.toFixed(2)+"%";$("#hRank").textContent=rankOf(acc);
 }
+// ★레트로 인게임 텍스트 큐 — 저해상도 버퍼에 직접 렌더해 도트필터에서도 칼같이 선명 (닌텐도식)
+let pTextQ=[];
+function pPixText(t,x,y,sz,col,align,bl){pTextQ.push({t:String(t),x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",bl:bl||"middle"});}
+function pFlushText(lc,k){lc.save();for(const o of pTextQ){const sz=Math.max(5,o.sz*k);lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{lc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
+    lc.textAlign=o.a;lc.textBaseline=o.bl;lc.lineJoin="round";lc.lineWidth=Math.max(1,sz*0.2);lc.strokeStyle="#05070f";lc.strokeText(o.t,o.x*k,o.y*k);lc.fillStyle=o.c;lc.fillText(o.t,o.x*k,o.y*k);}
+  try{lc.letterSpacing="0px";}catch(_){}lc.restore();pTextQ.length=0;}
 // ★레트로: HUD를 캔버스에 직접 그려 도트필터를 함께 통과시킴 (HTML HUD는 retro일 때 CSS로 숨김)
 function drawHudCanvas(now){
   if(!state)return;
   const W=pcanvas.width,H=pcanvas.height,pad=Math.max(20,W*0.028);
-  const ot=(txt,x,y,sz,col,align)=>{pctx.font=Math.round(sz)+"px 'Press Start 2P',monospace";pctx.textAlign=align||"left";pctx.textBaseline="alphabetic";
-    pctx.lineJoin="round";pctx.lineWidth=Math.max(3,sz*0.24);pctx.strokeStyle="#05070f";pctx.shadowBlur=0;pctx.strokeText(txt,x,y);
-    pctx.fillStyle=col;pctx.shadowColor=col;pctx.shadowBlur=sz*0.35;pctx.fillText(txt,x,y);pctx.shadowBlur=0;};
+  const ot=(txt,x,y,sz,col,align)=>pPixText(txt,x,y,sz,col,align||"left","alphabetic");
   pctx.save();
   // 곡 제목 + 난이도 (좌상단, 콤보와 안 겹치게 아래로)
   const title=($("#hudSongTitle").textContent||"").slice(0,18),diff=$("#hudDiff").textContent||"";
@@ -2476,14 +2484,14 @@ function loop(){
     pctx.fillStyle="rgba(2,3,10,0.5)";pctx.fillRect(0,0,W,H);
     pctx.textAlign="center";
     const RT=settings.retro;
-    const gtxt=(s,gx,gy,sz,col)=>{ if(RT){pctx.font=Math.round(sz*0.7)+"px 'Press Start 2P',monospace";pctx.lineJoin="round";pctx.lineWidth=Math.max(3,sz*0.16);pctx.strokeStyle="#05070f";pctx.strokeText(s,gx,gy);pctx.fillStyle=col;pctx.fillText(s,gx,gy);} else {pctx.font="600 "+sz+"px Segoe UI";pctx.fillStyle=col;pctx.fillText(s,gx,gy);} };
+    const gtxt=(s,gx,gy,sz,col,bl)=>{ if(RT){pPixText(s,gx,gy,sz*0.7,col,"center",bl||"alphabetic");} else {pctx.font="600 "+sz+"px Segoe UI";pctx.textAlign="center";pctx.textBaseline=bl||"alphabetic";pctx.fillStyle=col;pctx.fillText(s,gx,gy);} };
     gtxt("R U RED E?",W/2,H*0.28,RT?H*0.05:14,"#22a7ff");
     gtxt(RT?("HOLD "+KEYS.map(k=>k.toUpperCase()).join(" ")):(KEYS.map(k=>k.toUpperCase()).join("  ·  ")+"  hold all for 1.5s to ignite"),W/2,H*0.37,RT?H*0.034:23,"#eef1ff");
     const cx=W/2,cy=H*0.49,R=RT?H*0.085:66,pr=state.readyProg||0,heldN=state.held.filter(Boolean).length;
     pctx.strokeStyle="#2a3158";pctx.lineWidth=RT?10:8;pctx.beginPath();pctx.arc(cx,cy,R,0,Math.PI*2);pctx.stroke();
     pctx.strokeStyle="#22a7ff";pctx.lineWidth=RT?10:8;pctx.shadowColor="#22a7ff";pctx.shadowBlur=18;
     pctx.beginPath();pctx.arc(cx,cy,R,-Math.PI/2,-Math.PI/2+Math.PI*2*pr);pctx.stroke();pctx.shadowBlur=0;
-    pctx.textBaseline="middle";gtxt(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy,RT?H*0.055:28,"#fff");pctx.textBaseline="alphabetic";
+    gtxt(pr>=1?"GO!":(heldN<4?heldN+" / 4":(2-pr*2).toFixed(1)),cx,cy,RT?H*0.055:28,"#fff","middle");
     gtxt(heldN<4?"PRESS ALL 4 KEYS":"HOLD...",cx,cy+R+(RT?28:26),RT?H*0.022:13,"#8b90b8");
     pctx.restore();
   }
@@ -2509,11 +2517,8 @@ function loop(){
       }
       fx.life-=0.05;
     }
-    pctx.save();pctx.globalAlpha=0.95;pctx.textAlign="center";pctx.textBaseline="middle";
-    if(settings.retro){const fs=g.r*0.8;pctx.font=Math.round(fs)+"px 'Press Start 2P',monospace";   // ★레트로: 크고 또렷한 픽셀 글자(다운샘플에서도 읽힘)
-      pctx.lineJoin="round";pctx.lineWidth=Math.max(3,fs*0.36);pctx.strokeStyle="#05070f";pctx.strokeText(KEYS[c].toUpperCase(),x,y);pctx.fillStyle="#fff";}
-    else{pctx.font="600 20px Segoe UI";pctx.fillStyle="#fff";}
-    pctx.fillText(KEYS[c].toUpperCase(),x,y);pctx.restore();
+    if(settings.retro){pPixText(KEYS[c].toUpperCase(),x,y,g.r*0.5,"#fff","center");}   // ★레트로: 작게·볼드 픽셀폰트, 저해상도 직접 렌더
+    else{pctx.save();pctx.globalAlpha=0.95;pctx.textAlign="center";pctx.textBaseline="middle";pctx.font="600 20px Segoe UI";pctx.fillStyle="#fff";pctx.fillText(KEYS[c].toUpperCase(),x,y);pctx.restore();}
   }
   pctx.textBaseline="alphabetic";
 
@@ -2543,14 +2548,8 @@ function loop(){
     else if(age<0.34)sc=0.9+(age-0.24)/0.10*0.1;
     else sc=1;
     const yy=f.y-Math.min(age*70,13);
-    pctx.save();pctx.globalAlpha=f.life>0.3?1:f.life/0.3;
-    pctx.translate(f.x,yy);pctx.scale(sc,sc);
-    pctx.shadowColor=col;pctx.shadowBlur=14;
-    if(settings.retro){const jf=Math.max(22,Math.round(pcanvas.height*0.042));pctx.font=jf+"px 'Press Start 2P',monospace";   // ★레트로: 큰 픽셀 폰트 + 외곽선 (다운샘플에서도 읽히게)
-      pctx.lineJoin="round";pctx.lineWidth=Math.max(5,jf*0.32);pctx.strokeStyle="#05070f";pctx.shadowBlur=0;pctx.strokeText(JUDGE_TXT[f.kind],0,0);pctx.shadowColor=col;pctx.shadowBlur=14;pctx.fillStyle=col;}
-    else{pctx.font="800 24px Segoe UI";pctx.fillStyle=col;}
-    pctx.fillText(JUDGE_TXT[f.kind],0,0);
-    pctx.restore();
+    if(settings.retro){const jf=Math.max(22,Math.round(pcanvas.height*0.042));pPixText(JUDGE_TXT[f.kind],f.x,yy,jf*sc,col,"center");}   // ★레트로: 저해상도 직접 렌더로 선명
+    else{pctx.save();pctx.globalAlpha=f.life>0.3?1:f.life/0.3;pctx.translate(f.x,yy);pctx.scale(sc,sc);pctx.shadowColor=col;pctx.shadowBlur=14;pctx.font="800 24px Segoe UI";pctx.fillStyle=col;pctx.textAlign="center";pctx.fillText(JUDGE_TXT[f.kind],0,0);pctx.restore();}
   }
   pctx.globalAlpha=1;pctx.shadowBlur=0;
   state.floats=state.floats.filter(f=>f.life>0);
@@ -2561,9 +2560,7 @@ function loop(){
     const cd=$("#countdown");
     if(cd&&!cd.classList.contains("hidden")&&cd.textContent){
       const W=pcanvas.width,H=pcanvas.height,big=cd.textContent.length>3,sz=big?Math.max(40,H*0.1):Math.max(64,H*0.16);
-      pctx.save();pctx.textAlign="center";pctx.textBaseline="middle";pctx.font=Math.round(sz)+"px 'Press Start 2P',monospace";
-      pctx.lineJoin="round";pctx.lineWidth=Math.max(5,sz*0.18);pctx.strokeStyle="#05070f";pctx.strokeText(cd.textContent,W/2,H*0.46);
-      const cc=cd.style.color||"#fff";pctx.fillStyle=cc;pctx.shadowColor=cc;pctx.shadowBlur=sz*0.5;pctx.fillText(cd.textContent,W/2,H*0.46);pctx.restore();
+      pPixText(cd.textContent,W/2,H*0.46,sz,cd.style.color||"#fff","center");
     }
   }
   // ★레트로(저해상도) 후처리 — 세로 ~192 밀도(정사각 픽셀)로 다운샘플 후 니어리스트 확대. 화면비 무관·풀스크린
@@ -2571,7 +2568,9 @@ function loop(){
     const lb=_retroLow();if(lb.width!==lw||lb.height!==lh){lb.width=lw;lb.height=lh;}const lc=lb.getContext("2d");
     lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);
     lc.drawImage(pcanvas,0,0,W,H,0,0,lw,lh);
+    pFlushText(lc,lh/H);   // ★인게임 텍스트(HUD·판정·패드·게이트)를 저해상도에 직접 렌더 → 선명
     pctx.imageSmoothingEnabled=false;pctx.drawImage(lb,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;}
+  else{pTextQ.length=0;}   // 비레트로면 큐 비우기(직접 그려짐)
 
   // progress
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
