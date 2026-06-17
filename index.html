@@ -231,6 +231,8 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
 </style>
 </head>
 <body>
+<!-- 부팅 오버레이: 로드 즉시 검정으로 덮어 필터 변환 깜빡임 가림 → 로고 페이드인 → 검정 페이드아웃(최초 1회) -->
+<div id="boot" style="position:fixed;inset:0;background:#05060d;z-index:99999;display:block;transition:opacity .7s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;"></canvas></div>
 <div id="app">
 
   <!-- MENU -->
@@ -580,7 +582,7 @@ const NCOL=4;
 const screens={menu:$("#menu"),songsel:$("#songsel"),play:$("#play"),result:$("#result"),howto:$("#howto"),settings:$("#settings"),edhub:$("#edhub"),editor:$("#editor")};
 function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);}
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
-const fx=document.getElementById("fx"),fxc=fx.getContext("2d");
+const fx=document.getElementById("fx"),fxc=fx.getContext("2d");window.__fxc=fxc;   // 부팅 로고가 참조
 const _fxLow=document.createElement("canvas");
 const _fxTxt=document.createElement("canvas");   // ★글자 전용 고밀도 도트 버퍼
 const TXT_LH=384;   // 글자 버퍼 세로 해상도(장면 192의 2배 → 도트 유지하면서 또렷)
@@ -605,7 +607,7 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
 const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHowToPlay()}];   // ★에디터는 숨김 — 홈에서 "edit" 타이핑 시크릿으로만 진입
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
 // 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
-function fxLogo(cx,ly,lsz,t){t=t||0;
+function fxLogo(cx,ly,lsz,t,ctxArg){t=t||0;const fxc=ctxArg||window.__fxc;   // ★ctxArg 주면 부팅 캔버스에 그림(없으면 메뉴 fx)
   fxc.save();fxc.textAlign="center";fxc.textBaseline="middle";
   fxc.font="700 "+Math.round(lsz)+"px 'Century Gothic','Futura','Segoe UI',sans-serif";
   fxc.lineJoin="round";
@@ -3734,6 +3736,27 @@ $("#edImport").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new F
   r.onload=()=>{try{const c=JSON.parse(r.result);pushUndo();edNotes=(c.notes||[]).map(n=>({...n}));if(c.title&&!$("#edSongTitle").value)$("#edSongTitle").value=c.title;selClear();updateSelPanel();updateGrpPanel();toast("JSON 불러옴: "+(c.title||"무제"));}catch{toast("파일 오류");}};r.readAsText(f);};
 
 window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidden")){fitCanvas(pcanvas);if(state&&state.notes)layoutPlayPositions(state.notes);}});
+
+// ===== 부팅 페이드 (최초 접속 1회): 검정으로 시작(필터 변환 깜빡임 가림) → 로고 페이드인 → 검정 솔리드 페이드아웃 =====
+(function(){
+  const bo=document.getElementById("boot"),bc=document.getElementById("bootCv");
+  if(!bo||!bc)return;
+  const ctx=bc.getContext("2d");
+  function fit(){const d=Math.min(2,window.devicePixelRatio||1);bc.width=Math.round(innerWidth*d);bc.height=Math.round(innerHeight*d);ctx.setTransform(d,0,0,d,0,0);}
+  fit();
+  const t0=performance.now(),FADE_IN=0.7,HOLD=0.5;   // 로고 페이드인 0.7s + 유지 0.5s
+  function frame(now){
+    const el=(now-t0)/1000,W=innerWidth,H=innerHeight,lsz=Math.min(W*0.16,H*0.16,120);
+    ctx.clearRect(0,0,W,H);
+    let a=Math.min(1,el/FADE_IN);a*=a;            // 로고 페이드인(ease)
+    ctx.globalAlpha=a;
+    fxLogo(W/2,H*0.235,lsz,el*7,ctx);             // 메뉴와 같은 위치/로고 → 검정 페이드아웃 시 자연스럽게 이어짐
+    ctx.globalAlpha=1;
+    if(el<FADE_IN+HOLD)requestAnimationFrame(frame);
+    else{bo.style.opacity="0";setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},760);}   // 검정 솔리드 페이드아웃 → 메뉴 드러남
+  }
+  requestAnimationFrame(frame);
+})();
 </script>
 </body>
 </html>
