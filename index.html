@@ -599,7 +599,7 @@ function fxPixelate(){const W=fx.width,H=fx.height,lh=192,lw=Math.max(1,Math.rou
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxLow,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;
   fxFlushText();   // ★글자만 고밀도 도트 버퍼에 네이티브로 → 도트 유지 + 또렷
 }
-const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHelp()}];
+const FX_MENU=[{t:"PLAY",ic:"▶",fn:()=>openSongSelect()},{t:"CHART\nEDITOR",ic:"✎",fn:()=>requestEditor()},{t:"SETTINGS",ic:"⚙",fn:()=>openSettings()},{t:"HOW TO\nPLAY",ic:"?",fn:()=>openHowToPlay()}];
 const FX_COLS=["#ff2e97","#22a7ff","#39e36b","#ffd23f","#ff2e97","#22a7ff"];
 // 공용: 네온 CHROMA 로고 (색 순환 애니메이션 + O 안에 별)
 function fxLogo(cx,ly,lsz,t){t=t||0;
@@ -828,7 +828,7 @@ function tryPw(){ if($("#pwInput").value===EDITOR_PW){ editorUnlocked=true; clos
 $("#pwOk").onclick=tryPw;
 $("#pwCancel").onclick=closePwGate;
 $("#pwInput").addEventListener("keydown",e=>{ if(e.key==="Enter"){e.preventDefault();tryPw();} else if(e.key==="Escape"){e.preventDefault();closePwGate();} });
-$("#goHelp").onclick=()=>openHelp();
+$("#goHelp").onclick=()=>openHowToPlay();
 $("#hubHelp").onclick=()=>openHelp();
 $("#goSettings").onclick=()=>openSettings();
 
@@ -977,6 +977,29 @@ function openHelp(){
     `<div class="ov-sec">In-game controls</div>`+
     hrow("A D J L","Pink · Blue · Green · Yellow (note color = key)")+
     `<div class="ov-note">🎨 <b>Color group</b> — note colors are random each run. Group a fast-tap run as a color group and that whole stretch locks to one color, so you can hammer it with a single key.</div>`;
+  $("#overlay").classList.remove("hidden");
+}
+function openHowToPlay(){
+  $("#overlayBody").innerHTML=
+    `<div class="ov-h">How to Play</div>`+
+    `<div class="ov-note">Notes drift in from space. Each note has a <b>color</b> — press the key of that color the moment the note lands (the approach ring closes in on it).</div>`+
+    `<div class="ov-sec">Keys = colors</div>`+
+    hrow("<b style='color:#ff2e97'>A</b>","Pink notes")+
+    hrow("<b style='color:#22a7ff'>D</b>","Blue notes")+
+    hrow("<b style='color:#39e36b'>J</b>","Green notes")+
+    hrow("<b style='color:#ffd23f'>L</b>","Yellow notes")+
+    `<div class="ov-sec">Starting a song</div>`+
+    hrow("Hold A·D·J·L","Hold all four together to ignite the ship → 3·2·1 → GO")+
+    `<div class="ov-sec">Note types</div>`+
+    hrow("● Tap (orb)","Press the matching key once, on the beat")+
+    hrow("⬡ Hold (hexagon)","Press & HOLD the key until it fills, then release")+
+    hrow("✦ Meteor (drag)","A comet draws a path to a star — catch it, then keep holding as the star retraces the path, lighting each point")+
+    hrow("◎ Space (big ring)","Press ALL 4 keys (or the Spacebar) at once")+
+    hrow("⬡ Space hold","Hold all 4 (or Space) to charge it to the end")+
+    `<div class="ov-sec">Judgment</div>`+
+    hrow("PERFECT › GREAT › GOOD","Closer to the beat = higher score & combo")+
+    hrow("BAD / MISS","Off-time or missed — combo breaks")+
+    `<div class="ov-note">⚙ Timing feels early/late? Open <b>Settings → Sync Offset</b> and tap A·D·J·L to the beat to auto-calibrate. Press <b>Esc</b> to quit a song.</div>`;
   $("#overlay").classList.remove("hidden");
 }
 function closeHelp(){$("#overlay").classList.add("hidden");}
