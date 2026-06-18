@@ -1905,7 +1905,7 @@ function layoutPlayPositions(notes){
       n._tf=P.map((p,j)=>(p.length>2&&typeof p[2]==="number")?clamp(p[2],0,1):(NPP>1?j/(NPP-1):0));
       n._tf[0]=0; n._tf[NPP-1]=1;
       for(let i=1;i<NPP;i++)if(n._tf[i]<n._tf[i-1])n._tf[i]=n._tf[i-1];   // 단조 증가 보정
-      n._aSpan=clamp(1.4/Math.max(n.duration||1,0.3),0.4,1);              // 진입에 그릴 도입부 시간비율(긴 노트는 일부만)
+      n._aSpan=(n.duration||1)<=3?1:clamp(3/Math.max(n.duration||1,0.3),0.4,1);   // ★룰: 3초 이하면 전체 패스 그리며 진입, 3초+ 초장거리만 뒷부분 생략(역행 때 등장)
       n._ptHit=new Array(NPP).fill(false);                  // 타격음 1회 트리거용
     }
   }
@@ -2647,24 +2647,23 @@ function loop(){
         pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(sm+(aSpan-sm)*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
         // 유성이 지난 노트포인트 (회색, 또렷)
         for(let j=0;j<NP;j++){ if(frac[j]<=aSpan && frac[j]>=sm-0.001){ drawPt(PP(j),0.7, a*0.8, j, true); } }
-        // 긴 유성 꼬리(잔상)
-        const TSPAN=Math.min(0.5,aSpan), TSEG=22, mh=SP(sm);
+        // ★V4 뾰족 혜성 꼬리 — 머리 앞쪽 14세그, 흰/회색(노트색 아님)으로 가늘어짐
+        const TSPAN=Math.min(0.3,aSpan), TSEG=14, mh=SP(sm);
         for(let i=0;i<TSEG;i++){const A=SP(clamp(sm+(i/TSEG)*TSPAN,0,1)),B=SP(clamp(sm+((i+1)/TSEG)*TSPAN,0,1)),lf=1-i/TSEG;
-          pctx.globalAlpha=a*lf*lf*0.62;pctx.strokeStyle=lf>0.85?"#eef3ff":col;pctx.shadowColor=col;pctx.shadowBlur=14;pctx.lineWidth=0.6+lf*lf*6;
+          pctx.globalAlpha=a*lf*lf*0.5;pctx.strokeStyle=lf>0.85?"#cdd6f5":"#5a6285";pctx.shadowColor="#9aa3c2";pctx.shadowBlur=10;pctx.lineWidth=0.6+lf*lf*6;
           pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}
-        // 유성 머리(또렷한 코어 + 색 후광)
-        const hg=pctx.createRadialGradient(mh[0],mh[1],0,mh[0],mh[1],26);hg.addColorStop(0,col);hg.addColorStop(0.35,col);hg.addColorStop(1,"rgba(0,0,0,0)");
-        pctx.globalAlpha=a*0.5;pctx.fillStyle=hg;pctx.beginPath();pctx.arc(mh[0],mh[1],26,0,6.2832);pctx.fill();
-        pctx.globalAlpha=a;pctx.fillStyle="#fff";pctx.shadowColor=col;pctx.shadowBlur=22;pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
+        // ★V4 혜성 머리 — 흰/파랑(노트색 아님) 작은 원
+        pctx.globalAlpha=a;pctx.fillStyle="#dfe6ff";pctx.shadowColor="#cfe6ff";pctx.shadowBlur=20;pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
+        pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=15;pctx.beginPath();pctx.arc(mh[0],mh[1],2+3*prog,0,6.2832);pctx.fill();
       }else{
         // ── 역행: 머리→꼬리로 별이 되짚으며 포인트 소모. fr>aSpan(미스탬프) 포인트는 별이 다가올 때 등장 ──
         const curAng=0;  // 폴리라인이라 각도 없음
-        const pe=eobk(s/0.16);   // ★역행 진입 순간 모든 노트포인트 동시 컬러 팝업(ease-out-back)
+        const pe=eobk(s/0.18);   // ★V4: 역행 시작 후 첫 18% 동안 부드럽게 등장(즉각 팝 아님). 패스는 이미 앞쪽에 나타나 있음
         for(let j=0;j<NP;j++){ const fr=frac[j],P=PP(j);
-          if(s<fr){ // 아직 안 소모
-            const prox=clamp(1-(fr-s)/0.10,0,1);            // 별이 다가옴
-            const sc=pe*(1+prox*0.9); drawPt(P,sc,Math.min(1,pe)*0.95,j,false);
-            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.2;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=14;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],10*sc);pctx.stroke();pctx.restore();}}
+          if(s<fr){ // 아직 안 소모(별 앞쪽) — 역행 시작과 함께 나타나 있고, 별이 지나가며 소비
+            const prox=clamp(1-(fr-s)/0.16,0,1);            // 별이 다가옴
+            const sc=pe*(1+prox*0.7); drawPt(P,sc,Math.min(1,pe)*0.95,j,false);
+            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=14;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],9*pe);pctx.stroke();pctx.restore();}}
           }else{ // 소모됨 → drag_v4 점화: 오로라 파티클 16 + 충격파 2 분출 (타격음)
             if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)hitSound("perfect",n.col);
               const h=hueP(j),qx=P[0],qy=P[1];
@@ -2686,8 +2685,8 @@ function loop(){
       pctx.restore();
       // ── 별 노트 본체 ──
       const base=n.holding?SP(s):PP(0);
-      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0,rot=now*0.7;
-      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.45);gl=30+s*50;wh=0.35+s*0.55;rot=now*(2+s*1.5);
+      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0,rot=now*3;   // ★V4 대기별 회전
+      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.45);gl=30+s*50;wh=0.35+s*0.55;rot=-now*6;   // ★V4 역행별 역방향 회전
         if(!n.missed){for(let k=0;k<3;k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*4;   // ★drag_v4: 역행 별 스파크 3개(중심에서)
           state.particles.push({x:bx,y:by,px:bx,py:by,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.2,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*2,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
       // 접근 어프로치 별 링
