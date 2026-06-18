@@ -2114,7 +2114,8 @@ function beginPlay(){
   state.t0=performance.now()/1000;
   state.audioStarted=false;
   state.started=true;                 // 노트 보이기 시작 + 입력 허용
-  fadeFromBlack(0.45);                // ★곡 시작(카운트다운→게임플레이) 전환 첫 프레임 플래시 확실히 가림
+  // (이전엔 여기서 fadeFromBlack(0.45)로 화면을 검게 덮었다 페이드인 → 시동 후 "잠깐 암전"의 원인이라 제거.
+  //  카운트다운·게임플레이는 같은 플레이 캔버스 안에서 연속되므로 가릴 전환 프레임이 없음 → START! 직후 자연스럽게 노트 진입)
 }
 
 const JW={perfect:0.06,great:0.12,good:0.17};   // 판정 완화
