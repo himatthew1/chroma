@@ -582,9 +582,8 @@ let KEYS=["a","d","j","l"];   // 설정에서 커스텀 가능
 const NCOL=4;
 
 const screens={menu:$("#menu"),songsel:$("#songsel"),play:$("#play"),result:$("#result"),howto:$("#howto"),settings:$("#settings"),edhub:$("#edhub"),editor:$("#editor")};
-function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);
-  document.documentElement.classList.toggle("retro", !!settings.retro && name!=="editor" && name!=="edhub");   // ★에디터/에디터홈은 도트필터 끔(편집 편의) — 그 외엔 항상 retro
-  if(typeof fxUpdate==="function")fxUpdate(name);}
+function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);}
+// ★retro 클래스는 화면전환마다 토글하지 않음(픽셀폰트 reflow→렌더 지연→검은화면 유발). 항상 ON 유지. 에디터 캔버스 선명함은 RT=false+도트필터 제거로 처리.
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
 const fx=document.getElementById("fx"),fxc=fx.getContext("2d");window.__fxc=fxc;   // 부팅 로고가 참조
 const _fxLow=document.createElement("canvas");
@@ -2041,7 +2040,7 @@ function fadeFromBlack(sec){const el=document.getElementById("scrFade");if(!el)r
   el.style.transition="none";el.style.opacity="1";
   const go=()=>{el.style.transition="opacity "+(sec||0.45)+"s ease";el.style.opacity="0";};
   requestAnimationFrame(()=>requestAnimationFrame(go));
-  setTimeout(go,90);}   // ★rAF가 throttle/지연돼도(저사양·탭전환·클릭직후) 검정이 반드시 풀리게 — 검은 화면 멈춤 버그 방지
+  setTimeout(()=>{if(el.style.opacity!=="0"){el.style.transition="none";el.style.opacity="0";}},140);}   // ★rAF/compositor가 throttle돼도 검정 강제 해제(transition 없이 즉시) — 검은 화면 멈춤 방지
 function startPlay(startAt){
   startAt=Math.max(0,startAt||0);
   fitCanvas(pcanvas);
