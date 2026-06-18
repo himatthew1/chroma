@@ -2,8 +2,7 @@
 <html lang="en" class="retro">
 <head>
 <meta charset="UTF-8">
-<script>/* 첫 페인트 전에 레트로 테마 확정 — 로딩 시 비레트로→레트로 깜빡임 방지 */
-try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)document.documentElement.classList.remove("retro");}catch(e){}</script>
+<script>/* 레트로 화면은 게임 정체성 — 항상 ON (끄기 설정 없음) */</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CHROMA — Color Your Beat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -358,10 +357,6 @@ try{if(JSON.parse(localStorage.getItem("chroma_settings")||"{}").retro===false)d
         <div class="spacer"></div>
         <span class="muted" style="font-size:13px">Volume</span>
         <input type="range" id="setSfxVol" min="0" max="1" step="0.05" style="width:140px">
-      </div>
-      <div class="set-row">
-        <div class="set-label">Retro Mode <span class="muted" style="font-weight:400;font-size:12px">— 256×192-style low-res pixel look (Nintendo DS vibe)</span></div>
-        <button class="tb-btn" id="setRetroToggle">Off</button>
       </div>
       <div class="set-row">
         <div class="set-label">Glow / FX <span class="muted" style="font-weight:400;font-size:12px">— 가볍게: Full → Lite → Off (약한 기기는 Off)</span></div>
@@ -743,11 +738,6 @@ function drawFxSettings(t){
   small("VOL",px+pw*0.31,y+rowH/2);
   fxSlider(px+pw*0.43,y+rowH/2,pw*0.52,document.getElementById("setSfxVol"));
   y+=adv;
-  // 레트로 토글
-  lab("RETRO MODE",y+rowH/2);
-  fxButton(px+pw*0.55,y+rowH*0.12,pw*0.13,rowH*0.76,settings.retro?"ON":"OFF",()=>{document.getElementById("setRetroToggle").click();fxUpdate("settings");},902,settings.retro?"#39e36b":"#3a4a86");
-  small("PIXEL",px+pw*0.7,y+rowH/2);
-  y+=adv;
   // 발광 품질 토글 (가볍게 — OFF = 최경량)
   lab("GLOW / FX",y+rowH/2);
   fxButton(px+pw*0.55,y+rowH*0.12,pw*0.18,rowH*0.76,({full:"FULL",lite:"LITE",off:"OFF"})[GLOW_MODE]||"LITE",()=>{document.getElementById("setGlowToggle").click();fxUpdate("settings");},903,GLOW_MODE!=="off"?"#39e36b":"#3a4a86");
@@ -872,8 +862,6 @@ function openSettings(){
   $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";
   $("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   $("#setSfxVol").value=settings.sfxVol;
-  $("#setRetroToggle").textContent=settings.retro?"On":"Off";
-  $("#setRetroToggle").classList.toggle("primary",settings.retro);
   {const gl={full:"Full",lite:"Lite",off:"Off"};$("#setGlowToggle").textContent=gl[GLOW_MODE]||"Lite";$("#setGlowToggle").classList.toggle("primary",GLOW_MODE!=="off");}
   $("#setOffset").value=settings.offset;$("#offsetVal").textContent=(settings.offset>0?"+":"")+settings.offset+" ms";
   $("#calibLive").textContent="Tap to the beat";
@@ -894,9 +882,6 @@ function renderSfxList(){
 $("#setSfxToggle").onclick=()=>{settings.sfxOn=!settings.sfxOn;saveSettings();
   $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
-$("#setRetroToggle").onclick=()=>{settings.retro=!settings.retro;saveSettings();applyRetroClass();
-  $("#setRetroToggle").textContent=settings.retro?"On":"Off";$("#setRetroToggle").classList.toggle("primary",settings.retro);
-  if(!screens.play.classList.contains("hidden")){fitCanvas(pcanvas);if(state&&state.notes)layoutPlayPositions(state.notes);}};
 $("#setSfxVol").oninput=()=>{settings.sfxVol=parseFloat($("#setSfxVol").value);saveSettings();};
 $("#setGlowToggle").onclick=()=>{GLOW_MODE=GLOW_MODE==="lite"?"off":GLOW_MODE==="off"?"full":"lite";settings.glow=GLOW_MODE;saveSettings();   // ★발광 품질 토글: Lite→Off→Full 순환
   const gl={full:"Full",lite:"Lite",off:"Off"};$("#setGlowToggle").textContent=gl[GLOW_MODE];$("#setGlowToggle").classList.toggle("primary",GLOW_MODE!=="off");
@@ -1333,6 +1318,7 @@ function saveStore(o){localStorage.setItem(STORE_KEY,JSON.stringify(o));}
 const SET_KEY="chroma_settings";
 let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"],retro:true};
 try{Object.assign(settings,JSON.parse(localStorage.getItem(SET_KEY))||{});}catch{}
+settings.retro=true;   // ★레트로 화면은 게임 정체성 — 항상 ON (끄기 불가, 설정 제거됨)
 function applyRetroClass(){document.documentElement.classList.toggle("retro",!!settings.retro);}
 applyRetroClass();
 if(Array.isArray(settings.keys)&&settings.keys.length===4)KEYS=settings.keys.slice();
