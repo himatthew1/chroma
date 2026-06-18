@@ -1030,7 +1030,7 @@ let _htKeyDown=function(e){if(fxScreen!=="howto"||e.repeat)return;const lane=KEY
   if(lane>=0)htD.down[lane]=1;if(sp)htD.space=1;const n=htD.note;if(!n||n.judged)return;const now=(performance.now()-(fxT0||performance.now()))/1000,prog=(now-n.t0)/n.dur,d=Math.abs(prog-1);
   if(_htMode==="tap"&&lane===n.col){if(d<0.4)_htBurst(d<0.06?"perfect":d<0.14?"great":d<0.26?"good":"bad",n.x,n.y,n.col);}
   else if(_htMode==="drag"&&lane===n.col&&!n.caught){if(d<0.4){n.caught=1;n.catchT=now;n.ck=d<0.08?"perfect":d<0.18?"great":"good";}}
-  else if(_htMode==="space"&&n.variant!=="hold"&&(htD.space||htD.down.every(Boolean))){if(d<0.45)_htBurstAur(d<0.08?"perfect":d<0.18?"great":d<0.3?"good":"bad",n.x,n.y);}
+  else if(_htMode==="space"&&n.variant!=="hold"&&sp){if(d<0.45)_htBurstAur(d<0.08?"perfect":d<0.18?"great":d<0.3?"good":"bad",n.x,n.y);}   // ★스페이스바 전용 (4키 동시 불가)
   // 스페이스 홀드는 누르는 동안 충전(draw에서 처리) — 떼서 판정 안 함, 다 차면 자동 완성
 };
 let _htKeyUp=function(e){const lane=KEYS.indexOf((e.key||"").toLowerCase());if(lane>=0)htD.down[lane]=0;if(e.code==="Space")htD.space=0;
@@ -1062,8 +1062,8 @@ function drawFxHowto(t){
     if(!n.judged&&((prog>1.25&&!n.charging)||prog>2.8))_htBurst("miss",cx,cyc,n.col);   // ★안 잡으면 제때 미스
     if(!n.judged){const near=Math.min(prog,1),ease=near*near,din=near*near*(3-2*near),a=Math.min(1,prog*3);let br=r*(0.86+0.22*ease)*1.18,glowB=0,whiten=0,dx=cx+(n._ox||0)*(1-din),dy=cyc+(n._oy||0)*(1-din);   // ★생성 드리프트
       if(prog>=1&&htD.down[n.col]){const h=n.charge;br*=1+h*0.55;glowB=h*48;whiten=0.25+h*0.72;const jit=2+h*6;dx+=(Math.random()-0.5)*jit;dy+=(Math.random()-0.5)*jit;   // 지글지글 흔들림(인게임 동일)
-        for(let z=0;z<2+Math.floor(h*6);z++){const ang=Math.random()*6.283;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*(1+h*4),vy:Math.sin(ang)*(1+h*4)-1.5,life:1,dec:0.035+Math.random()*0.03,col:COLHEX[n.col],size:1.4+Math.random()*(1.6+h*2),streak:Math.random()<0.45,white:Math.random()<h*0.5});}   // ★V3 holdEmit 스파크(인게임 동일)
-        if(h>=1){for(let i=0;i<24;i++){const ang=Math.random()*6.283,sp=4+Math.random()*11;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:1,dec:0.018+Math.random()*0.022,col:COLHEX[n.col],size:1.5+Math.random()*2.6,streak:Math.random()<0.6});}for(let i=0;i<8;i++){const ang=Math.random()*6.283,sp=1+Math.random()*5;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,dec:0.05+Math.random()*0.03,col:COLHEX[n.col],size:1.5+Math.random()*2,white:true});}_htBurst("great",dx,dy,n.col);}}   // ★충전 완료 → supernova(인게임 동일)
+        for(let z=0;z<pc(2+Math.floor(h*6));z++){const ang=Math.random()*6.283;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*(1+h*4),vy:Math.sin(ang)*(1+h*4)-1.5,life:1,decay:0.035+Math.random()*0.03,col:n.col,size:1.4+Math.random()*(1.6+h*2),streak:Math.random()<0.45,white:Math.random()<h*0.5});}   // ★인게임 V3 holdEmit 그대로(pc·decay·col:idx)
+        if(h>=1){for(let i=0;i<pc(36);i++){const ang=Math.random()*6.283,sp=4+Math.random()*11;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:1,decay:0.018+Math.random()*0.022,col:n.col,size:1.5+Math.random()*2.6,streak:Math.random()<0.6});}for(let i=0;i<pc(12);i++){const ang=Math.random()*6.283,sp=1+Math.random()*5;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,decay:0.05+Math.random()*0.03,col:n.col,size:1.5+Math.random()*2,white:true});}_htBurst("great",dx,dy,n.col);}}   // ★인게임 supernova 그대로(pc(36)+pc(12))
       const flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
       NoteFX_approach(fxc,dx,dy,br,r,near,ease,a,col,true);                          // 헥스 어프로치(공유)
       NoteFX_noteBody(fxc,dx,dy,br,col,{a,ease,glowB,whiten,flash,hold:true});}      // 홀드 본체(공유) — 게이지 원호 제거(인게임엔 없음)
@@ -1102,9 +1102,9 @@ function drawFxHowto(t){
         else{const pr=Math.min(1,prog),gp=Math.pow(pr,1.9),aq=Math.min(1,pr/0.65),al=aq*aq*(3-2*aq);
           NoteFX_spaceFrame(fxc,cx,cyc,R,{rs:0.08+0.92*gp,al,ringAl:al,gl:1.2*al,ap:pr,spin,hold:false});}   // 생성(작게)→가속 진입 + 어프로치 링
       } else despawn();
-      fxPixText("HIT ALL 4 / SPACE",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
+      fxPixText("PRESS SPACE BAR",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
     } else {
-      const held=(htD.space||htD.down.every(Boolean));
+      const held=htD.space;   // ★스페이스바 전용 (4키 동시 불가)
       if(prog>=1&&!n.judged&&held){n.charging=1;n.charge=Math.min(1,n.charge+1/60);}
       if(n.charge>=1&&!n.judged)_htBurstAur("perfect",cx,cyc);     // 가득 차면 자동 초신성(위젯 메커니즘)
       else if(!n.judged&&((prog>1.25&&n.charge<=0)||prog>2.8))_htBurstAur("miss",cx,cyc);   // ★안 누르면 제때 미스
@@ -1113,7 +1113,7 @@ function drawFxHowto(t){
           NoteFX_spaceFrame(fxc,cx,cyc,R,{rs:0.3+0.7*gp,al,ringAl:al,gl:1.2*al,ap:pr,spin,hold:true});}   // 생성→접근(육각)
         else{if(!n._em)n._em=[];NoteFX_spaceCharge(fxc,cx,cyc,R,n.charge,now,n._em);}                      // 충전(공유)
       } else despawn();
-      fxPixText("HOLD ALL 4 / SPACE",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
+      fxPixText("HOLD SPACE BAR",cx,cyc+R*1.55,Math.max(10,H*0.016),"#9fb0d8","center");
     }
   }
   if(n.judged){n.dt=n.dt||now;if(now-n.dt>0.75)n.done=1;}
