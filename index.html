@@ -1062,11 +1062,11 @@ function drawFxHowto(t){
     if(!n.judged&&((prog>1.25&&!n.charging)||prog>2.8))_htBurst("miss",cx,cyc,n.col);   // ★안 잡으면 제때 미스
     if(!n.judged){const near=Math.min(prog,1),ease=near*near,din=near*near*(3-2*near),a=Math.min(1,prog*3);let br=r*(0.86+0.22*ease)*1.18,glowB=0,whiten=0,dx=cx+(n._ox||0)*(1-din),dy=cyc+(n._oy||0)*(1-din);   // ★생성 드리프트
       if(prog>=1&&htD.down[n.col]){const h=n.charge;br*=1+h*0.55;glowB=h*48;whiten=0.25+h*0.72;const jit=2+h*6;dx+=(Math.random()-0.5)*jit;dy+=(Math.random()-0.5)*jit;   // 지글지글 흔들림(인게임 동일)
-        const rate=2+Math.floor(h*5);for(let s2=0;s2<rate;s2++){const ang=Math.random()*6.283,sp=1.4+Math.random()*(3+h*5);htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.3,life:1,dec:0.05+Math.random()*0.04,col:COLHEX[n.col],size:1+Math.random()*(1.6+h*1.6),streak:Math.random()<0.5,white:Math.random()<h*0.5});}}   // 스파크
+        for(let z=0;z<2+Math.floor(h*6);z++){const ang=Math.random()*6.283;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*(1+h*4),vy:Math.sin(ang)*(1+h*4)-1.5,life:1,dec:0.035+Math.random()*0.03,col:COLHEX[n.col],size:1.4+Math.random()*(1.6+h*2),streak:Math.random()<0.45,white:Math.random()<h*0.5});}   // ★V3 holdEmit 스파크(인게임 동일)
+        if(h>=1){for(let i=0;i<24;i++){const ang=Math.random()*6.283,sp=4+Math.random()*11;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp-2,life:1,dec:0.018+Math.random()*0.022,col:COLHEX[n.col],size:1.5+Math.random()*2.6,streak:Math.random()<0.6});}for(let i=0;i<8;i++){const ang=Math.random()*6.283,sp=1+Math.random()*5;htD.parts.push({x:dx,y:dy,px:dx,py:dy,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:1,dec:0.05+Math.random()*0.03,col:COLHEX[n.col],size:1.5+Math.random()*2,white:true});}_htBurst("great",dx,dy,n.col);}}   // ★충전 완료 → supernova(인게임 동일)
       const flash=clamp(1-Math.abs(prog-1)/0.16,0,1);
       NoteFX_approach(fxc,dx,dy,br,r,near,ease,a,col,true);                          // 헥스 어프로치(공유)
-      NoteFX_noteBody(fxc,dx,dy,br,col,{a,ease,glowB,whiten,flash,hold:true});       // 홀드 본체(공유)
-      if(prog>=1){fxc.save();fxc.globalAlpha=1;fxc.globalCompositeOperation="lighter";fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=8;fxc.lineWidth=Math.max(3,r*0.08);fxc.beginPath();fxc.arc(cx,cyc,br*1.32,-1.5708,-1.5708+6.283*n.charge);fxc.stroke();fxc.restore();}}   // 충전 게이지(교육용)
+      NoteFX_noteBody(fxc,dx,dy,br,col,{a,ease,glowB,whiten,flash,hold:true});}      // 홀드 본체(공유) — 게이지 원호 제거(인게임엔 없음)
   } else if(_htMode==="drag"){
     // 인게임 메테오와 동일: 유성이 경로/노트포인트 그리며 헤드 도착(별 대기) → 캐치 → 별이 경로 역행 점화
     const FR=[0,0.2,0.4,0.6,0.8,1.0],sx=W*0.18,ex=W*0.82,amp=(ex-sx)*0.13;   // ★승인본 위젯 v4 수평 사인 경로 (영역 축소 — 글자 안 가림)
