@@ -1828,7 +1828,7 @@ function layoutPositions(notes,kx,ky,onlyMissing){
 
 let _lastColors=null;  // 직전 판의 색 배열 (매판 전부 다른 색 보장용)
 function buildPlayNotes(chart){
-  const notes=chart.notes.map(n=>({time:n.time,type:n.type||"normal",duration:n.duration||0,
+  const notes=(chart.notes||[]).filter(n=>n&&typeof n.time==="number").map(n=>({time:n.time,type:n.type||"normal",duration:n.duration||0,   // ★불완전/누락 노트 제거(편집 중 크래시 방지)
     nx:(typeof n.x==="number"?n.x:null),ny:(typeof n.y==="number"?n.y:null),
     nx2:(typeof n.x2==="number"?n.x2:null),ny2:(typeof n.y2==="number"?n.y2:null),
     pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>(p.length>2&&typeof p[2]==="number")?[+p[0],+p[1],+p[2]]:[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화, [x,y,시간비율?])
@@ -1922,7 +1922,7 @@ function layoutPlayPositions(notes){
       const mem=pgM[g], spread=clamp(typeof mem[0].pgs==="number"?mem[0].pgs:0.12,0,0.4), radPx=spread*Math.min(hx*2,hy*2)*0.95;
       let ga=Infinity,ge=-Infinity; for(const n of mem){ga=Math.min(ga,n._a);ge=Math.max(ge,n._e);}   // 그룹 시간 구간
       // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
-      let best=null,bestScore=-1;
+      let best={x:scx,y:scy,rad:radPx,a:ga,e:ge},bestScore=-1;   // ★null 방지(앵커 후보 미선정 시 중앙)
       for(let k=0;k<30;k++){
         const ang=Math.random()*6.2832, f=0.2+Math.random()*0.25;   // 중앙에서 약간 떨어진 곳(너무 외곽 방지)
         let ax=clamp(scx+Math.cos(ang)*hx*f, marginX+radPx*0.4, W-marginX-radPx*0.4);
@@ -2068,7 +2068,7 @@ function startPlay(startAt){try{
   playAudio.currentTime=0;
   cancelAnimationFrame(raf);loop();
   startReadyGate();                 // 4개 키 모두 1초 홀드(시동) → 카운트다운 → 시작
-}catch(e){console.error("startPlay failed",e);const _st=(e&&e.stack||"").split("\n").slice(1,3).map(s=>s.replace(/https?:\/\/[^ )]*[\/:]/g,"").trim()).join(" / ");toast("오류: "+(e&&e.message||e)+(_st?" | "+_st:""));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인+위치 노출
+}catch(e){console.error("startPlay failed",e);const _st=(e&&e.stack||"").split("\n").slice(1,4).map(s=>s.replace(/https?:\/\/[^/]+\//g,"").replace(/[()]/g,"").trim()).join(" / ");toast("오류: "+(e&&e.message||e)+(_st?" | "+_st:""));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인+위치 노출
   const _sf=document.getElementById("scrFade");if(_sf){_sf.style.transition="none";_sf.style.opacity="0";}
   cancelAnimationFrame(raf);state=null;$("#playUI").classList.add("hidden");
   if(playFromEditor){playFromEditor=false;show("editor");}else if(typeof openSongSelect==="function")openSongSelect();}}
