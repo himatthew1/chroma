@@ -1480,10 +1480,10 @@ function badSound(){
   }catch(e){}
 }
 // 홀드 성공 폭발음 — "팝 + 별 둘" (시안 ④): 깔끔한 팝 + 짧은 별조각 2개 + 절제된 에코
-function explodeSound(){
-  if(!settings.sfxOn)return;
+function explodeSound(vol,force){
+  if(!settings.sfxOn&&!force)return;
   try{
-    const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+    const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=(vol!=null?vol:settings.sfxVol);
     // 출력 버스 (라이트 로우패스) + 에코(피드백 딜레이)
     const lp=ctx.createBiquadFilter();lp.type="lowpass";lp.frequency.value=7640;
     const out=ctx.createGain();lp.connect(out);out.connect(ctx.destination);
@@ -2152,8 +2152,8 @@ function spaceGeom(){const W=pcanvas.width,H=pcanvas.height,r=noteR();
   return {cx:W/2,cy:(myt+myb)/2,R:clamp(Math.min(W,H)*0.17,70,150),maxR:Math.hypot(W,H)*0.6};}
 function _bkNoise(ctx,dur,curve){const n=Math.floor(ctx.sampleRate*dur),b=ctx.createBuffer(1,n,ctx.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,curve);return b;}
 // 비트킬링 — 웅장 + 타격감: 깊은 서브 드롭 + 펀치 바디 + 어택 클릭 + 슬램 노이즈 + 큰 리버브
-function beatKill(){ if(!settings.sfxOn)return; try{
-  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=settings.sfxVol;
+function beatKill(vol,force){ if(!settings.sfxOn&&!force)return; try{
+  const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();const t=ctx.currentTime,V=(vol!=null?vol:settings.sfxVol);
   if(!_irBuf){const ln=Math.floor(ctx.sampleRate*1.5),b=ctx.createBuffer(2,ln,ctx.sampleRate);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<ln;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/ln,2.6);}_irBuf=b;}
   const conv=ctx.createConvolver();conv.buffer=_irBuf;const wet=ctx.createGain();wet.gain.value=0.6*V;conv.connect(wet).connect(ctx.destination);
   const send=node=>{node.connect(ctx.destination);node.connect(conv);};
@@ -3258,10 +3258,10 @@ function edBeatSounds(prev,cur){
     if(n.type==="slide"){if(Array.isArray(n.pts)){slideEnsurePtt(n);   // 노트 포인트마다 (머리·중간·꼬리 전부) 일반 노트와 동일음
       for(let j=0;j<n.pts.length;j++){if(cross(n.time+n.ptt[j]*dur))beep("perfect",col);}}
       else{if(cross(n.time))beep("perfect",col);if(dur&&cross(n.time+dur))beep("perfect",col);}continue;}
-    if(n.type==="press"){if(cross(n.time))beep("perfect",col);   // ★홀드: 시작 + 끝
-      if(cross(n.time+dur))beep("great",col);continue;}
-    if(n.type==="space"){if(cross(n.time))beep("perfect",0);     // ★스페이스 홀드: 끝에도
-      if(dur&&cross(n.time+dur))beep("great",0);continue;}
+    if(n.type==="press"){if(cross(n.time))beep("perfect",col);   // ★홀드: 시작=일반음, 끝=인게임 홀드 완료음(폭발)
+      if(dur&&cross(n.time+dur))explodeSound(edSfxVol,true);continue;}
+    if(n.type==="space"){if(cross(n.time))beep("perfect",0);     // ★스페이스 홀드: 끝=인게임 완료음(beatKill)
+      if(dur&&cross(n.time+dur))beatKill(edSfxVol,true);continue;}
     if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
