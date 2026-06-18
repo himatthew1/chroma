@@ -2337,11 +2337,11 @@ function NoteFX_burst(parts,shocks,flashes,col,kind,x,y,S,NR){
   flashes.push({x,y,r:NR*(kind==="perfect"?1.5:1.2),life:1});                                      // 흰 섬광
 }
 function NoteFX_drawParts(ctx,parts,S){
-  ctx.save();ctx.lineCap="round";ctx.globalCompositeOperation="lighter";
-  for(const p of parts){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=(p.decay!=null?p.decay:p.dec);
+  const pgl=gB(PARTICLE_GLOW)*S;
+  ctx.save();ctx.lineCap="round";ctx.globalCompositeOperation="lighter";ctx.shadowBlur=pgl;
+  for(const p of parts){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=(p.g!=null?p.g:0.12);p.life-=(p.decay!=null?p.decay:p.dec);   // ★V3 물리: 중력 0.12(또는 p.g), 속도 감속 없음 → 곧고 멀리 퍼짐
     if(p.life<=0)continue;
-    const pc=p.white?"#fff":(typeof p.col==="number"?COLHEX[p.col]:p.col);ctx.globalAlpha=Math.min(1,p.life*1.4);ctx.strokeStyle=pc;ctx.fillStyle=pc;
-    ctx.shadowColor=pc;ctx.shadowBlur=PARTICLE_GLOW*S;   // ★V3 디자인: 파티클 발광(번짐)
+    const pc=p.white?"#fff":(typeof p.col==="number"?COLHEX[p.col]:p.col);ctx.globalAlpha=Math.min(1,p.life*1.4);ctx.strokeStyle=pc;ctx.fillStyle=pc;if(pgl)ctx.shadowColor=pc;
     if(p.streak){ctx.lineWidth=p.size;ctx.beginPath();ctx.moveTo(p.px,p.py);ctx.lineTo(p.x,p.y);ctx.stroke();}
     else{ctx.beginPath();ctx.arc(p.x,p.y,p.size*(0.4+p.life*0.7),0,Math.PI*2);ctx.fill();}}   // ★V3 dot 크기 공식
   ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
