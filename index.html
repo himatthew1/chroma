@@ -2630,7 +2630,7 @@ function loop(){
       const SP=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph, p.y+off.y*ph];};
       const NP=n.ppts.length, frac=n._tf, aSpan=n._aSpan, hbr=br*1.15;
       const s=n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0;
-      const hueP=(j)=>"hsl("+Math.round((j/Math.max(1,NP-1))*300)+",92%,62%)";
+      const hueP=(j)=>_rgba(SP_AUR[j%5],1);   // ★drag_v4: 노트포인트 = 오로라 5색
       // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
       function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gray?5:10;pctx.lineWidth=gray?2:3;hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();
         pctx.globalAlpha=al*(gray?0.7:0.95);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gray?4:7;pctx.beginPath();pctx.arc(P[0],P[1],2.2*sc*(gray?0.8:1),0,6.2832);pctx.fill();
@@ -2665,9 +2665,13 @@ function loop(){
             const prox=clamp(1-(fr-s)/0.10,0,1);            // 별이 다가옴
             const sc=pe*(1+prox*0.9); drawPt(P,sc,Math.min(1,pe)*0.95,j,false);
             {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.2;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=14;pctx.lineWidth=2;hexPath(pctx,P[0],P[1],10*sc);pctx.stroke();pctx.restore();}}
-          }else{ // 소모됨 → 일반 노트와 동일한 타격음 + 발화
-            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)hitSound("perfect",n.col);}
-            const f=clamp((s-fr)/0.18,0,1); if(f<1)firePt(P,f,j);
+          }else{ // 소모됨 → drag_v4 점화: 오로라 파티클 16 + 충격파 2 분출 (타격음)
+            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)hitSound("perfect",n.col);
+              const h=hueP(j),qx=P[0],qy=P[1];
+              (state.shocks||(state.shocks=[])).push({x:qx,y:qy,r:8,vr:7,life:1,dec:0.05,col:"#ffffff"});
+              state.shocks.push({x:qx,y:qy,r:6,vr:5,life:1,dec:0.05,col:h});
+              for(let z=0;z<16;z++){const aa=Math.random()*6.2832,sp2=2.5+Math.random()*6;state.particles.push({x:qx,y:qy,px:qx,py:qy,vx:Math.cos(aa)*sp2,vy:Math.sin(aa)*sp2-1.4,life:1,decay:0.03+Math.random()*0.03,col:h,size:1.5+Math.random()*2.2,streak:Math.random()<0.6,white:Math.random()<0.3});}
+            }
           }
         }
         // 앞쪽(아직 안 지난) 어두운 패스만 — 별이 지나가면 사라짐
