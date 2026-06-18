@@ -2068,7 +2068,7 @@ function startPlay(startAt){try{
   playAudio.currentTime=0;
   cancelAnimationFrame(raf);loop();
   startReadyGate();                 // 4개 키 모두 1초 홀드(시동) → 카운트다운 → 시작
-}catch(e){console.error("startPlay failed",e);toast("재생 오류: "+(e&&e.message||e));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인 노출
+}catch(e){console.error("startPlay failed",e);const _st=(e&&e.stack||"").split("\n").slice(1,3).map(s=>s.replace(/https?:\/\/[^ )]*[\/:]/g,"").trim()).join(" / ");toast("오류: "+(e&&e.message||e)+(_st?" | "+_st:""));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인+위치 노출
   const _sf=document.getElementById("scrFade");if(_sf){_sf.style.transition="none";_sf.style.opacity="0";}
   cancelAnimationFrame(raf);state=null;$("#playUI").classList.add("hidden");
   if(playFromEditor){playFromEditor=false;show("editor");}else if(typeof openSongSelect==="function")openSongSelect();}}
