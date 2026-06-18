@@ -2852,14 +2852,27 @@ function selList(){return edSelSet.length?edSelSet:(edSel?[edSel]:[]);}
 function deleteSelection(){const set=selList();if(!set.length)return;pushUndo();const s=new Set(set);edNotes=edNotes.filter(n=>!s.has(n));selClear();updateSelPanel();updateGrpPanel();}
 function copySel(){const set=selList();if(!set.length){toast("복사할 노트를 선택하세요");return;}
   const t0=Math.min.apply(null,set.map(n=>n.time));
-  edClip=set.map(n=>({type:n.type,duration:n.duration,lane:n.lane||0,x:n.x,y:n.y,g:n.g,dt:+(n.time-t0).toFixed(3)}));
+  edClip=set.map(n=>{const c={type:n.type,duration:n.duration,lane:n.lane||0,x:n.x,y:n.y,g:n.g,dt:+(n.time-t0).toFixed(3)};
+    if(n.type==="slide"){if(Array.isArray(n.pts))c.pts=n.pts.map(p=>p.slice());if(Array.isArray(n.ptt))c.ptt=n.ptt.slice();c.sShape=n.sShape;}  // ★드래그 경로·포인트 깊은 복사
+    if(typeof n.ch==="number"){c.ch=n.ch;c.ci=n.ci;}        // 체인 멤버십
+    if(typeof n.pg==="number"){c.pg=n.pg;c.pgs=n.pgs;}      // 위치군
+    return c;});
   toast("📋 "+set.length+"개 복사됨");}
 function pasteClip(){if(!edClip||!edClip.length){toast("붙여넣을 게 없습니다");return;}
   pushUndo();
   const base=(edPlaying&&edAudio)?edAudio.currentTime:edTime;
+  let maxCh=edNotes.reduce((m,nn)=>typeof nn.ch==="number"?Math.max(m,nn.ch):m,-1);   // 체인/위치군은 새 그룹으로 리매핑(기존과 충돌 방지)
+  let maxPg=edNotes.reduce((m,nn)=>typeof nn.pg==="number"?Math.max(m,nn.pg):m,0);
+  const chMap={},pgMap={};
   const added=edClip.map(c=>{const n={time:+clamp(base+c.dt,0,edDur()).toFixed(3),type:c.type,lane:c.lane};
-    if(c.type==="press")n.duration=c.duration||0.3; return n;});
+    if(c.duration!=null&&(c.type==="press"||c.type==="slide"||c.type==="space"))n.duration=c.duration;
+    if(c.type==="slide"){if(Array.isArray(c.pts))n.pts=c.pts.map(p=>p.slice());if(Array.isArray(c.ptt))n.ptt=c.ptt.slice();if(c.sShape)n.sShape=c.sShape;}  // ★드래그 경로 복원
+    if(c.g!=null)n.g=c.g;
+    if(typeof c.ch==="number"){if(!(c.ch in chMap))chMap[c.ch]=++maxCh;n.ch=chMap[c.ch];n.ci=c.ci;}
+    if(typeof c.pg==="number"){if(!(c.pg in pgMap))pgMap[c.pg]=++maxPg;n.pg=pgMap[c.pg];n.pgs=c.pgs;}
+    return n;});
   edNotes.push(...added);layoutPositions(edNotes,'x','y',true);
+  added.forEach(n=>{if(n.type==="slide"){if(Array.isArray(n.pts)&&n.pts[0]){n.x=n.pts[0][0];n.y=n.pts[0][1];}if(typeof drawSlidePath==="function")drawSlidePath(n);}});  // 드래그 머리=pts[0] 유지 + 경로 갱신
   edSelSet=added.slice();edSel=added[added.length-1];updateSelPanel();updateGrpPanel();
   toast("📋 "+added.length+"개 붙여넣음 (t="+base.toFixed(2)+"s)");}
 function makeGroupFromSel(){const set=selList();if(!set.length){toast("노트를 선택하세요");return;}
@@ -3343,13 +3356,15 @@ $("#selSpread").oninput=()=>{const v=_spreadVal();$("#selSpreadVal").textContent
 $("#selSpread").onchange=()=>{const v=_spreadVal();const pgs=new Set(selList().map(n=>n.pg).filter(x=>typeof x==="number"));if(!pgs.size)return;pushUndo();edNotes.forEach(n=>{if(pgs.has(n.pg))n.pgs=v;});toast(pgs.size>1?(pgs.size+"개 위치군 응집도 "+_spreadTxt(v)):("위치군 응집도 "+_spreadTxt(v)));};
 
 function noteAtX(x,y){
-  const lane=laneOf(y);let best=null,bd=14;
+  const lane=laneOf(y);let best=null,bd=10;            // 14→10: 노트 본체를 제대로 눌렀을 때만 잡힘
   for(const n of edNotes){
     const nx=xOf(n.time);
-    if(n.type==="space"){const d=Math.abs(nx-x);if(d<10&&d<bd){bd=d;best=n;}continue;}  // 스페이스는 라인 무관
+    if(n.type==="space"){const d=Math.abs(nx-x);if(d<7&&d<bd){bd=d;best=n;}continue;}  // 스페이스는 라인 무관(세로선 ±7px)
     if((n.lane||0)!==lane)continue;
+    if(Math.abs(y-laneY(n.lane||0))>13)continue;       // ★세로: 노트 본체(±13px) 밖이면 레인 빈 공간 → 노트 안 잡음
     let d=Math.abs(nx-x);
-    if(n.type==="press"||n.type==="slide"){const x2=xOf(n.time+(n.duration||0));if(x>=nx-12&&x<=x2+12)d=0;}
+    if(n.type==="press"||n.type==="slide"){const x2=xOf(n.time+(n.duration||0));
+      if(x>=nx-4&&x<=x2+4)d=0; else continue;}          // 롱노트는 막대 본체(±4) 안일 때만 — 막대 바깥 근처는 무시
     if(d<bd){bd=d;best=n;}
   }
   return best;
@@ -3490,7 +3505,9 @@ window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 �
   else if(edDrag.mode==="slidept"){const n=edDrag.n,j=edDrag.j,dur=n.duration||0.3;
     const lo=(n.ptt[j-1]||0)+0.02, hi=(n.ptt[j+1]!=null?n.ptt[j+1]:1)-0.02;
     n.ptt[j]=clamp((t-n.time)/dur,lo,hi);if(typeof drawSlidePath==="function")drawSlidePath(n);}
-  else if(edDrag.mode==="resize"){edDrag.n.duration=+Math.max(0.1,t-edDrag.n.time).toFixed(3);if($("#selDur"))$("#selDur").value=edDrag.n.duration;}
+  else if(edDrag.mode==="resize"){const n=edDrag.n,oldDur=n.duration||0.3,newDur=Math.max(0.1,t-n.time);
+    if(n.type==="slide"&&Array.isArray(n.ptt)&&oldDur>0&&newDur>0)n.ptt=n.ptt.map(v=>clamp(v*oldDur/newDur,0,1));  // ★노트포인트 절대 시간 고정 — 끝부분만 독립적으로 늘고 줄어듦
+    n.duration=+newDur.toFixed(3);if($("#selDur"))$("#selDur").value=n.duration;if(n.type==="slide"&&typeof drawSlidePath==="function")drawSlidePath(n);}
   else if(edDrag.mode==="chaindrag"){   // 가로 드래그 → step 간격으로 체인 노드 채우기 (순서 ci)
     const step=edDrag.step,count=clamp(Math.floor((t-edDrag.t0)/step)+1,1,64);
     edNotes=edNotes.filter(nn=>nn.ch!==edDrag.ch);   // 이 체인 노드 비우고 다시 채움
