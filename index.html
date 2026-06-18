@@ -590,6 +590,9 @@ const _fxLow=document.createElement("canvas");
 const _fxTxt=document.createElement("canvas");   // ★글자 전용 고밀도 도트 버퍼
 const TXT_LH=384;   // 글자 버퍼 세로 해상도(장면 192의 2배 → 도트 유지하면서 또렷)
 const RENDER_CAP=540;   // ★백킹 세로 상한(192 다운샘플·384 텍스트 버퍼 보존, 큰 화면 렌더 비용 절감)
+let GLOW_MODE="full";   // ★발광 품질: "full"(V3 디자인) | "lite"(그림자 상한 8) | "off"(끔) — 세팅 토글
+function gB(b){return GLOW_MODE==="full"?b:GLOW_MODE==="lite"?Math.min(b,8):0;}   // shadowBlur 경량화 헬퍼
+let PARTICLE_GLOW=10;   // V3 파티클 발광(번짐) 기본값 — gB로 모드 반영
 let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null,fxTextQ=[];
 function fxFit(){fx.width=window.innerWidth;fx.height=window.innerHeight;}
 function fxFlushText(){if(!fxTextQ.length)return;
@@ -2326,28 +2329,27 @@ function NoteFX_approach(ctx,x,y,br,r,prog,ease,a,col,hold){
 function NoteFX_burst(parts,shocks,flashes,col,kind,x,y,S,NR){
   if(kind==="miss"||kind==="bad")return;   // BAD/미스는 파티클 없음(인게임 동일)
   const n=kind==="perfect"?34:kind==="great"?24:16;
-  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=(3+Math.random()*9)*S;
-    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2*S,life:1,decay:0.016+Math.random()*0.022,col,size:(1.4+Math.random()*2.6)*S,streak:Math.random()<0.6});}
-  for(let i=0;i<Math.ceil(n*0.35);i++){const a=Math.random()*Math.PI*2,sp=(1+Math.random()*5)*S;   // 흰 코어 입자
-    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:(1.5+Math.random()*2)*S,white:true});}
-  shocks.push({x,y,r:NR*0.55,vr:NR*0.55,life:1,col:(typeof col==="number"?COLHEX[col]:col)});   // 색 충격파
-  shocks.push({x,y,r:NR*0.4,vr:NR*0.42,life:1,col:"#ffffff"});                                    // 흰 충격파(2중)
+  for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=(4+Math.random()*11)*S;   // ★V3 색 파티클(속도 4+11, 크기 1.6+2.6)
+    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-2*S,life:1,decay:0.016+Math.random()*0.02,col,size:(1.6+Math.random()*2.6)*S,streak:Math.random()<0.6});}
+  for(let i=0;i<Math.ceil(n*0.35);i++){const a=Math.random()*Math.PI*2,sp=(1+Math.random()*5)*S;   // ★V3 흰 코어 입자
+    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:0.05+Math.random()*0.03,col,size:(1.6+Math.random()*2)*S,white:true});}
+  shocks.push({x,y,r:NR*0.16,vr:NR*0.18,dec:0.035,life:1,col:(typeof col==="number"?COLHEX[col]:col)});   // ★V3 단일 색 충격파(작게 시작→확산, 흰 2중 제거)
   flashes.push({x,y,r:NR*(kind==="perfect"?1.5:1.2),life:1});                                      // 흰 섬광
 }
 function NoteFX_drawParts(ctx,parts,S){
-  const pb=(settings.retro?2.2:0)*S;
-  ctx.save();ctx.lineCap="round";ctx.globalCompositeOperation="lighter";ctx.shadowBlur=0;
+  ctx.save();ctx.lineCap="round";ctx.globalCompositeOperation="lighter";
   for(const p of parts){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.vx*=0.985;p.life-=(p.decay!=null?p.decay:p.dec);
     if(p.life<=0)continue;
     const pc=p.white?"#fff":(typeof p.col==="number"?COLHEX[p.col]:p.col);ctx.globalAlpha=Math.min(1,p.life*1.4);ctx.strokeStyle=pc;ctx.fillStyle=pc;
-    if(p.streak){ctx.lineWidth=p.size+pb;ctx.beginPath();ctx.moveTo(p.px,p.py);ctx.lineTo(p.x,p.y);ctx.stroke();}
-    else{ctx.beginPath();ctx.arc(p.x,p.y,p.size*p.life+0.6*S+pb,0,Math.PI*2);ctx.fill();}}
+    ctx.shadowColor=pc;ctx.shadowBlur=PARTICLE_GLOW*S;   // ★V3 디자인: 파티클 발광(번짐)
+    if(p.streak){ctx.lineWidth=p.size;ctx.beginPath();ctx.moveTo(p.px,p.py);ctx.lineTo(p.x,p.y);ctx.stroke();}
+    else{ctx.beginPath();ctx.arc(p.x,p.y,p.size*(0.4+p.life*0.7),0,Math.PI*2);ctx.fill();}}   // ★V3 dot 크기 공식
   ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
 }
 function NoteFX_drawShocks(ctx,shocks,S){
   ctx.save();ctx.globalCompositeOperation="lighter";
-  for(const s of shocks){s.r+=s.vr;s.vr*=0.92;s.life-=0.05;if(s.life<=0)continue;
-    ctx.globalAlpha=s.life*0.85;ctx.strokeStyle=s.col;ctx.shadowColor=s.col;ctx.shadowBlur=12;ctx.lineWidth=((settings.retro?3:2)+4*s.life)*S;
+  for(const s of shocks){s.r+=s.vr;s.vr*=0.96;s.life-=(s.dec!=null?s.dec:0.05);if(s.life<=0)continue;   // ★V3: vr 감쇠 0.96, dec 기반
+    ctx.globalAlpha=s.life*0.85;ctx.strokeStyle=s.col;ctx.shadowColor=s.col;ctx.shadowBlur=gB(16);ctx.lineWidth=(5*s.life+1)*S;   // ★V3 충격파(shadowBlur16, lw 5*life+1)
     ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.stroke();}
   ctx.restore();
 }
