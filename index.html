@@ -2041,7 +2041,7 @@ function fadeFromBlack(sec){const el=document.getElementById("scrFade");if(!el)r
   const go=()=>{el.style.transition="opacity "+(sec||0.45)+"s ease";el.style.opacity="0";};
   requestAnimationFrame(()=>requestAnimationFrame(go));
   setTimeout(()=>{if(el.style.opacity!=="0"){el.style.transition="none";el.style.opacity="0";}},140);}   // ★rAF/compositor가 throttle돼도 검정 강제 해제(transition 없이 즉시) — 검은 화면 멈춤 방지
-function startPlay(startAt){
+function startPlay(startAt){try{
   startAt=Math.max(0,startAt||0);
   fitCanvas(pcanvas);
   fadeFromBlack(0.4);                 // 플레이 화면 진입 첫 프레임 가림
@@ -2068,7 +2068,10 @@ function startPlay(startAt){
   playAudio.currentTime=0;
   cancelAnimationFrame(raf);loop();
   startReadyGate();                 // 4개 키 모두 1초 홀드(시동) → 카운트다운 → 시작
-}
+}catch(e){console.error("startPlay failed",e);toast("재생 오류: "+(e&&e.message||e));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인 노출
+  const _sf=document.getElementById("scrFade");if(_sf){_sf.style.transition="none";_sf.style.opacity="0";}
+  cancelAnimationFrame(raf);state=null;$("#playUI").classList.add("hidden");
+  if(playFromEditor){playFromEditor=false;show("editor");}else if(typeof openSongSelect==="function")openSongSelect();}}
 function startReadyGate(){
   if(!state)return;
   state.readyGate=true;state.holdStart=0;state.readyProg=0;state.started=false;
@@ -3217,7 +3220,7 @@ async function runTestPlay(startAt){
   if(edPlaying){edAudio.pause();edPlaying=false;}
   // ★테스트 전 채보 자동저장 (제목·난이도가 있으면)
   const title=$("#edSongTitle").value.trim(),diff=$("#edDiffName").value.trim();
-  if(title&&diff){const ok=await editorSave(true);if(ok)toast("💾 자동저장됨 — 테스트 플레이");}
+  if(title&&diff){try{const ok=await editorSave(true);if(ok)toast("💾 자동저장됨 — 테스트 플레이");}catch(e){console.error("editorSave(test) failed",e);toast("저장 건너뜀 — 테스트 진행");}}   // ★저장 실패/지연이 테스트 진입을 막지 않게
   else toast("곡 제목·난이도를 입력하면 테스트 시 자동저장됩니다");
   playAudio=edAudio; playChart=currentChart();
   curSongMeta={title:title||"테스트",artist:"내 채보",diff:diff||"TEST"};
