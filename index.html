@@ -2039,7 +2039,9 @@ function slidePos(n,s){
 }
 function fadeFromBlack(sec){const el=document.getElementById("scrFade");if(!el)return;   // 검정에서 페이드인 — 전환 첫 프레임 플래시 가림
   el.style.transition="none";el.style.opacity="1";
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.style.transition="opacity "+(sec||0.45)+"s ease";el.style.opacity="0";}));}
+  const go=()=>{el.style.transition="opacity "+(sec||0.45)+"s ease";el.style.opacity="0";};
+  requestAnimationFrame(()=>requestAnimationFrame(go));
+  setTimeout(go,90);}   // ★rAF가 throttle/지연돼도(저사양·탭전환·클릭직후) 검정이 반드시 풀리게 — 검은 화면 멈춤 버그 방지
 function startPlay(startAt){
   startAt=Math.max(0,startAt||0);
   fitCanvas(pcanvas);
