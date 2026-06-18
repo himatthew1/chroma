@@ -582,7 +582,9 @@ let KEYS=["a","d","j","l"];   // 설정에서 커스텀 가능
 const NCOL=4;
 
 const screens={menu:$("#menu"),songsel:$("#songsel"),play:$("#play"),result:$("#result"),howto:$("#howto"),settings:$("#settings"),edhub:$("#edhub"),editor:$("#editor")};
-function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);}
+function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);
+  document.documentElement.classList.toggle("retro", !!settings.retro && name!=="editor" && name!=="edhub");   // ★에디터/에디터홈은 도트필터 끔(편집 편의) — 그 외엔 항상 retro
+  if(typeof fxUpdate==="function")fxUpdate(name);}
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
 const fx=document.getElementById("fx"),fxc=fx.getContext("2d");window.__fxc=fxc;   // 부팅 로고가 참조
 const _fxLow=document.createElement("canvas");
@@ -3616,7 +3618,7 @@ function edLoop(){
     // auto-scroll to keep playhead in view
     const px=xOf(edTime);if(px<tl.width*0.15||px>tl.width*0.85)view.scroll=edTime-tl.width*0.3/view.pps;
   }else _edPrevT=null;
-  const W2=tl.width,H=tl.height,my=midY(),RT=!!settings.retro;
+  const W2=tl.width,H=tl.height,my=midY(),RT=false;   // ★에디터는 도트필터/레트로 끔 (편집 편의 — 선명하게)
   tctx.clearRect(0,0,W2,H);
   tctx.fillStyle="#080912";tctx.fillRect(0,0,W2,H);
   // waveform
@@ -3719,11 +3721,7 @@ function edLoop(){
   // info
   tctx.fillStyle="#fff";tctx.font=(RT?"bold 17px":"13px")+" Segoe UI";tctx.textAlign="left";
   tctx.fillText("t="+edTime.toFixed(2)+"s  ·  notes:"+edNotes.length+"  ·  zoom:"+Math.round(view.pps)+"px/s",10,H-10);
-  // ★도트 필터 (레트로 모드일 때 사이트 전체와 동일한 픽셀 밀도로 모자이크)
-  if(settings.retro){const lh=Math.max(1,Math.round(192*H/window.innerHeight)),lw=Math.max(1,Math.round(lh*W2/H));
-    if(_edLow.width!==lw||_edLow.height!==lh){_edLow.width=lw;_edLow.height=lh;}
-    const lc=_edLow.getContext("2d");lc.imageSmoothingEnabled=true;lc.clearRect(0,0,lw,lh);lc.drawImage(tl,0,0,W2,H,0,0,lw,lh);
-    tctx.imageSmoothingEnabled=false;tctx.drawImage(_edLow,0,0,lw,lh,0,0,W2,H);tctx.imageSmoothingEnabled=true;}
+  // ★에디터는 도트 필터 끔 — 선명하게 (편집 편의)
 }
 let _lastW=0,_lastH=0;
 function fitTimelineIfNeeded(){const r=tl.getBoundingClientRect();if(Math.abs(r.width-_lastW)>2||Math.abs(r.height-_lastH)>2){_lastW=r.width;_lastH=r.height;tl.width=r.width;tl.height=r.height;}}
