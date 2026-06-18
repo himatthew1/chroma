@@ -2069,7 +2069,7 @@ function startPlay(startAt){try{
   const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0,factor:(typeof z.factor==="number"?z.factor:undefined)}));   // 스피드 구간(배속 포함)
   const warp=buildWarp(zones,lastT);
   const AR0=approachSec();
-  notes.forEach(n=>{n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);});   // 노트별 워프 상수
+  notes.forEach(n=>{n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);n._arEff=AR0*Math.pow(zoneFactorAt(n.time,zones)||1,0.65);});   // 노트별 워프 상수 + ★접근창(슬로우 구간 쌓임 완화: 노트 도착 배속으로 고정 → 경계 연속, 사라짐/갑툭튀 없음)
   state={notes,score:0,combo:0,maxCombo:0,counts:{perfect:0,great:0,good:0,bad:0,miss:0},
     held:[false,false,false,false],spaceDown:false,padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,warp,
     started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:AR0,startAt:startAt,
@@ -2382,7 +2382,7 @@ function NoteFX_drawFlashes(ctx,flashes){
 function drawSpaceNote(n,now,AR){
   const G=spaceGeom(),cx=G.cx,cy=G.cy,R=G.R,appear=n.time-AR,hold=(n.duration||0)>0;
   {const wp=(typeof state!=="undefined"&&state&&state.warp)?state.warp:null;   // ★워프 등장(슬로우=일찍 가까이서, 스피드=늦게)
-   if((warpAt(wp,n.time)-warpAt(wp,now))>AR && now<n.time)return;}
+   if((warpAt(wp,n.time)-warpAt(wp,now))>n._arEff && now<n.time)return;}
   if(!n.headJudged&&now>n.time+JW.good+LATEGRACE){n.headJudged=true;n.spState="miss";n.spT0=now;applySpaceScore("miss");}
   if(hold&&n.holding&&!n.spState&&now>=n.time+n.duration){n.holding=false;n.spState=n.spHead||"great";n.spT0=now;applySpaceScore(n.spState);spawnJudge(n.spState,cx,cy);beatKill();spaceBurst(false);}
   // ★홀드 충전 연출: 일반 스페이스 베이스(색상환 림+흰 링) + 백열 가열·넓은 광채 + 수축 링 + 성장/절제된 떨림
@@ -2395,7 +2395,7 @@ function drawSpaceNote(n,now,AR){
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
   if(!n.spState){
     const wp=(typeof state!=="undefined"&&state&&state.warp)?state.warp:null;   // ★스피드 구간 워프 (없으면 실시간)
-    const pr=clamp(1-(warpAt(wp,n.time)-warpAt(wp,now))/AR,0,1),gp=Math.pow(pr,1.9); // 작게 시작→임박할수록 가속 + 구간 배속
+    const pr=clamp(1-(warpAt(wp,n.time)-warpAt(wp,now))/n._arEff,0,1),gp=Math.pow(pr,1.9); // 작게 시작→임박할수록 가속 + 노트별 접근창(슬로우 완화)
     const aq=clamp(pr/0.65,0,1); al=aq*aq*(3-2*aq);            // ★투명도: 부드럽게 차오름(smoothstep)
     rs=0.08+0.92*gp; ringAl=al; gl=1.2*al; ap=pr;
   }else{
@@ -2602,7 +2602,7 @@ function loop(){
       if(n.type==="slide"&&n._ptHit&&!n.missed){for(let j=0;j<n._ptHit.length;j++)if(!n._ptHit[j]){n._ptHit[j]=true;hitSound("perfect",n.col);}}   // ★남은(꼬리) 포인트 타격음 보장(일반음)
       n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);continue;}
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
-    const prog0=1-(n._wT-wpNow)/AR;
+    const prog0=1-(n._wT-wpNow)/n._arEff;
     const vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
     if(prog0<=0||now>vEnd)continue;
     drawList.push(n);
@@ -2614,7 +2614,7 @@ function loop(){
     const chDraw={};
     for(const n of drawList){ if(n.ch!=null)(chDraw[n.ch]||(chDraw[n.ch]=[])).push(n); }
     for(const c in chDraw){ const mem=chDraw[c].sort((a,b)=>a.ci-b.ci); if(mem.length<2)continue;
-      const pts=mem.map(n=>{const prog=clamp(1-(n._wT-wpNow)/AR,0,1.25),near=clamp(prog,0,1),din=near*near*(3-2*near);
+      const pts=mem.map(n=>{const prog=clamp(1-(n._wT-wpNow)/n._arEff,0,1.25),near=clamp(prog,0,1),din=near*near*(3-2*near);
         return {x:n.x+(n._ox||0)*(1-din),y:n.y+(n._oy||0)*(1-din),a:clamp(prog*6,0,1)};});
       const aMax=Math.max.apply(null,pts.map(p=>p.a));
       pctx.save();pctx.globalCompositeOperation="lighter";pctx.lineCap="round";pctx.lineJoin="round";
@@ -2626,7 +2626,7 @@ function loop(){
     }
   }
   for(const n of drawList){
-    const prog=clamp(1-(n._wT-wpNow)/AR,0,1.25),col=COLHEX[n.col];   // ★고정 접근창(AR) → 구간 내내 느리게/빠르게 보임
+    const prog=clamp(1-(n._wT-wpNow)/n._arEff,0,1.25),col=COLHEX[n.col];   // ★노트별 접근창(_arEff): 슬로우 구간 쌓임 완화 + 경계 연속
     let a=n.missed?0.2:1;
     a*=clamp(prog*6,0,1);            // ★모든 노트 동일하게 페이드인 (홀드도 뚝 등장 X)
     const near=clamp(prog,0,1), ease=near*near;
