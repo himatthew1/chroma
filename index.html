@@ -590,7 +590,7 @@ const _fxLow=document.createElement("canvas");
 const _fxTxt=document.createElement("canvas");   // ★글자 전용 고밀도 도트 버퍼
 const TXT_LH=384;   // 글자 버퍼 세로 해상도(장면 192의 2배 → 도트 유지하면서 또렷)
 const RENDER_CAP=540;   // ★백킹 세로 상한(192 다운샘플·384 텍스트 버퍼 보존, 큰 화면 렌더 비용 절감)
-let GLOW_MODE="full";   // ★발광 품질: "full"(V3 디자인) | "lite"(그림자 상한 8) | "off"(끔) — 세팅 토글
+let GLOW_MODE="lite";   // ★발광 품질: "full"(V3 디자인) | "lite"(그림자 상한 8, 기본) | "off"(끔) — 세팅 토글. 큰 그림자 과포화("휘몰아침") 방지
 function gB(b){return GLOW_MODE==="full"?b:GLOW_MODE==="lite"?Math.min(b,8):0;}   // shadowBlur 경량화 헬퍼
 let PARTICLE_GLOW=10;   // V3 파티클 발광(번짐) 기본값 — gB로 모드 반영
 let fxScreen=null,fxRaf=null,fxHover=-1,fxBtns=[],fxBg=null,fxT0=null,fxSliders=[],fxDrag=null,fxTextQ=[];
@@ -1749,14 +1749,14 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
    const ig=ctx.createLinearGradient(0,bt,0,bb);ig.addColorStop(0,_rgba(SP_AUR[4],0.18));ig.addColorStop(0.5,"rgba(12,20,48,0.45)");ig.addColorStop(1,_rgba(SP_AUR[2],0.13));
    if(allHeld){ctx.globalCompositeOperation="lighter";ctx.globalAlpha=0.3;ctx.fillStyle=ag;barPath();ctx.fill();ctx.globalCompositeOperation="source-over";}
    else{ctx.globalAlpha=1;ctx.fillStyle=ig;barPath();ctx.fill();}
-   ctx.globalAlpha=allHeld?0.99:0.78;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=allHeld?40:18;ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);barPath();ctx.stroke();
+   ctx.globalAlpha=allHeld?0.99:0.78;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(allHeld?40:18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);barPath();ctx.stroke();
    ctx.restore();
    const sy=(g.y+g.r+bb)/2,fs=clamp(g.r*0.5,18,54);
    txt("SPACE",W/2,sy,fs,"#dfeaff");
   }
   for(let c=0;c<4;c++){
     const col=COLHEX[c],x=g.xs[c],y=g.y,hd=held&&held[c],fx=padFx&&padFx[c];
-    ctx.save();ctx.shadowColor=col;ctx.shadowBlur=hd?40:18;
+    ctx.save();ctx.shadowColor=col;ctx.shadowBlur=gB(hd?40:18);
     ctx.strokeStyle=col;ctx.globalAlpha=hd?0.98:0.62;ctx.lineWidth=Math.max(3.5,g.r*0.09);
     ctx.beginPath();ctx.arc(x,y,g.r,0,Math.PI*2);ctx.stroke();
     ctx.globalAlpha=hd?0.72:0.34;ctx.lineWidth=Math.max(2.5,g.r*0.065);
@@ -1765,7 +1765,7 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
     ctx.globalAlpha=hd?0.9:0.32;ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,g.r*0.7,0,Math.PI*2);ctx.fill();
     ctx.restore();
     if(fx&&fx.life>0){
-      if(fx.kind!=="miss"){ctx.save();ctx.globalAlpha=fx.life*0.65;ctx.shadowColor=col;ctx.shadowBlur=44*fx.life;
+      if(fx.kind!=="miss"){ctx.save();ctx.globalAlpha=fx.life*0.65;ctx.shadowColor=col;ctx.shadowBlur=gB(44*fx.life);
         const fg=ctx.createRadialGradient(x,y,2,x,y,g.r*0.95);fg.addColorStop(0,"#ffffff");fg.addColorStop(0.35,col);fg.addColorStop(1,"transparent");
         ctx.fillStyle=fg;ctx.beginPath();ctx.arc(x,y,g.r*0.95,0,Math.PI*2);ctx.fill();ctx.restore();}
       fx.life-=0.05;
@@ -2301,25 +2301,25 @@ function NoteFX_noteBody(ctx,x,y,br,col,p){
   const a=(p.a==null?1:p.a),ease=p.ease||0,glowB=p.glowB||0,whiten=p.whiten||0,flash=p.flash||0,hold=!!p.hold;
   ctx.save();ctx.globalAlpha=a;
   if(hold){
-    ctx.shadowColor=col;ctx.shadowBlur=16+30*ease+glowB;
+    ctx.shadowColor=col;ctx.shadowBlur=gB(16+30*ease+glowB);
     ctx.globalAlpha=a*0.18;ctx.fillStyle=col;hexPath(ctx,x,y,br*1.3);ctx.fill();                       // 오라
-    ctx.globalAlpha=a*(0.85+0.15*ease);ctx.shadowBlur=12+glowB;hexPath(ctx,x,y,br);ctx.fill();          // 솔리드
-    ctx.globalAlpha=a*0.6;ctx.strokeStyle="#fff";ctx.lineWidth=Math.max(2.5,br*0.06);ctx.shadowBlur=8;hexPath(ctx,x,y,br);ctx.stroke();   // 흰 림
+    ctx.globalAlpha=a*(0.85+0.15*ease);ctx.shadowBlur=gB(12+glowB);hexPath(ctx,x,y,br);ctx.fill();          // 솔리드
+    ctx.globalAlpha=a*0.6;ctx.strokeStyle="#fff";ctx.lineWidth=Math.max(2.5,br*0.06);ctx.shadowBlur=gB(8);hexPath(ctx,x,y,br);ctx.stroke();   // 흰 림
     const wc=Math.max(0.5+ease*0.35,whiten);
-    ctx.globalAlpha=a*Math.min(1,wc);ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=12+glowB*0.6;hexPath(ctx,x,y,br*(0.42+whiten*0.22));ctx.fill();   // 밝은 중심
+    ctx.globalAlpha=a*Math.min(1,wc);ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=gB(12+glowB*0.6);hexPath(ctx,x,y,br*(0.42+whiten*0.22));ctx.fill();   // 밝은 중심
   }else{
-    ctx.shadowColor=col;ctx.shadowBlur=14+28*ease;ctx.lineWidth=Math.max(3.5,br*0.1);ctx.strokeStyle=col;
+    ctx.shadowColor=col;ctx.shadowBlur=gB(14+28*ease);ctx.lineWidth=Math.max(3.5,br*0.1);ctx.strokeStyle=col;
     ctx.beginPath();ctx.arc(x,y,br,0,Math.PI*2);ctx.stroke();                                            // 굵은 링
-    ctx.shadowBlur=12;ctx.globalAlpha=a*(0.85+0.15*ease);ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,br*0.46,0,Math.PI*2);ctx.fill();   // 코어
-    ctx.globalAlpha=a;ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=12;ctx.beginPath();ctx.arc(x,y,br*0.26,0,Math.PI*2);ctx.fill();   // 흰 중심
+    ctx.shadowBlur=gB(12);ctx.globalAlpha=a*(0.85+0.15*ease);ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,br*0.46,0,Math.PI*2);ctx.fill();   // 코어
+    ctx.globalAlpha=a;ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=gB(12);ctx.beginPath();ctx.arc(x,y,br*0.26,0,Math.PI*2);ctx.fill();   // 흰 중심
   }
-  if(flash>0.02){ctx.globalAlpha=a*flash*0.9;ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.shadowColor="#fff";ctx.shadowBlur=20;
+  if(flash>0.02){ctx.globalAlpha=a*flash*0.9;ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.shadowColor="#fff";ctx.shadowBlur=gB(20);
     if(hold)hexPath(ctx,x,y,br+2+flash*5);else{ctx.beginPath();ctx.arc(x,y,br+2+flash*5,0,Math.PI*2);}ctx.stroke();}   // 퍼펙트 임박 플래시
   ctx.restore();
 }
 function NoteFX_approach(ctx,x,y,br,r,prog,ease,a,col,hold){
   if(prog>=1)return;const rr=br+(1-prog)*r*2.6;
-  ctx.save();ctx.globalCompositeOperation="source-over";ctx.shadowColor=col;ctx.shadowBlur=8;ctx.globalAlpha=a*(0.45+0.45*ease);
+  ctx.save();ctx.globalCompositeOperation="source-over";ctx.shadowColor=col;ctx.shadowBlur=gB(8);ctx.globalAlpha=a*(0.45+0.45*ease);
   ctx.lineWidth=Math.max(2.8,br*0.07);ctx.strokeStyle=col;
   if(hold)hexPath(ctx,x,y,rr);else{ctx.beginPath();ctx.arc(x,y,rr,0,Math.PI*2);}
   ctx.stroke();ctx.restore();
