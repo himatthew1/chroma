@@ -1750,29 +1750,40 @@ function gameNow(){
 
 let curSongMeta={title:"—",artist:"",diff:""};
 function padGeomFor(W,H){
-  const r=clamp(Math.min(W/12,H*0.10),32,74);   // ★위젯 비율로 축소(예전보다 작게)
-  // ★패드를 가운데로 모아 한눈에: 인접 패드 간격을 좁히고 전체를 중앙 정렬
-  const gap=r*0.40, maxSpan=(W-2*(r+12))/3;
-  const span=Math.min(2*r+gap,maxSpan), total=span*3, startX=W/2-total/2, y=H-r-46-Math.round(r*0.92);   // ★스페이스 콘솔 자리 확보(패드 살짝 위로)
-  return {r,y,span,xs:[0,1,2,3].map(c=>startX+span*c)};
+  const r=clamp(Math.min(W/12,H*0.10),32,74);   // ★위젯 비율로 축소
+  // ★그릇형 콘솔(스페이스 패드): 넓은 간격 + 아래볼록 곡면(bowl) + 패드 홈(노치) + 큰 모서리 깎임. 위젯 PAD_BOWL 확정 비율(r45 기준 gap3.22/bowl2.67/conH3.11/margin2.56/bevel0.44)
+  const bevel=r*0.44, nr=r*1.16, bowl=r*2.67, conH=r*3.11;
+  const gap=Math.min(r*3.22,(W-r*4.6)/3);   // 패드 중심 간격(화면 안)
+  const xs=[0,1,2,3].map(c=>W/2+(c-1.5)*gap);
+  const bottomY=H-Math.round(H*0.03), topEdge=bottomY-conH, y=topEdge;   // y=양끝 패드 높이(horizonY/HUD 호환)
+  const margin=Math.min(r*2.56, xs[0]-r*0.7);   // 양옆 자투리(화면 안)
+  const sx=xs[0]-margin, ex=xs[3]+margin, ebx0=sx+bevel, ebx2=ex-bevel;
+  const padY=(x)=>{const t=clamp((x-ebx0)/(ebx2-ebx0),0,1);return topEdge+bowl*2*t*(1-t);};   // 아래볼록 그릇: 양끝 topEdge, 가운데 +0.5*bowl
+  const ys=xs.map(padY);
+  return {r,y,xs,ys,bottomY,topEdge,conH,bowl,margin,bevel,nr,sx,ex,ebx0,ebx2,padY};
 }
 function padGeom(){return padGeomFor(pcanvas.width,pcanvas.height);}
 // SHARED 패드+스페이스 콘솔 — 인게임(pctx)·How-to(fxc)가 동일 호출. txt(t,x,y,sz,col)=픽셀텍스트 콜백.
 function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
-  {const sw=Math.min(W*0.82,(g.xs[3]-g.xs[0])+g.r*3.0),sx=W/2-sw/2,ex=W/2+sw/2,bt=g.y,bb=H-16,ch=g.r*0.42,nr=g.r*1.16,allHeld=!!spaceLit;   // ★스페이스바 입력 시 콘솔 발광 (ADJL 4키와 무관)
-   const ag=ctx.createLinearGradient(sx,0,ex,0);for(let k=0;k<5;k++)ag.addColorStop(k/4,_rgba(SP_AUR[k],1));
-   const barPath=()=>{ctx.beginPath();ctx.moveTo(sx+ch,bt);for(let c=0;c<4;c++){ctx.lineTo(g.xs[c]-nr,bt);ctx.arc(g.xs[c],bt,nr,Math.PI,0,true);}ctx.lineTo(ex-ch,bt);ctx.lineTo(ex,bt+ch);ctx.lineTo(ex,bb-ch);ctx.lineTo(ex-ch,bb);ctx.lineTo(sx+ch,bb);ctx.lineTo(sx,bb-ch);ctx.lineTo(sx,bt+ch);ctx.closePath();};
-   ctx.save();
-   const ig=ctx.createLinearGradient(0,bt,0,bb);ig.addColorStop(0,_rgba(SP_AUR[4],0.18));ig.addColorStop(0.5,"rgba(12,20,48,0.45)");ig.addColorStop(1,_rgba(SP_AUR[2],0.13));
-   if(allHeld){ctx.globalCompositeOperation="lighter";ctx.globalAlpha=0.3;ctx.fillStyle=ag;barPath();ctx.fill();ctx.globalCompositeOperation="source-over";}
-   else{ctx.globalAlpha=1;ctx.fillStyle=ig;barPath();ctx.fill();}
-   ctx.globalAlpha=allHeld?0.99:0.78;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(allHeld?40:18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);barPath();ctx.stroke();
-   ctx.restore();
-   const sy=(g.y+g.r+bb)/2,fs=clamp(g.r*0.5,18,54);
-   txt("SPACE",W/2,sy,fs,"#dfeaff");
-  }
+  const bb=g.bottomY, allHeld=!!spaceLit;
+  // 그릇 곡면 윗변 + 패드 홈(아래로 파임)을 매끄럽게 합침
+  const topY=(x)=>{let yv=g.padY(x);for(let c=0;c<4;c++){const dx=x-g.xs[c];if(Math.abs(dx)<g.nr){const ny=g.padY(g.xs[c])+Math.sqrt(g.nr*g.nr-dx*dx);if(ny>yv)yv=ny;}}return yv;};
+  function bowl(){ctx.beginPath();ctx.moveTo(g.sx+g.bevel,bb);ctx.lineTo(g.sx,bb-g.bevel);ctx.lineTo(g.sx,g.topEdge+g.bevel);ctx.lineTo(g.ebx0,g.topEdge);
+    for(let x=g.ebx0;x<=g.ebx2;x+=2)ctx.lineTo(x,topY(x));
+    ctx.lineTo(g.ebx2,g.topEdge);ctx.lineTo(g.ex,g.topEdge+g.bevel);ctx.lineTo(g.ex,bb-g.bevel);ctx.lineTo(g.ex-g.bevel,bb);ctx.closePath();}   // 큰 빗각 모서리 + 곡면 윗변
+  const ag=ctx.createLinearGradient(g.sx,0,g.ex,0);for(let k=0;k<5;k++)ag.addColorStop(k/4,_rgba(SP_AUR[k],1));
+  ctx.save();
+  ctx.fillStyle="#070912";bowl();ctx.fill();   // ★불투명 바탕 — 콘솔 뒤로 분리선 안 비침
+  const ig=ctx.createLinearGradient(0,g.topEdge,0,bb);ig.addColorStop(0,_rgba(SP_AUR[4],0.18));ig.addColorStop(0.5,"rgba(12,20,48,0.45)");ig.addColorStop(1,_rgba(SP_AUR[2],0.13));
+  if(allHeld){ctx.globalCompositeOperation="lighter";ctx.globalAlpha=0.3;ctx.fillStyle=ag;bowl();ctx.fill();ctx.globalCompositeOperation="source-over";}
+  else{ctx.globalAlpha=1;ctx.fillStyle=ig;bowl();ctx.fill();}
+  ctx.globalAlpha=allHeld?0.99:0.8;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(allHeld?40:18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);bowl();ctx.stroke();
+  ctx.restore();
+  const sy=clamp((Math.max(g.ys[1],g.ys[2])+g.r+bb)/2,g.topEdge,bb-6),fs=clamp(g.r*0.42,16,44);
+  txt("SPACE",W/2,sy,fs,"#dfeaff");
   for(let c=0;c<4;c++){
-    const col=COLHEX[c],x=g.xs[c],y=g.y,hd=held&&held[c],fx=padFx&&padFx[c];
+    const col=COLHEX[c],x=g.xs[c],y=g.ys[c],hd=held&&held[c],fx=padFx&&padFx[c];
+    ctx.fillStyle="#070912";ctx.beginPath();ctx.arc(x,y,g.r*0.98,0,Math.PI*2);ctx.fill();   // ★패드 불투명 바탕 — 일반 패드 뒤로도 분리선 안 비침
     ctx.save();ctx.shadowColor=col;ctx.shadowBlur=gB(hd?40:18);
     ctx.strokeStyle=col;ctx.globalAlpha=hd?0.98:0.62;ctx.lineWidth=Math.max(3.5,g.r*0.09);
     ctx.beginPath();ctx.arc(x,y,g.r,0,Math.PI*2);ctx.stroke();
@@ -1791,7 +1802,7 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
   }
   ctx.textBaseline="alphabetic";
 }
-function padAt(px,py){const g=padGeom();for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.y)<=g.r*1.1)return c;}return -1;}
+function padAt(px,py){const g=padGeom();for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.ys[c])<=g.r*1.1)return c;}return -1;}
 function horizonY(){const g=padGeom();return g.y-g.r-16;}  // 플레이 존 / 버튼 존 경계
 function fmtTime(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function rankOf(a){return a>=98?"S+":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"D";}
@@ -2463,7 +2474,7 @@ function drawSpaceParts(){ if(!state.spaceParts||!state.spaceParts.length)return
 function padBurst(col,kind,nx,ny){
   state.padFx[col]={life:1,kind};
   if(kind==="miss"||kind==="bad")return;   // BAD/미스는 파티클 없음
-  const g=padGeom(),x=(nx!=null?nx:g.xs[col]),y=(ny!=null?ny:g.y);   // ★노트 위치에서 폭발(위젯)
+  const g=padGeom(),x=(nx!=null?nx:g.xs[col]),y=(ny!=null?ny:g.ys[col]);   // ★노트 위치에서 폭발(위젯) — 패드별 그릇 높이
   NoteFX_burst(state.particles,(state.shocks||(state.shocks=[])),(state.flashes||(state.flashes=[])),col,kind,x,y,1,noteR());   // ★공유 폭발(How-to와 동일)
 }
 function updateHUD(){
@@ -2505,12 +2516,16 @@ function drawHudCanvas(now){
   const c=state.counts,j=c.perfect+c.great+c.good+(c.bad||0)+c.miss;
   const acc=j?((c.perfect+c.great*0.7+c.good*0.4+(c.bad||0)*0.15)/j*100):100;
   ot(acc.toFixed(2)+"%  "+rankOf(acc),W-pad,H*0.06+ssz*1.0,Math.max(12,H*0.022),"#ffd23f","right");
-  // 진행바 — 패드/콘솔존 바로 위(플레이존 하단 경계)로 (콘솔과 겹치지 않게)
+  // ★상단 오로라 진행 타이머 — 진행될수록 무지개 색 변화, 남은 시간 숫자 없음
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
-  const gg=padGeom(),by=Math.max(H*0.1,gg.y-gg.r-Math.max(22,H*0.04)),p=clamp(now/dur,0,1);
-  pctx.lineCap="round";pctx.strokeStyle="#ffffff2e";pctx.lineWidth=Math.max(3,H*0.007);pctx.beginPath();pctx.moveTo(pad,by);pctx.lineTo(W-pad,by);pctx.stroke();
-  pctx.strokeStyle="#22a7ff";pctx.shadowColor="#22a7ff";pctx.shadowBlur=8;pctx.beginPath();pctx.moveTo(pad,by);pctx.lineTo(pad+(W-2*pad)*Math.max(0.0001,p),by);pctx.stroke();pctx.shadowBlur=0;
-  ot(fmtTime(now)+" / "+fmtTime(dur),W/2,by-H*0.018,Math.max(11,H*0.019),"#9fb0d8","center");
+  {const p=clamp(now/dur,0,1),pbY=Math.max(14,H*0.024),pbX=Math.max(16,W*0.022),pw=W-2*pbX,lw=Math.max(6,H*0.014);
+   pctx.lineCap="round";
+   pctx.strokeStyle="#ffffff20";pctx.lineWidth=lw;pctx.beginPath();pctx.moveTo(pbX,pbY);pctx.lineTo(W-pbX,pbY);pctx.stroke();   // 트랙
+   const fg=pctx.createLinearGradient(pbX,0,W-pbX,0);for(let k=0;k<5;k++)fg.addColorStop(k/4,_rgba(SP_AUR[k],1));   // 오로라 무지개
+   const ci=clamp(p*4,0,3.999),ka=SP_AUR[Math.floor(ci)],kb=SP_AUR[Math.ceil(ci)],kf=ci-Math.floor(ci),ecol=[ka[0]+(kb[0]-ka[0])*kf,ka[1]+(kb[1]-ka[1])*kf,ka[2]+(kb[2]-ka[2])*kf];
+   pctx.save();pctx.beginPath();pctx.rect(pbX,pbY-lw,pw*p,lw*2);pctx.clip();   // 진행만큼만 → 끝 색이 진행도에 따라 변함
+   pctx.strokeStyle=fg;pctx.shadowColor=_rgba(ecol,1);pctx.shadowBlur=gB(14);pctx.lineWidth=lw;pctx.beginPath();pctx.moveTo(pbX,pbY);pctx.lineTo(W-pbX,pbY);pctx.stroke();pctx.restore();
+   pctx.save();pctx.globalCompositeOperation="lighter";pctx.fillStyle=_rgba(ecol,1);pctx.shadowColor=_rgba(ecol,1);pctx.shadowBlur=gB(12);pctx.beginPath();pctx.arc(pbX+pw*p,pbY,Math.max(5,H*0.011),0,6.2832);pctx.fill();pctx.restore();}   // 진행 끝 발광 점(현재 색)
   pctx.restore();
 }
 document.addEventListener("keydown",e=>{
@@ -2619,15 +2634,13 @@ function loop(){
 
   // perspective horizon — 플레이 존(위) / 버튼 존(아래) 분리
   {
-    const g0=padGeom(),hy=g0.y-g0.r-16;
-    const bz=pctx.createLinearGradient(0,hy-30,0,H);
-    bz.addColorStop(0,"rgba(8,12,30,0)");bz.addColorStop(1,"rgba(10,16,42,0.55)");
-    pctx.fillStyle=bz;pctx.fillRect(0,hy-30,W,H-hy+30);
-    pctx.save();
-    pctx.strokeStyle="#22a7ff";pctx.globalAlpha=0.16;pctx.lineWidth=3;
-    pctx.beginPath();pctx.moveTo(0,hy+16);pctx.quadraticCurveTo(W/2,hy-22,W,hy+16);pctx.stroke();
-    pctx.strokeStyle="#9fb6ff";pctx.globalAlpha=0.45;pctx.lineWidth=1.1;
-    pctx.beginPath();pctx.moveTo(0,hy+16);pctx.quadraticCurveTo(W/2,hy-22,W,hy+16);pctx.stroke();
+    const g0=padGeom(),offY=g0.r*0.5;
+    // ★콘솔 그릇 곡선과 평행한 호(그 아래 +offY), clamp 없이 외삽 → 양옆도 직선 없이 호 유지. 패드/콘솔이 위에 그려져 그 부분은 가려짐
+    const divY=(x)=>{const t=(x-g0.ebx0)/(g0.ebx2-g0.ebx0);return g0.topEdge+g0.bowl*2*t*(1-t)+offY;};
+    pctx.fillStyle="#080c1c";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();   // 아래(패드존) 불투명 — 뒤 안 비침
+    pctx.save();pctx.lineCap="round";
+    pctx.strokeStyle="#22a7ff";pctx.globalAlpha=0.16;pctx.lineWidth=3;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
+    pctx.strokeStyle="#9fb6ff";pctx.globalAlpha=0.45;pctx.lineWidth=1.1;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
     pctx.restore();
   }
 
