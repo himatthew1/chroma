@@ -1779,8 +1779,7 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
   else{ctx.globalAlpha=1;ctx.fillStyle=ig;bowl();ctx.fill();}
   ctx.globalAlpha=allHeld?0.99:0.8;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(allHeld?40:18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);bowl();ctx.stroke();
   ctx.restore();
-  const sy=clamp((Math.max(g.ys[1],g.ys[2])+g.r+bb)/2,g.topEdge,bb-6),fs=clamp(g.r*0.42,16,44);
-  txt("SPACE",W/2,sy,fs,"#dfeaff");
+  // (SPACE 글자 제거 — 위젯 확정대로 콘솔에 텍스트 없음)
   for(let c=0;c<4;c++){
     const col=COLHEX[c],x=g.xs[c],y=g.ys[c],hd=held&&held[c],fx=padFx&&padFx[c];
     ctx.fillStyle="#070912";ctx.beginPath();ctx.arc(x,y,g.r*0.98,0,Math.PI*2);ctx.fill();   // ★패드 불투명 바탕 — 일반 패드 뒤로도 분리선 안 비침
