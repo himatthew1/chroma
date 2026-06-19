@@ -1846,6 +1846,7 @@ function buildPlayNotes(chart){
     nx2:(typeof n.x2==="number"?n.x2:null),ny2:(typeof n.y2==="number"?n.y2:null),
     pts:(Array.isArray(n.pts)&&n.pts.length>=2?n.pts.map(p=>(p.length>2&&typeof p[2]==="number")?[+p[0],+p[1],+p[2]]:[+p[0],+p[1]]):null),   // ★슬라이드 경로 노트포인트(정규화, [x,y,시간비율?])
     straight:(n.straight?true:undefined),   // ★직선 경로 옵션(기본=곡선/궤도)
+    sShape:(typeof n.sShape==="string"?n.sShape:null),   // ★드래그 모양 종류(custom이면 빚은 그대로 고정, 아니면 외곽 공전 배치)
     ch:(typeof n.ch==="number"?n.ch:null),ci:(typeof n.ci==="number"?n.ci:0),
     g:(typeof n.g==="number"?n.g:null),
     pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
@@ -1912,7 +1913,20 @@ function layoutPlayPositions(notes){
         const cx0=h0[0]-Math.cos(ang0)*Rn, cy0=h0[1]-Math.sin(ang0)*Rn, NP=7;
         P=[];for(let i=0;i<NP;i++){const tt=i/(NP-1),an=ang0+sweep*tt;P.push([clamp(cx0+Math.cos(an)*Rn,0.05,0.95),clamp(cy0+Math.sin(an)*Rn,0.05,0.95)]);}
       }
-      n.ppts=P.map(p=>[marginX+ctr(p[0],0.5)*(W-2*marginX), marginYt+ctr(p[1],0.62)*(marginYb-marginYt)]);
+      // ★드래그 배치: 커스텀(직접 빚은 sShape="custom")이 아니면 — 포메이션(점 상대배치)은 합동 그대로 두고, 위치·방향(회전)만 외곽 둘레로(공전하는 별처럼). 노트별 결정적(매판 동일·리사이즈 안전)
+      let useCtr=true;
+      if(n.sShape!=="custom"&&P.length>=2){
+        const hs=(k)=>{const x=Math.sin(n.time*k+k*1.3)*43758.5453;return x-Math.floor(x);};   // 0~1 결정적 해시
+        const rot=hs(127.1)*6.2832, orb=hs(311.7)*6.2832, rOut=0.60, c=Math.cos(rot),s=Math.sin(rot);
+        const rel=P.map(([x,y])=>[(x-0.5)*c-(y-0.5)*s,(x-0.5)*s+(y-0.5)*c]);   // 중심 기준 회전(형태 보존)
+        let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
+        rel.forEach(([rx,ry])=>{if(rx<mnx)mnx=rx;if(rx>mxx)mxx=rx;if(ry<mny)mny=ry;if(ry>mxy)mxy=ry;});
+        let ox=0.5+Math.cos(orb)*rOut*0.5, oy=0.5+Math.sin(orb)*rOut*0.5;
+        ox=clamp(ox,0.05-mnx,0.95-mxx); oy=clamp(oy,0.05-mny,0.95-mxy);   // 점별 자르기 대신 전체 평행이동(형태 안 찌그러짐)
+        P=rel.map(([rx,ry])=>[ox+rx,oy+ry]); useCtr=false;                 // 외곽 배치는 중앙모음(ctr) 미적용
+      }
+      n.ppts=P.map(p=> useCtr ? [marginX+ctr(p[0],0.5)*(W-2*marginX), marginYt+ctr(p[1],0.62)*(marginYb-marginYt)]
+                               : [marginX+p[0]*(W-2*marginX), marginYt+p[1]*(marginYb-marginYt)]);
       n.x=n.ppts[0][0]; n.y=n.ppts[0][1];                  // 머리=경로 시작점(캐치)
       n.x2=n.ppts[n.ppts.length-1][0]; n.y2=n.ppts[n.ppts.length-1][1];  // 꼬리=경로 끝점
       const cum=[0];for(let i=1;i<n.ppts.length;i++)cum.push(cum[i-1]+Math.hypot(n.ppts[i][0]-n.ppts[i-1][0],n.ppts[i][1]-n.ppts[i-1][1]));
@@ -2013,6 +2027,27 @@ function layoutPlayPositions(notes){
       if(dd>bd){bd=dd;best={x:cx,y:cy};}
     }
     if(best){n.x=best.x;n.y=best.y;}
+  }
+  // ★겹침 강화: 동시에 화면에 뜬 일반 단독 노트를 다른 모든 노트(일반·위치군·체인·홀드)와 더 엄격히 떼어놓기.
+  //   포메이션/경로 유지 대상(위치군·체인·슬라이드)은 고정, 일반 노트만 이동. margin 안에서 최소거리만 밀어 중앙 영역 유지(화면 밖으로 안 뺌).
+  {
+    const sep=r*2.4;
+    for(let pass=0;pass<18;pass++){
+      for(const n of notes){
+        if(n.pg!=null||n.ch!=null||n.type==="slide"||n.type==="space")continue;
+        for(const m of notes){
+          if(m===n||m.type==="space")continue;
+          if(!(n._a<m._e&&m._a<n._e))continue;          // 화면에서 같이 떠 있는 시간만
+          let dx=n.x-m.x,dy=n.y-m.y,d=Math.hypot(dx,dy);
+          if(d>=sep)continue;
+          if(d<0.5){dx=Math.cos(n.time*9.7+m.time*3.1);dy=Math.sin(n.time*9.7+m.time*3.1);d=1;}   // 정확히 겹치면 결정적 방향
+          const ux=dx/d,uy=dy/d, rigid=(m.pg!=null||m.ch!=null||m.type==="slide"||m.type==="press");
+          if(rigid){ n.x=clamp(n.x+ux*(sep-d),marginX,W-marginX); n.y=clamp(n.y+uy*(sep-d),marginYt,marginYb); }   // 상대가 포메이션이면 일반 노트만 비킴
+          else{ const pu=(sep-d)/2; n.x=clamp(n.x+ux*pu,marginX,W-marginX); n.y=clamp(n.y+uy*pu,marginYt,marginYb);
+                 m.x=clamp(m.x-ux*pu,marginX,W-marginX); m.y=clamp(m.y-uy*pu,marginYt,marginYb); }   // 둘 다 일반이면 절반씩
+        }
+      }
+    }
   }
   // ★진입: 이동 "방향"만 화면 중앙으로 통일. 거리는 노트마다 랜덤(개성 유지) — 멀다고 더 빨리 끌지 않음
   const scx=W/2, scy=(marginYt+marginYb)/2, maxDrift=r*0.8;
@@ -3797,7 +3832,7 @@ function currentChart(){
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=(n.type==="press"||n.type==="slide")?{time:n.time,type:n.type,duration:n.duration||0.3}:{time:n.time,type:"normal"};
       o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;
-      if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2){slideEnsurePtt(n);o.pts=n.pts.map((p,j)=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4),+(+n.ptt[j]).toFixed(3)]);}   // 슬라이드 경로 노트포인트([x,y,시간비율])
+      if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2){slideEnsurePtt(n);o.pts=n.pts.map((p,j)=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4),+(+n.ptt[j]).toFixed(3)]);if(n.sShape)o.sShape=n.sShape;}   // 슬라이드 경로 노트포인트([x,y,시간비율]) + 모양종류(custom=고정/그외=외곽 공전 배치)
       if(typeof n.ch==="number"){o.ch=n.ch;o.ci=n.ci||0;}   // 스와이프 체인
       if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(typeof n.pgs==="number"?n.pgs:0.12)).toFixed(3);}
       if(n.lane)o.lane=n.lane;return o;})};
