@@ -2822,6 +2822,7 @@ function loop(){
   }
 }
 function endPlay(){
+  if(!state)return;   // ★노래 끝 1초 뒤 호출 — 그 사이 뒤로가기/전환으로 state가 비워졌으면 결과창 생략(크래시 방지)
   cancelAnimationFrame(raf);if(playAudio)playAudio.pause();$("#playUI").classList.add("hidden");
   const c=state.counts,j=c.perfect+c.great+c.good+(c.bad||0)+c.miss;
   const acc=j?((c.perfect+c.great*0.7+c.good*0.4+(c.bad||0)*0.15)/j*100):0;
@@ -3279,8 +3280,8 @@ function edBeatSounds(prev,cur){
       else{if(cross(n.time))beep("perfect",col);if(dur&&cross(n.time+dur))beep("perfect",col);}continue;}
     if(n.type==="press"){if(cross(n.time))beep("perfect",col);   // ★홀드: 시작=일반음, 끝=인게임 홀드 완료음(폭발)
       if(dur&&cross(n.time+dur))explodeSound(edSfxVol,true);continue;}
-    if(n.type==="space"){if(cross(n.time))beep("perfect",0);     // ★스페이스 홀드: 끝=인게임 완료음(beatKill)
-      if(dur&&cross(n.time+dur))beatKill(edSfxVol,true);continue;}
+    if(n.type==="space"){if(cross(n.time))beatKill(edSfxVol,true);   // ★스페이스: 인게임과 동일하게 타격=beatKill(일반 노트음 아님)
+      if(dur&&cross(n.time+dur))beatKill(edSfxVol,true);continue;}    // 홀드 끝도 인게임 완료음(beatKill)
     if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
