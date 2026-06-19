@@ -1774,22 +1774,22 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
   const ag=ctx.createLinearGradient(g.sx,0,g.ex,0);for(let k=0;k<5;k++)ag.addColorStop(k/4,_rgba(SP_AUR[k],1));
   ctx.save();
   ctx.fillStyle="#070912";bowl();ctx.fill();   // ★불투명 바탕 — 콘솔 뒤로 분리선 안 비침
-  const ig=ctx.createLinearGradient(0,g.topEdge,0,bb);ig.addColorStop(0,_rgba(SP_AUR[4],0.18));ig.addColorStop(0.5,"rgba(12,20,48,0.45)");ig.addColorStop(1,_rgba(SP_AUR[2],0.13));
+  const ig=ctx.createLinearGradient(0,g.topEdge,0,bb);ig.addColorStop(0,_rgba(SP_AUR[4],0.15));ig.addColorStop(0.5,"rgba(12,20,48,0.42)");ig.addColorStop(1,_rgba(SP_AUR[2],0.12));   // ★위젯 값과 일치
   if(allHeld){ctx.globalCompositeOperation="lighter";ctx.globalAlpha=0.3;ctx.fillStyle=ag;bowl();ctx.fill();ctx.globalCompositeOperation="source-over";}
   else{ctx.globalAlpha=1;ctx.fillStyle=ig;bowl();ctx.fill();}
-  ctx.globalAlpha=allHeld?0.99:0.8;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(allHeld?40:18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.055);bowl();ctx.stroke();
+  ctx.globalAlpha=allHeld?0.99:0.85;ctx.shadowColor="#9fe8ff";ctx.shadowBlur=gB(18);ctx.strokeStyle=ag;ctx.lineWidth=Math.max(3,g.r*0.089);bowl();ctx.stroke();   // ★위젯: alpha0.85 / 두께 r*0.089
   ctx.restore();
   // (SPACE 글자 제거 — 위젯 확정대로 콘솔에 텍스트 없음)
   for(let c=0;c<4;c++){
     const col=COLHEX[c],x=g.xs[c],y=g.ys[c],hd=held&&held[c],fx=padFx&&padFx[c];
     ctx.fillStyle="#070912";ctx.beginPath();ctx.arc(x,y,g.r*0.98,0,Math.PI*2);ctx.fill();   // ★패드 불투명 바탕 — 일반 패드 뒤로도 분리선 안 비침
     ctx.save();ctx.shadowColor=col;ctx.shadowBlur=gB(hd?40:18);
-    ctx.strokeStyle=col;ctx.globalAlpha=hd?0.98:0.62;ctx.lineWidth=Math.max(3.5,g.r*0.09);
+    ctx.strokeStyle=col;ctx.globalAlpha=hd?0.98:0.66;ctx.lineWidth=Math.max(3.5,g.r*0.09);
     ctx.beginPath();ctx.arc(x,y,g.r,0,Math.PI*2);ctx.stroke();
-    ctx.globalAlpha=hd?0.72:0.34;ctx.lineWidth=Math.max(2.5,g.r*0.065);
+    ctx.globalAlpha=hd?0.7:0.34;ctx.lineWidth=Math.max(2.5,g.r*0.065);
     ctx.beginPath();ctx.arc(x,y,g.r*0.72,0,Math.PI*2);ctx.stroke();
     const rg=ctx.createRadialGradient(x,y,2,x,y,g.r*0.7);rg.addColorStop(0,col);rg.addColorStop(1,"transparent");
-    ctx.globalAlpha=hd?0.9:0.32;ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,g.r*0.7,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=hd?0.9:0.34;ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,g.r*0.7,0,Math.PI*2);ctx.fill();
     ctx.restore();
     if(fx&&fx.life>0){
       if(fx.kind!=="miss"){ctx.save();ctx.globalAlpha=fx.life*0.65;ctx.shadowColor=col;ctx.shadowBlur=gB(44*fx.life);
@@ -1797,7 +1797,7 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
         ctx.fillStyle=fg;ctx.beginPath();ctx.arc(x,y,g.r*0.95,0,Math.PI*2);ctx.fill();ctx.restore();}
       fx.life-=0.05;
     }
-    txt(KEYS[c].toUpperCase(),x,y,g.r*0.44,"#fff");
+    txt(KEYS[c].toUpperCase(),x,y,g.r*0.5,"#fff");
   }
   ctx.textBaseline="alphabetic";
 }
