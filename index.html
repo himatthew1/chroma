@@ -2251,8 +2251,18 @@ function startPreview(opt){
   else throw new Error("startPlay가 실패함(state=null)");
 }
 function _bootPreview(){const q=new URLSearchParams((location.hash&&location.hash.slice(1))||location.search.slice(1));if(q.get("preview")!=="drag")return;   // ★해시 우선(file:// 로컬은 쿼리스트링 미지원)
-  try{startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});}
-  catch(e){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99999;color:#ff8a8a;background:#04050c;font:12px ui-monospace,monospace;padding:14px;white-space:pre-wrap;overflow:auto";d.textContent="PREVIEW ERROR:\n"+((e&&e.message)||e)+"\n\n"+((e&&e.stack)||"");document.body.appendChild(d);}}
+  const dbg=document.createElement("div");dbg.style.cssText="position:fixed;left:4px;top:4px;z-index:99999;color:#7dffb0;background:rgba(0,0,0,.65);font:11px ui-monospace,monospace;padding:4px 6px;pointer-events:none;white-space:pre-wrap;max-width:96%";dbg.textContent="preview 부팅…";document.body.appendChild(dbg);
+  const run=()=>{ try{
+      startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});
+      fitCanvas(pcanvas); if(state)layoutPlayPositions(state.notes);   // 레이아웃 후 캔버스 크기 재확정
+    }catch(e){dbg.style.color="#ff8a8a";dbg.textContent="ERR: "+((e&&e.message)||e)+"\n"+((e&&e.stack)||"");return;}
+    const tick=()=>{ if(!state){dbg.textContent="state=null (startPlay 실패)";return;}
+      dbg.textContent="cv "+pcanvas.width+"x"+pcanvas.height+" · t="+gameNow().toFixed(2)+" · live="+state.notes.filter(n=>!n.done).length+" · started="+state.started+" · "+curSongMeta.diff;
+      requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(run));   // 레이아웃 완료 후 실행
+}
 if(document.readyState==="complete")_bootPreview(); else window.addEventListener("load",_bootPreview);
 
 function showCountdown(txt,green){const el=$("#countdown");el.textContent=txt;el.style.color=green?"#39e36b":"#fff";
