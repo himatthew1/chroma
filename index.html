@@ -636,6 +636,7 @@ function gB(b){return GLOW_MODE==="full"?b:GLOW_MODE==="lite"?Math.min(b,8):0;} 
 function gN(b){return GLOW_MODE==="full"?b:GLOW_MODE==="lite"?Math.min(b,18):0;}   // ★노트 본체 전용: 퍼펙트 임박 발광이 lite 상한(8)에 막히지 않게 상한 18로. 전역 gB는 그대로 → 파티클/폭발/충격파/어프로치 링 전부 불변
 function lerpHex(a,b,t){if(!a||a[0]!=="#"||a.length<7)return b;const x=parseInt(a.slice(1,7),16),y=parseInt(b.slice(1,7),16);const r=Math.round((x>>16)+(((y>>16)-(x>>16))*t)),g=Math.round(((x>>8)&255)+((((y>>8)&255)-((x>>8)&255))*t)),bl=Math.round((x&255)+(((y&255)-(x&255))*t));return "rgb("+r+","+g+","+bl+")";}   // 노트색→흰색 보간
 const NB_TINT=0.60, NB_CORE=0.36, NB_GLOW=22;   // ★퍼펙트 임박 발광 파라미터(위젯 PERFECT_GLOW 확정값: 색톤 비침 0.6 / 코어 차오름 / 임박 글로우)
+const NB_WICK=0.30;   // ★모든 노트 중앙 흰 심지 최대 크기(임박/충전에 따라 성장)
 let PARTICLE_GLOW=10;   // V3 파티클 발광(번짐) 기본값 — gB로 모드 반영
 let PARTICLE_DENSITY=0.40;   // ★입자 경량화: full=0.55, lite/off=0.40 (GLOW 변경 시 갱신) — 최경량 기본
 function pc(n){return Math.max(1,Math.round(n*PARTICLE_DENSITY));}   // particle-count 헬퍼
@@ -2564,12 +2565,14 @@ function NoteFX_noteBody(ctx,x,y,br,col,p){
     ctx.globalAlpha=a*0.6;ctx.strokeStyle="#fff";ctx.lineWidth=Math.max(2.5,br*0.06);ctx.shadowBlur=gN(8);hexPath(ctx,x,y,br);ctx.stroke();   // 흰 림
     const wc=Math.max(0.5+ease*0.35,whiten);
     ctx.globalAlpha=a*Math.min(1,wc);ctx.fillStyle=coreCol;ctx.shadowColor=coreCol;ctx.shadowBlur=gN(12+glowB*0.6);hexPath(ctx,x,y,br*(0.42+whiten*0.22+NB_CORE*ease));ctx.fill();   // ★밝은 중심: 임박할수록 차오름(ease) + 노트 톤
+    ctx.globalAlpha=a*Math.min(1,0.82+ease*0.2);ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=gN(10);ctx.beginPath();ctx.arc(x,y,br*NB_WICK*(0.62+0.5*ease)+br*whiten*0.22,0,Math.PI*2);ctx.fill();   // ★흰 심지(충전 시 성장)
   }else{
     ctx.shadowColor=col;ctx.shadowBlur=gN(14+NB_GLOW*ease);ctx.lineWidth=Math.max(3.5,br*0.1);ctx.strokeStyle=col;
     ctx.beginPath();ctx.arc(x,y,br,0,Math.PI*2);ctx.stroke();                                            // 굵은 링(임박 글로우)
     ctx.shadowBlur=gN(12);ctx.globalAlpha=a*(0.85+0.15*ease);ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,br*0.46,0,Math.PI*2);ctx.fill();   // 코어
     ctx.globalAlpha=a;ctx.fillStyle=coreCol;ctx.shadowColor=coreCol;ctx.shadowBlur=gN(12+NB_GLOW*0.3*ease);ctx.beginPath();ctx.arc(x,y,br*(0.26+NB_CORE*ease),0,Math.PI*2);ctx.fill();   // ★밝은 중심: 임박할수록 차오름 + 노트 톤
     if(ease>0.01){ctx.globalAlpha=a*ease*0.48;ctx.fillStyle=coreCol;ctx.shadowColor=coreCol;ctx.shadowBlur=gN(8+NB_GLOW*ease);ctx.beginPath();ctx.arc(x,y,br*(0.55+0.18*ease),0,Math.PI*2);ctx.fill();}   // ★임박 발광(은은한 추가 글로우)
+    ctx.globalAlpha=a*Math.min(1,0.8+ease*0.2);ctx.fillStyle="#fff";ctx.shadowColor="#fff";ctx.shadowBlur=gN(10);ctx.beginPath();ctx.arc(x,y,br*NB_WICK*(0.62+0.5*ease),0,Math.PI*2);ctx.fill();   // ★흰 심지(임박 시 성장)
   }
   if(flash>0.02){ctx.globalAlpha=a*flash*0.9;ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.shadowColor="#fff";ctx.shadowBlur=gN(20);
     if(hold)hexPath(ctx,x,y,br+2+flash*5);else{ctx.beginPath();ctx.arc(x,y,br+2+flash*5,0,Math.PI*2);}ctx.stroke();}   // 퍼펙트 임박 플래시
@@ -2942,23 +2945,33 @@ function loop(){
            pctx.globalAlpha=ag*ag*0.8*a;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(5);pctx.lineWidth=0.5+ag*ag*1.8;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}}
       }
       pctx.restore();
-      // ── 별 노트 본체 ──
+      // ── 헤드 본체 ──
       const base=n.holding?SP(s):PP(0);
-      let bx=base[0],by=base[1],bsz=hbr,gl=0,wh=0,rot=now*3;   // ★V4 대기별 회전
-      if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.45);gl=30+s*50;wh=0.35+s*0.55;rot=-now*6;   // ★V4 역행별 역방향 회전
-        if(!n.missed){for(let k=0;k<pc(3);k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*4;   // ★drag_v4: 역행 별 스파크(경량화)
-          state.particles.push({x:bx,y:by,px:bx,py:by,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.2,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*2,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
-      // 접근 어프로치 별 링
-      if(!n.holding&&prog<1){const rr=bsz+(1-prog)*r*2.6;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=a*(0.4+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,rr,rot);pctx.stroke();pctx.restore();}
-      // 별 코어(오라+색 솔리드+흰 외곽+흰 코어)
-      pctx.save();pctx.globalCompositeOperation="lighter";pctx.shadowColor=col;
-      pctx.shadowBlur=gB(18+gl);pctx.globalAlpha=a*0.2;pctx.fillStyle=col;star4Path(pctx,bx,by,bsz*1.4,rot);pctx.fill();
-      pctx.shadowBlur=gB(12+gl);pctx.globalAlpha=a*0.9;star4Path(pctx,bx,by,bsz,rot);pctx.fill();
-      pctx.globalAlpha=a*0.7;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,bsz,rot);pctx.stroke();
-      const wc=Math.max(0.45+ease*0.3,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(12+gl*0.6);star4Path(pctx,bx,by,bsz*(0.5+wh*0.2),rot);pctx.fill();pctx.restore();
-      // 합체 섬광
-      const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1);
-      if(!n.holding&&flashS>0.02){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=flashS;pctx.fillStyle="rgba(255,255,255,0.7)";pctx.shadowColor="#fff";pctx.shadowBlur=gB(30);pctx.beginPath();pctx.arc(bx,by,bsz*1.4*flashS+6,0,6.2832);pctx.fill();pctx.restore();}
+      let bx=base[0],by=base[1];
+      if(n.holding){
+        // 역행: 4각별 유성(회전·스파크) — 기존 유지
+        const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;const bsz=hbr*(1+s*0.45),gl=30+s*50,wh=0.35+s*0.55,rot=-now*6;
+        if(!n.missed){for(let k=0;k<pc(3);k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*4;
+          state.particles.push({x:bx,y:by,px:bx,py:by,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.2,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*2,streak:Math.random()<0.5,white:Math.random()<0.4});}}
+        pctx.save();pctx.globalCompositeOperation="lighter";pctx.shadowColor=col;
+        pctx.shadowBlur=gB(18+gl);pctx.globalAlpha=a*0.2;pctx.fillStyle=col;star4Path(pctx,bx,by,bsz*1.4,rot);pctx.fill();
+        pctx.shadowBlur=gB(12+gl);pctx.globalAlpha=a*0.9;star4Path(pctx,bx,by,bsz,rot);pctx.fill();
+        pctx.globalAlpha=a*0.7;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,bsz,rot);pctx.stroke();
+        const wc=Math.max(0.45,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(12+gl*0.6);star4Path(pctx,bx,by,bsz*(0.5+wh*0.2),rot);pctx.fill();pctx.restore();
+      } else {
+        // ★헤드 = 완전한 일반 노트 + 뒤에 노트색 4각별(원 내부는 일반 노트 판박이 — 별/경로/포인트 안 비침)
+        const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1), starEdge=lerpHex(col,"#ffffff",0.5);
+        pctx.save();pctx.globalAlpha=a*0.95;pctx.shadowColor=col;pctx.shadowBlur=gB(12);pctx.fillStyle=col;star4Path(pctx,bx,by,br*1.7,0);pctx.fill();   // 뒤 별(노트색)
+        pctx.lineWidth=Math.max(2.5,br*0.1);pctx.strokeStyle=starEdge;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,br*1.7,0);pctx.stroke();pctx.restore();
+        // 노트 원 내부 마스킹 — 배경을 다시 깔아 별/경로/노트포인트 비침 차단
+        const mg=pctx.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);mg.addColorStop(0,"#0a1233");mg.addColorStop(0.6,"#06091c");mg.addColorStop(1,"#04050c");
+        pctx.save();pctx.beginPath();pctx.arc(bx,by,br*1.06,0,6.2832);pctx.clip();pctx.fillStyle=mg;pctx.fillRect(bx-br*1.3,by-br*1.3,br*2.6,br*2.6);pctx.restore();
+        // 앞 = 일반 노트 그대로(어프로치 링·오브·발광·심지·플래시)
+        pctx.save();pctx.globalAlpha=a;
+        NoteFX_approach(pctx,bx,by,br,r,prog,ease,a,col,false);
+        NoteFX_noteBody(pctx,bx,by,br,col,{a:a,ease:ease,glowB:0,whiten:0,flash:flashS,hold:false});
+        pctx.restore();
+      }
       continue;
     }
     pctx.save();pctx.globalAlpha=a;
