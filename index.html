@@ -660,6 +660,59 @@ function fxLogo(cx,ly,lsz,t,ctxArg){t=t||0;const fxc=ctxArg||window.__fxc;   // 
   }
   fxc.restore();}
 function fxTitle(s,cx,y,sz,col){fxc.save();const fs=fxPixFit(s,fx.width*0.9,sz*0.82);fxc.shadowColor=col||"#22a7ff";fxc.shadowBlur=sz*0.35;fxPixText(s,cx,y,fs,col?"#fff":"#fff","center");fxc.restore();}
+// ===== 랭크 도장 (RANK_STAMPS 위젯 확정본 → 인게임 에셋) — 결과 슬램 + 곡선택 미니 공용 =====
+const STAMP_METAL={
+  F:{stops:[[0,"#3a0c0c"],[0.4,"#b23c3c"],[0.5,"#ff8181"],[0.62,"#922828"],[1,"#2c0909"]], rep:"#d24a4a", glow:"#ff8181", sweep:false},
+  C:{stops:[[0,"#171a21"],[0.4,"#3d4453"],[0.5,"#8e97ad"],[0.62,"#2a2f3a"],[1,"#0c0e13"]], rep:"#7a8294", glow:"#aeb6c8", sweep:true},
+  B:{stops:[[0,"#4a2412"],[0.34,"#cf7f44"],[0.5,"#ffe6c0"],[0.62,"#b3672f"],[1,"#34160a"]], rep:"#e89150", glow:"#ffc888", sweep:true},
+  A:{stops:[[0,"#454b58"],[0.34,"#cdd3e0"],[0.5,"#ffffff"],[0.62,"#b0b6c6"],[1,"#3a3f49"]], rep:"#dfe5f0", glow:"#ffffff", sweep:true},
+  S:{stops:[[0,"#5a3d0a"],[0.34,"#eebf48"],[0.5,"#fff8cc"],[0.62,"#d6a328"],[1,"#46300a"]], rep:"#ffd23f", glow:"#fff0a0", sweep:true},
+  M:{aurora:true, rep:"#ffffff", glow:"#ffffff", sweep:true},
+};
+const _stLc=document.createElement('canvas'),_stFg=document.createElement('canvas'),_stLt=document.createElement('canvas');
+function _stAur(t){const ci=clamp(t,0,4.999),a=SP_AUR[Math.floor(ci)],b=SP_AUR[Math.ceil(ci)%5],f=ci-Math.floor(ci);return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];}
+function _stHex(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)];}
+function _stSweep(c,o,RR,M,now,idx){if(M.sweep===false)return;   // 빛 쓸기(랭크 톤+희게, source-atop → 픽셀에만)
+  c.save();c.globalCompositeOperation="source-atop";c.translate(o,o);c.rotate(-0.5);
+  const tone=M.aurora?_stAur((now*0.7)%5):_stHex(M.glow), wc=[tone[0]+(255-tone[0])*0.6,tone[1]+(255-tone[1])*0.6,tone[2]+(255-tone[2])*0.6];
+  const sp=(((now*1.15+idx*0.2)%1.3)-0.3),xg=-RR+sp*2*RR,w=RR*0.45;
+  const sg=c.createLinearGradient(xg-w,0,xg+w,0);
+  sg.addColorStop(0,_rgba(wc,0));sg.addColorStop(0.5,_rgba(wc,0.78));sg.addColorStop(1,_rgba(wc,0));
+  c.fillStyle=sg;c.fillRect(-2*RR,-2*RR,4*RR,4*RR);c.restore();}
+function _stRing(c,o,R,M,now){let stroke;   // 매끈한 이중 원(글자 제외)
+  if(M.aurora){const lg=c.createLinearGradient(o-R,o-R,o+R,o+R);for(let k=0;k<5;k++)lg.addColorStop(k/4,_rgba(_stAur((k+now*0.6)%5),1));stroke=lg;}else stroke=M.rep;
+  c.strokeStyle=stroke;c.lineWidth=R*0.12;c.beginPath();c.arc(o,o,R*0.9,0,6.2832);c.stroke();
+  c.lineWidth=R*0.075;c.beginPath();c.arc(o,o,R*0.64,0,6.2832);c.stroke();}
+function _stLetterMetal(c,cx,cy,sz,k,M,now){const S=Math.ceil(sz*2.0);_stLc.width=S;_stLc.height=S;const lc=_stLc.getContext('2d');lc.clearRect(0,0,S,S);
+  lc.textAlign="center";lc.textBaseline="middle";lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";
+  let grad; if(M.aurora){grad=lc.createLinearGradient(0,S*0.18,S*0.6,S*0.82);for(let i=0;i<=6;i++)grad.addColorStop(i/6,_rgba(_stAur((i*0.85+now*0.9)%5),1));}
+  else{grad=lc.createLinearGradient(0,S*0.16,0,S*0.84);M.stops.forEach(s=>grad.addColorStop(s[0],s[1]));}
+  lc.fillStyle=grad;lc.fillText(k,S/2,S/2);c.drawImage(_stLc,cx-S/2,cy-S/2);}
+function drawRankStamp(g,cx,cy,R,k,now,slam){
+  const M=STAMP_METAL[k]||STAMP_METAL.F, idx="FCBASM".indexOf(k), gl=idx<3?0:0.5+(idx-3)*0.25;   // F·C·B=0, A=0.5, S=0.75, M=1
+  slam=clamp(slam,0,1);if(slam<=0)return;
+  const eo=1-Math.pow(1-slam,3), sc=slam<1?(2.0-1.0*eo):1, sa=clamp(slam*1.6,0,1);
+  g.save();g.translate(cx,cy);g.scale(sc,sc);g.globalAlpha=sa;
+  const layers=Math.round(gl*3);   // 뒤 별빛 버스트(A+)
+  if(layers>0){g.save();g.globalCompositeOperation="lighter";
+    for(let s=0;s<layers;s++){g.globalAlpha=sa*Math.max(0,(0.08+gl*0.2)-s*0.05);g.fillStyle=M.aurora?_rgba(_stAur((now*0.8+s)%5),1):M.rep;g.shadowColor=M.glow;g.shadowBlur=14+gl*30;star4Path(g,0,0,R*(1.3+gl*0.55-s*0.3),now*(s%2?-0.5:0.7)+idx);g.fill();}
+    g.restore();}
+  g.fillStyle="#06080f";g.beginPath();g.arc(0,0,R,0,6.2832);g.fill();   // 원판 배경
+  const S=Math.ceil(R*2.4),o=S/2;_stFg.width=S;_stFg.height=S;const fc=_stFg.getContext('2d');fc.clearRect(0,0,S,S);
+  _stRing(fc,o,R,M,now);_stSweep(fc,o,R,M,now,idx);
+  g.save();if(gl>0){g.shadowColor=M.glow;g.shadowBlur=R*0.34*gl;}g.drawImage(_stFg,-o,-o);g.restore();
+  const cnt=Math.round(gl*10);   // 둘레 스파클(A+)
+  if(cnt>0){g.save();g.globalCompositeOperation="lighter";
+    for(let i=0;i<cnt;i++){const a=now*0.6+i/cnt*6.2832,rr=R*(1.06+0.12*Math.sin(now*2+i)),x=Math.cos(a)*rr,y=Math.sin(a)*rr,tw=0.35+0.65*Math.abs(Math.sin(now*3+i*1.7));
+      const sc2=M.aurora?_rgba(_stAur((i+now)%5),1):M.glow;g.globalAlpha=sa*tw*(0.4+gl*0.5);g.fillStyle=sc2;g.shadowColor=sc2;g.shadowBlur=8+gl*8;star4Path(g,x,y,R*0.10*tw+1,now*3+i);g.fill();}
+    g.restore();}
+  g.save();g.textAlign="center";g.textBaseline="middle";g.font=Math.round(R*0.82)+"px 'Press Start 2P',monospace";   // 블랙 외곽선(빛 쓸기 영향 X)
+  g.lineWidth=R*0.82*0.28;g.lineJoin="round";g.strokeStyle="#000000";g.strokeText(k,0,R*0.04);g.restore();
+  const sz=R*0.82,LS=Math.ceil(sz*2.0),lo=LS/2;_stLt.width=LS;_stLt.height=LS;const ltc=_stLt.getContext('2d');ltc.clearRect(0,0,LS,LS);   // 금속 글자(최상단, 글로우 없이 선명)
+  _stLetterMetal(ltc,lo,lo,sz,k,M,now);_stSweep(ltc,lo,sz*0.62,M,now,idx);
+  g.drawImage(_stLt,-lo,R*0.04-lo);
+  g.restore();
+}
 function drawFxMenu(t){
   const W=fx.width,H=fx.height,cx=W/2;
   fxBgDraw();
@@ -680,9 +733,15 @@ function drawFxMenu(t){
 function drawFxResult(t){
   const W=fx.width,H=fx.height,cx=W/2,txt=id=>{const e=document.getElementById(id);return e?e.textContent:"";};
   fxBgDraw();
-  fxTitle(txt("rRank")||"CLEAR!",cx,H*0.13,Math.min(W*0.07,H*0.07,46),"#ffd23f");
+  // 랭크 도장 — 쾅 슬램(결과 진입 t=0부터)
+  const rk=window._resRank||"F", R=Math.min(W*0.11,H*0.085,82);
+  drawRankStamp(fxc,cx,H*0.155,R,rk,t,clamp(t/0.32,0,1));
+  if(t>0.28){
+    if(window._resFC){fxc.save();fxc.shadowColor="#ffd23f";fxc.shadowBlur=8;fxPixText("FULL COMBO",cx,H*0.155+R+H*0.034,fxPixFit("FULL COMBO",W*0.5,Math.max(11,H*0.02)),"#ffd23f","center");fxc.restore();}
+    if(window._resNew){fxc.save();fxc.shadowColor="#39e36b";fxc.shadowBlur=12;fxPixText("NEW RECORD",cx,H*0.155+R+(window._resFC?H*0.062:H*0.034),fxPixFit("NEW RECORD",W*0.5,Math.max(12,H*0.024)),"#7dffb0","center");fxc.restore();}
+  }
   const rows=[["SCORE","rScore","#fff"],["MAX COMBO","rCombo","#fff"],["ACCURACY","rAcc","#fff"],["PERFECT","rPerfect","#39e36b"],["GREAT","rGreat","#22a7ff"],["GOOD","rGood","#ffd23f"],["BAD","rBad","#ff9a3c"],["MISS","rMiss","#ff2e97"]];
-  const fs=Math.max(18,Math.min(W*0.05,H*0.036)),lh=fs*1.95,gx=cx-W*0.42,vx=cx+W*0.42,y0=H*0.23;
+  const fs=Math.max(16,Math.min(W*0.046,H*0.032)),lh=fs*1.74,gx=cx-W*0.42,vx=cx+W*0.42,y0=H*0.34;
   fxc.save();fxc.textBaseline="middle";
   for(let i=0;i<rows.length;i++){const y=y0+i*lh;
     fxc.shadowColor=rows[i][2];fxc.shadowBlur=8;fxPixText(rows[i][0],gx,y,fxPixFit(rows[i][0],(cx-gx)*0.86,fs),rows[i][2],"left");
@@ -717,12 +776,15 @@ function drawFxSongsel(t){
     const pad=Math.max(16,bw*0.045);
     // 커버 스와치
     fxc.shadowBlur=0;const sw=bh*0.56,swx=bx+pad,swy=yy+(bh-sw)/2;const cg=fxc.createLinearGradient(swx,swy,swx+sw,swy+sw);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(swx,swy,sw,sw);
-    const tx=swx+sw+pad,rightLim=bx+bw-pad;let nx=tx;
+    const rec=(!diffOpen&&el.dataset.song)?bestRankForSong(el.dataset.song):null;   // ★플레이한 곡 = 최고 랭크 미니 도장
+    const stR=bh*0.34;
+    const tx=swx+sw+pad,rightLim=bx+bw-pad-(rec?stR*2.3:0);let nx=tx;
     fxc.shadowBlur=0;
     if(locked){fxc.save();fxc.font=Math.round(bh*0.3)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle="#ffd23f";fxc.fillText("🔒",nx,yy+bh*0.42);fxc.restore();nx+=bh*0.44;}
     fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(nm,nx,yy+bh*0.42,fxPixFit(nm,rightLim-nx,bh*0.26),"#fff","left");
     if(sub){fxc.shadowBlur=2;fxPixText(sub,tx,yy+bh*0.74,fxPixFit(sub,rightLim-tx,bh*0.17),"#bcc8ee","left");}
-    fxc.restore();});
+    fxc.restore();
+    if(rec)drawRankStamp(fxc,bx+bw-pad-stR,yy+bh/2,stR,rec.rank,t,1);});
   fxPixelate();
 }
 // ===== 설정 화면 (HTML 컨트롤을 캔버스로 미러링 + 필터) =====
@@ -1272,7 +1334,7 @@ async function renderSongList(){
   if(!songs.length){list.innerHTML='<div class="muted">곡이 없습니다. 에디터에서 "New Song"으로 만들어보세요.</div>';return;}
   list.innerHTML="";
   songs.forEach(song=>{
-    const card=document.createElement("div");card.className="songcard";
+    const card=document.createElement("div");card.className="songcard";card.dataset.song=song.id;   // ★기록 조회용
     const diffs=song.difficulties.map(d=>d.name).join(" · ");
     card.innerHTML=`<div class="cover"></div><div class="meta">
       <div class="nm">${song.title}</div>
@@ -1315,7 +1377,7 @@ function playEmbedded(song,diff){
   playFromEditor=false;
   playAudio=new Audio(song.audio);playAudio.preload="auto";
   playChart=diff.chart;
-  curSongMeta={title:song.title,artist:song.artist||"",diff:diff.name};
+  curSongMeta={title:song.title,artist:song.artist||"",diff:diff.name,id:song.id};   // ★id=기록 키
   show("play");startPlay();
 }
 
@@ -1805,7 +1867,19 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
 function padAt(px,py){const g=padGeom();for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.ys[c])<=g.r*1.1)return c;}return -1;}
 function horizonY(){const g=padGeom();return g.topEdge-g.r*0.2;}  // 플레이 존 / 버튼 존 경계 — 콘솔 윗변(분리선) 근처까지 확장
 function fmtTime(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
-function rankOf(a){return a>=98?"S+":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"D";}
+function rankOf(a){return a>=99.999?"M":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"F";}   // M=100%(올퍼펙트), F=최하위
+// ===== 브라우저 플레이 기록 (localStorage, 기기별) =====
+function recKey(){return (curSongMeta.id||"")+"::"+(curSongMeta.diff||"");}
+function loadRecords(){try{return JSON.parse(localStorage.getItem("chroma.records.v1")||"{}");}catch(_){return {};}}
+function _recToday(){const d=new Date();return String(d.getMonth()+1).padStart(2,"0")+"."+String(d.getDate()).padStart(2,"0");}
+function saveRecord(score,acc,rank,combo,fc){
+  if(playFromEditor||!curSongMeta.id)return {isNew:false,prevBest:0};   // 테스트 플레이/식별 불가 → 기록 안 함
+  const all=loadRecords(),k=recKey(),prev=all[k],isNew=!prev||score>prev.best;
+  all[k]={best:Math.max(score,prev?prev.best:0),acc:isNew?+acc.toFixed(2):prev.acc,rank:isNew?rank:prev.rank,combo:Math.max(combo,prev?(prev.combo||0):0),fc:(prev&&prev.fc)||fc,plays:(prev?(prev.plays||0):0)+1,last:_recToday()};
+  try{localStorage.setItem("chroma.records.v1",JSON.stringify(all));}catch(_){}
+  return {isNew,prevBest:prev?prev.best:0};
+}
+function bestRankForSong(songId){const all=loadRecords();let best=null,bi=-1;for(const k in all){if(k.indexOf(songId+"::")===0){const i="FCBASM".indexOf(all[k].rank);if(i>bi){bi=i;best=all[k];}}}return best;}
 
 // 정규화 좌표(0~1) 배치: 시간상 가까운 노트끼리 안 겹치게. onlyMissing=true면 좌표 없는 것만 채움.
 // 위치군: 같은 pg끼리 매판 한 랜덤 앵커 근처로 몰아서 배치 (노트별 이격 거리 랜덤 → 몰린 정도 제각각)
@@ -2512,10 +2586,10 @@ function drawHudCanvas(now){
     ot(String(state.combo),W/2,H*0.045+Math.max(24,H*0.082),Math.max(24,H*0.072),"#bfe3ff","center");}
   // 점수 + 정확도/랭크 (우상단)
   const ssz=Math.max(16,H*0.04);
-  ot(String(state.score).padStart(7,"0"),W-pad,H*0.06,ssz,"#ffffff","right");
+  ot(String(state.score).padStart(7,"0"),W-pad,H*0.09,ssz,"#ffffff","right");   // ★타이머 아래로 내려 겹침 방지
   const c=state.counts,j=c.perfect+c.great+c.good+(c.bad||0)+c.miss;
   const acc=j?((c.perfect+c.great*0.7+c.good*0.4+(c.bad||0)*0.15)/j*100):100;
-  ot(acc.toFixed(2)+"%  "+rankOf(acc),W-pad,H*0.06+ssz*1.0,Math.max(12,H*0.022),"#ffd23f","right");
+  ot(acc.toFixed(2)+"%",W-pad,H*0.09+ssz*1.0,Math.max(12,H*0.022),"#ffd23f","right");   // ★게임 중엔 정확도만(랭크는 결과 화면에서만)
   // ★상단 오로라 진행 타이머 — 진행될수록 무지개 색 변화, 남은 시간 숫자 없음
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
   {const p=clamp(now/dur,0,1),pbY=Math.max(14,H*0.024),pbX=Math.max(16,W*0.022),pw=W-2*pbX,lw=Math.max(6,H*0.014);
@@ -2879,7 +2953,10 @@ function endPlay(){
   $("#rScore").textContent=String(state.score).padStart(7,"0");$("#rCombo").textContent=state.maxCombo;
   $("#rAcc").textContent=acc.toFixed(2)+"%";$("#rPerfect").textContent=c.perfect;$("#rGreat").textContent=c.great;
   $("#rGood").textContent=c.good;$("#rBad").textContent=(c.bad||0);$("#rMiss").textContent=c.miss;
-  $("#rRank").textContent=(c.miss===0&&!(c.bad)?"FULL COMBO · ":"")+"RANK "+rankOf(acc);
+  const rank=rankOf(acc), fc=(c.miss===0&&!c.bad);
+  const sv=saveRecord(state.score,acc,rank,state.maxCombo,fc);   // ★브라우저 기록 저장(최고점 갱신 시만 랭크/정확도 갱신)
+  window._resRank=rank;window._resFC=fc;window._resNew=sv.isNew;   // ★결과 도장/배너용
+  $("#rRank").textContent=(fc?"FULL COMBO · ":"")+"RANK "+rank;
   $("#toEditor").classList.toggle("hidden",!playFromEditor);   // 테스트 플레이면 '에디터로'
   $("#toSongSel").classList.toggle("hidden",playFromEditor);   //   대신 'Song Select' 숨김
   show("result");
