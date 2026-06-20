@@ -3824,21 +3824,41 @@ function slideEnsurePtt(n){if(!n.ptt||n.ptt.length!==n.pts.length)slideUniformPt
 function slideRegen(n){const sh=n.sShape||"arc";if(sh==="custom"){slideEnsurePtt(n);return;}
   n.sShape=sh;n.sCount=n.sCount||5;n.sSpan=n.sSpan||0.7;n.sAmp=(n.sAmp==null?0.26:n.sAmp);
   n.pts=slideGenPts(sh,n.sCount,n.sSpan,n.sAmp);slideUniformPtt(n);n.x=n.pts[0][0];n.y=n.pts[0][1];}
-function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height;
-  const PAD=8,mx=v=>PAD+v*(W-2*PAD),my=v=>PAD+v*(H-2*PAD);
-  c.clearRect(0,0,W,H);c.fillStyle="#0a0d1c";c.fillRect(0,0,W,H);
-  c.strokeStyle="#2a3158";c.lineWidth=1;c.strokeRect(0.5,0.5,W-1,H-1);
+// 실제 인게임 플레이존 메트릭 (layoutPlayPositions와 동일 공식)
+function playFieldMetrics(W,H){
+  const r=clamp(Math.min(W/12,H*0.10),32,74), marginX=r+22, marginYt=clamp(H*0.17,64,150);
+  const g=padGeomFor(W,H), marginYb=Math.max(marginYt+60, (g.topEdge-g.r*0.2)-r-12);
+  return {r,marginX,marginYt,marginYb};
+}
+// ★모양 편집기 = 실제 인게임 필드(같은 비율) + 진짜 패드/구분선. 점은 인게임과 동일하게 [marginX..W-marginX]×[marginYt..marginYb]로 매핑
+function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const c=cv.getContext("2d");
+  const Wp=Math.max(360,window.innerWidth||960), Hp=Math.max(260,window.innerHeight||600);
+  let cw=240, sc=cw/Wp, ch=Math.round(Hp*sc);
+  if(ch>260){sc=260/Hp;ch=260;cw=Math.round(Wp*sc);}          // 세로 상한
+  cv.width=cw;cv.height=ch;
+  const m=playFieldMetrics(Wp,Hp), g=padGeomFor(Wp,Hp);
+  const pzx=m.marginX*sc, pzy=m.marginYt*sc, pzw=(Wp-2*m.marginX)*sc, pzh=(m.marginYb-m.marginYt)*sc;
+  cv._pz={ox:pzx,oy:pzy,w:pzw,h:pzh};                          // 포인터 매핑용 플레이존 사각
+  const bg=c.createRadialGradient(cw/2,ch*0.66,10,cw/2,ch*0.66,ch);bg.addColorStop(0,"#0a1233");bg.addColorStop(0.6,"#06091c");bg.addColorStop(1,"#04050c");
+  c.clearRect(0,0,cw,ch);c.fillStyle=bg;c.fillRect(0,0,cw,ch);
+  c.save();c.scale(sc,sc);                                      // ★실제 콘솔/구분선을 스케일로 그대로
+  NoteFX_divider(c,g,Wp,Hp);
+  NoteFX_pads(c,g,Wp,Hp,[false,false,false,false],null,(t,x,y,sz,col)=>{c.save();c.fillStyle=col;c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(sz)+"px monospace";c.fillText(t,x,y);c.restore();},false);
+  c.restore();
+  c.strokeStyle="rgba(120,135,200,0.28)";c.setLineDash([4,4]);c.strokeRect(pzx,pzy,pzw,pzh);c.setLineDash([]);   // 플레이존 외곽
+  const PX=p=>pzx+p[0]*pzw, PY=p=>pzy+p[1]*pzh;
   c.strokeStyle="#5cc8ff";c.lineWidth=2;c.beginPath();
-  if(n.straight||n.pts.length<3){n.pts.forEach((p,i)=>{const X=mx(p[0]),Y=my(p[1]);i?c.lineTo(X,Y):c.moveTo(X,Y);});}
+  if(n.straight||n.pts.length<3){n.pts.forEach((p,i)=>{const X=PX(p),Y=PY(p);i?c.lineTo(X,Y):c.moveTo(X,Y);});}
   else{const P=n.pts,SEG=14;for(let i=1;i<P.length;i++){const p0=P[Math.max(0,i-2)],p1=P[i-1],p2=P[i],p3=P[Math.min(P.length-1,i+1)];
       for(let s=0;s<=SEG;s++){const t=s/SEG,t2=t*t,t3=t2*t,cr=(a,b,cc,d)=>0.5*((2*b)+(-a+cc)*t+(2*a-5*b+4*cc-d)*t2+(-a+3*b-3*cc+d)*t3);
-        const X=mx(cr(p0[0],p1[0],p2[0],p3[0])),Y=my(cr(p0[1],p1[1],p2[1],p3[1]));(i===1&&s===0)?c.moveTo(X,Y):c.lineTo(X,Y);}}}
+        const X=pzx+cr(p0[0],p1[0],p2[0],p3[0])*pzw,Y=pzy+cr(p0[1],p1[1],p2[1],p3[1])*pzh;(i===1&&s===0)?c.moveTo(X,Y):c.lineTo(X,Y);}}}
   c.stroke();
-  n.pts.forEach((p,i)=>{c.fillStyle=i===0?"#ffd54f":"#9fe0ff";c.beginPath();c.arc(mx(p[0]),my(p[1]),i===0?4:3,0,6.2832);c.fill();});
+  n.pts.forEach((p,i)=>{c.beginPath();c.arc(PX(p),PY(p),i===0?5:4,0,6.2832);c.fillStyle=i===0?"#ffd54f":"#9fe0ff";c.fill();c.lineWidth=1;c.strokeStyle="#05070f";c.stroke();});
 }
-(function(){const cv=$("#slidePathCv");if(!cv)return;const W=cv.width,H=cv.height,PAD=8;
-  const toN=(px,py)=>[clamp((px-PAD)/(W-2*PAD),0,1),clamp((py-PAD)/(H-2*PAD),0,1)];
-  const hit=(px,py)=>{if(!edSel||!edSel.pts)return -1;for(let i=0;i<edSel.pts.length;i++){const X=PAD+edSel.pts[i][0]*(W-2*PAD),Y=PAD+edSel.pts[i][1]*(H-2*PAD);if(Math.hypot(X-px,Y-py)<8)return i;}return -1;};
+(function(){const cv=$("#slidePathCv");if(!cv)return;
+  const PZ=()=>cv._pz||{ox:0,oy:0,w:cv.width,h:cv.height};   // ★플레이존 사각(드로잉이 매 호출 설정)
+  const toN=(px,py)=>{const z=PZ();return [clamp((px-z.ox)/z.w,0,1),clamp((py-z.oy)/z.h,0,1)];};
+  const hit=(px,py)=>{if(!edSel||!edSel.pts)return -1;const z=PZ();for(let i=0;i<edSel.pts.length;i++){const X=z.ox+edSel.pts[i][0]*z.w,Y=z.oy+edSel.pts[i][1]*z.h;if(Math.hypot(X-px,Y-py)<9)return i;}return -1;};
   let drag=-1;
   cv.addEventListener("contextmenu",e=>e.preventDefault());
   cv.addEventListener("pointerdown",e=>{e.preventDefault();if(!edSel||edSel.type!=="slide")return;const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,h=hit(px,py);
