@@ -2250,7 +2250,7 @@ function startPreview(opt){
   if(state){state.noAudio=true; state.readyGate=false; beginPlay();}   // 게이트/오디오 생략 — 바로 진입, 성능시계로 진행
   else throw new Error("startPlay가 실패함(state=null)");
 }
-function _bootPreview(){const q=new URLSearchParams(location.search);if(q.get("preview")!=="drag")return;
+function _bootPreview(){const q=new URLSearchParams((location.hash&&location.hash.slice(1))||location.search.slice(1));if(q.get("preview")!=="drag")return;   // ★해시 우선(file:// 로컬은 쿼리스트링 미지원)
   try{startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});}
   catch(e){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99999;color:#ff8a8a;background:#04050c;font:12px ui-monospace,monospace;padding:14px;white-space:pre-wrap;overflow:auto";d.textContent="PREVIEW ERROR:\n"+((e&&e.message)||e)+"\n\n"+((e&&e.stack)||"");document.body.appendChild(d);}}
 if(document.readyState==="complete")_bootPreview(); else window.addEventListener("load",_bootPreview);
