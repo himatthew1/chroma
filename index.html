@@ -2589,8 +2589,8 @@ function drawHudCanvas(now){
   if(title)ot(title,pad,H*0.13,tsz,"#eef1ff","left");
   if(diff)ot(diff,pad,H*0.13+tsz*1.7,Math.max(11,H*0.021),"#ff2e97","left");
   // 콤보 (상단 중앙)
-  if(state.combo>0){ot("COMBO",W/2,H*0.045,Math.max(11,H*0.019),"#8a93c0","center");
-    ot(String(state.combo),W/2,H*0.045+Math.max(24,H*0.082),Math.max(24,H*0.072),"#bfe3ff","center");}
+  if(state.combo>0){ot("COMBO",W/2,H*0.075,Math.max(11,H*0.019),"#8a93c0","center");   // ★상단 타이머 아래로 내려 겹침 방지
+    ot(String(state.combo),W/2,H*0.075+Math.max(24,H*0.082),Math.max(24,H*0.072),"#bfe3ff","center");}
   // 점수 + 정확도/랭크 (우상단)
   const ssz=Math.max(16,H*0.04);
   ot(String(state.score).padStart(7,"0"),W-pad,H*0.09,ssz,"#ffffff","right");   // ★타이머 아래로 내려 겹침 방지
@@ -2719,7 +2719,7 @@ function loop(){
   // ★콘솔 그릇 곡선과 평행한 호(그 아래 +offY), 외삽 → 양옆도 직선 없이 호 유지. divY는 노트 클립 경계로도 사용 → 패드/분리선 위로는 노트가 안 잘림
   const divY=(x)=>{const t=(x-g0.ebx0)/(g0.ebx2-g0.ebx0);return g0.topEdge+g0.bowl*2*t*(1-t)+offY;};
   {
-    pctx.save();pctx.globalCompositeOperation="multiply";pctx.fillStyle="#b0b6c6";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();pctx.restore();   // ★아래(패드존) — 배경을 곱하기로 살짝 어둡게(비쳐보임)
+    pctx.save();pctx.globalCompositeOperation="multiply";pctx.fillStyle="#6e7384";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();pctx.restore();   // ★아래(패드존) — 배경을 곱하기로 더 진하게 어둡게(비쳐보임)
     pctx.save();pctx.lineCap="round";
     pctx.strokeStyle="#22a7ff";pctx.globalAlpha=0.16;pctx.lineWidth=3;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
     pctx.strokeStyle="#9fb6ff";pctx.globalAlpha=0.45;pctx.lineWidth=1.1;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
