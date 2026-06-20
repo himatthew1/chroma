@@ -2317,6 +2317,7 @@ function beginPlay(){
   state.t0=performance.now()/1000;
   state.audioStarted=false;
   state.started=true;                 // 노트 보이기 시작 + 입력 허용
+  if(!state.noAudio)startStarSfx();    // ★게임 시작 별 반짝임
   // (이전엔 여기서 fadeFromBlack(0.45)로 화면을 검게 덮었다 페이드인 → 시동 후 "잠깐 암전"의 원인이라 제거.
   //  카운트다운·게임플레이는 같은 플레이 캔버스 안에서 연속되므로 가릴 전환 프레임이 없음 → START! 직후 자연스럽게 노트 진입)
 }
@@ -2415,6 +2416,24 @@ function playStartSound(){ if(!settings.sfxOn)return; try{
   // 벨(탑) — 0.12s 늦게 얹혀 '탁'
   const tb=t+0.12;[523,659,784,1047,1319].forEach((f,i)=>{const tt=tb+i*0.05;[1,2.01].forEach((m,k)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.type="sine";o.frequency.value=f*m;g.gain.setValueAtTime(0.0001,tt);g.gain.exponentialRampToValueAtTime((k?0.042:0.115)*V,tt+0.005);g.gain.exponentialRampToValueAtTime(0.0001,tt+1.05);o.connect(g);send(g,k===0);o.start(tt);o.stop(tt+1.1);});});
   setTimeout(()=>{try{rv.disconnect();wet.disconnect();dl.disconnect();}catch(e){}},3200);
+}catch(e){} }
+// ★게임 시작 별 반짝임 (위젯 T5 — 띄엄띄엄 핑 + 딜레이 잔향)
+function startStarSfx(){ if(!settings.sfxOn)return; try{
+  const c=getCtx();if(c.state==="suspended")c.resume();const t=c.currentTime,V=settings.sfxVol;
+  const m=c.createGain();m.gain.value=V;m.connect(c.destination);
+  const dl=c.createDelay();dl.delayTime.value=0.13;const fbg=c.createGain();fbg.gain.value=0.4;const wet=c.createGain();wet.gain.value=0.5;dl.connect(fbg).connect(dl);dl.connect(wet).connect(m);
+  const tn=(t0,f,dur,vol,dest)=>{const o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=f;g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+0.004);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g).connect(dest);o.start(t0);o.stop(t0+dur+0.03);};
+  [2093,2637,3136,2349].forEach((f,i)=>{tn(t+i*0.1,f,0.24,0.12*V,m);tn(t+i*0.1,f,0.18,0.05*V,wet);});
+  setTimeout(()=>{try{dl.disconnect();fbg.disconnect();wet.disconnect();}catch(e){}},1400);
+}catch(e){} }
+// ★결과 도장 슬램 (위젯 S4 — 깊은 붐 + 랭크 광채 반짝)
+function stampSfx(){ if(!settings.sfxOn)return; try{
+  const c=getCtx();if(c.state==="suspended")c.resume();const t=c.currentTime,V=settings.sfxVol;
+  const m=c.createGain();m.gain.value=V;m.connect(c.destination);
+  const tn=(t0,f,type,dur,vol,a,glide)=>{const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t0);if(glide)o.frequency.exponentialRampToValueAtTime(glide,t0+dur);g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+(a||0.004));g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);o.connect(g).connect(m);o.start(t0);o.stop(t0+dur+0.03);};
+  const nz=(t0,dur,vol,ftype,freq)=>{const n=Math.floor(c.sampleRate*dur),b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=c.createBufferSource();s.buffer=b;const f=c.createBiquadFilter();f.type=ftype;f.frequency.value=freq;const g=c.createGain();g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+0.002);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);s.connect(f).connect(g).connect(m);s.start(t0);s.stop(t0+dur+0.02);};
+  tn(t,150,"sine",0.32,0.5*V,0.001,52); nz(t,0.07,0.3*V,"lowpass",1100);
+  [2637,3136,3520].forEach((f,i)=>tn(t+0.09+i*0.05,f,"sine",0.32,0.08*V,0.004));
 }catch(e){} }
 // 카운트다운 효과음 — 3/2/1=삡, START=더 밝게
 function countBeep(big){ if(!settings.sfxOn)return; try{
@@ -3043,6 +3062,7 @@ function endPlay(){
   $("#toSongSel").classList.toggle("hidden",playFromEditor);   //   대신 'Song Select' 숨김
   show("result");
   const rs=screens.result;rs.style.animation="none";void rs.offsetWidth;rs.style.animation="resIn .7s ease both";  // 부드러운 페이드인
+  setTimeout(stampSfx,90);   // ★도장이 "쾅" 찍히는 순간에 슬램 효과음
 }
 
 //============================================================
