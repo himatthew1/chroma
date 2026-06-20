@@ -2005,15 +2005,16 @@ function buildPlayNotes(chart){
   return notes;
 }
 // 노트의 픽셀 좌표를 현재 캔버스 크기에 맞춰 (재)배치. nx/ny(정규화 고정값)에서 계산하므로 색은 안 바뀜.
-let _dragGapFix=true,_dragGapPx=26;   // ★드래그 노트 최소 간격 보장(라이브 A/B 토글: G키 / [ ] 로 px 조절)
-function enforceGapPx(P,target,L,T,R,B){   // 인접 점 최소 픽셀 간격 보장 — 가까우면 중심 기준 확대 후 화면 안으로 이동(형태 보존)
+let _dragGapFix=true,_dragGapPx=26;   // ★드래그 노트 간격 보정(라이브 A/B 토글: G키 / [ ] 로 px 조절). 최대 간격은 minG*2.6
+function enforceGapPx(P,minG,maxG,L,T,R,B){   // 인접 점 간 거리를 [minG~maxG]로 클램프 — 방향은 유지, 길이만 보정(뭉침/멀리튐 둘 다 방지). 화면 안으로 평행이동
   if(!P||P.length<2)return P;
-  let mind=1e9;for(let i=1;i<P.length;i++){const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(d<mind)mind=d;}
-  let P2=P;
-  if(mind>0&&mind<target){const f=Math.min(target/mind,2.2);let cx=0,cy=0;P.forEach(p=>{cx+=p[0];cy+=p[1];});cx/=P.length;cy/=P.length;P2=P.map(p=>[cx+(p[0]-cx)*f,cy+(p[1]-cy)*f]);}
-  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;P2.forEach(p=>{mnx=Math.min(mnx,p[0]);mxx=Math.max(mxx,p[0]);mny=Math.min(mny,p[1]);mxy=Math.max(mxy,p[1]);});
+  const out=[[P[0][0],P[0][1]]];
+  for(let i=1;i<P.length;i++){let dx=P[i][0]-P[i-1][0],dy=P[i][1]-P[i-1][1],d=Math.hypot(dx,dy);
+    if(d<1e-4){const a=i*1.7;dx=Math.cos(a);dy=Math.sin(a);d=1;}   // 완전 겹침 → 임의 방향
+    const cl=clamp(d,minG,maxG),s=cl/d; out.push([out[i-1][0]+dx*s, out[i-1][1]+dy*s]);}
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;out.forEach(p=>{mnx=Math.min(mnx,p[0]);mxx=Math.max(mxx,p[0]);mny=Math.min(mny,p[1]);mxy=Math.max(mxy,p[1]);});
   let dx=0,dy=0;if(mnx<L)dx=L-mnx;else if(mxx>R)dx=R-mxx;if(mny<T)dy=T-mny;else if(mxy>B)dy=B-mxy;
-  return (dx||dy)?P2.map(p=>[p[0]+dx,p[1]+dy]):P2;
+  return (dx||dy)?out.map(p=>[p[0]+dx,p[1]+dy]):out;
 }
 function layoutPlayPositions(notes){
   if(!notes||!notes.length)return;
@@ -2047,9 +2048,10 @@ function layoutPlayPositions(notes){
         ox=clamp(ox,0.05-mnx,0.95-mxx); oy=clamp(oy,0.05-mny,0.95-mxy);   // 점별 자르기 대신 전체 평행이동(형태 안 찌그러짐)
         P=rel.map(([rx,ry])=>[ox+rx,oy+ry]); useCtr=false;                 // 외곽 배치는 중앙모음(ctr) 미적용
       }
+      if(n.sShape==="custom")useCtr=false;   // ★커스텀=직접 빚은 좌표 그대로(중앙왜곡·공전 없음) → 어느 게임에서나 동일 모양·위치
       n.ppts=P.map(p=> useCtr ? [marginX+ctr(p[0],0.5)*(W-2*marginX), marginYt+ctr(p[1],0.62)*(marginYb-marginYt)]
                                : [marginX+p[0]*(W-2*marginX), marginYt+p[1]*(marginYb-marginYt)]);
-      if(_dragGapFix)n.ppts=enforceGapPx(n.ppts,_dragGapPx,marginX,marginYt,W-marginX,marginYb);   // ★최소 간격 보장(뭉침 방지)
+      if(_dragGapFix&&n.sShape!=="custom")n.ppts=enforceGapPx(n.ppts,_dragGapPx,_dragGapPx*2.6,marginX,marginYt,W-marginX,marginYb);   // ★인접 점 [최소~최대] — 뭉침+멀리튐 방지(커스텀은 빚은 그대로 둠)
       n.x=n.ppts[0][0]; n.y=n.ppts[0][1];                  // 머리=경로 시작점(캐치)
       n.x2=n.ppts[n.ppts.length-1][0]; n.y2=n.ppts[n.ppts.length-1][1];  // 꼬리=경로 끝점
       const cum=[0];for(let i=1;i<n.ppts.length;i++)cum.push(cum[i-1]+Math.hypot(n.ppts[i][0]-n.ppts[i-1][0],n.ppts[i][1]-n.ppts[i-1][1]));
