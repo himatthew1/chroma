@@ -2027,7 +2027,7 @@ function buildPlayNotes(chart){
   return notes;
 }
 // 노트의 픽셀 좌표를 현재 캔버스 크기에 맞춰 (재)배치. nx/ny(정규화 고정값)에서 계산하므로 색은 안 바뀜.
-let _dragGapFix=true,_dragGapPx=26;   // ★드래그 노트 간격 보정(라이브 A/B 토글: G키 / [ ] 로 px 조절). 최대 간격은 minG*2.6
+let _dragGapFix=true,_dragGapPx=40;   // ★드래그 노트 간격 보정(라이브 A/B 토글: G키 / [ ] 로 px 조절). 최대 간격은 minG*2.6
 function enforceGapPx(P,minG,maxG,L,T,R,B){   // 인접 점 간 거리를 [minG~maxG]로 클램프 — 방향은 유지, 길이만 보정(뭉침/멀리튐 둘 다 방지). 화면 안으로 평행이동
   if(!P||P.length<2)return P;
   const out=[[P[0][0],P[0][1]]];
@@ -2726,7 +2726,7 @@ document.addEventListener("keydown",e=>{
     if(e.key==="Escape"){stopPlay();if(playFromEditor){playFromEditor=false;show("editor");}else openSongSelect();return;}   // ★에디터발 프리뷰/테스트는 에디터로 복귀
     // ★드래그 간격 A/B 비교: G=수정안 켜기/끄기, [ / ] = 간격 px 조절 (실시간 재배치)
     if(!e.repeat&&e.key.toLowerCase()==="g"){_dragGapFix=!_dragGapFix;if(state.notes)layoutPlayPositions(state.notes);toast(_dragGapFix?("드래그 간격: 수정안 "+_dragGapPx+"px"):"드래그 간격: 원본(RAW)");return;}
-    if(!e.repeat&&(e.key==="["||e.key==="]")){_dragGapPx=clamp(_dragGapPx+(e.key==="]"?2:-2),10,48);_dragGapFix=true;if(state.notes)layoutPlayPositions(state.notes);toast("드래그 간격 "+_dragGapPx+"px");return;}
+    if(!e.repeat&&(e.key==="["||e.key==="]")){_dragGapPx=clamp(_dragGapPx+(e.key==="]"?2:-2),10,64);_dragGapFix=true;if(state.notes)layoutPlayPositions(state.notes);toast("드래그 간격 "+_dragGapPx+"px");return;}
     if(e.code==="Space"){e.preventDefault();if(state.started&&!state.readyGate){state.spaceDown=true;if(!e.repeat)pressSpace();}return;}
     const col=KEYS.indexOf(e.key.toLowerCase());
     if(col>=0){
