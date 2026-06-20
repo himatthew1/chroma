@@ -2328,7 +2328,6 @@ function beginPlay(){
   state.t0=performance.now()/1000;
   state.audioStarted=false;
   state.started=true;                 // 노트 보이기 시작 + 입력 허용
-  if(!state.noAudio)startStarSfx();    // ★게임 시작 별 반짝임
   // (이전엔 여기서 fadeFromBlack(0.45)로 화면을 검게 덮었다 페이드인 → 시동 후 "잠깐 암전"의 원인이라 제거.
   //  카운트다운·게임플레이는 같은 플레이 캔버스 안에서 연속되므로 가릴 전환 프레임이 없음 → START! 직후 자연스럽게 노트 진입)
 }
@@ -4180,8 +4179,10 @@ window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidde
     g.restore();
   }
   const t0=performance.now(),INTRO=1.35,HOLD=0.5;   // 인트로 애니 ~1.35s + 완성 유지 0.5s → 블랙 1초 페이드아웃
+  let _starSfxDone=false;
   function frame(now){
     const el=(now-t0)/1000,W=innerWidth,H=innerHeight;
+    if(!_starSfxDone&&el>=0.04){_starSfxDone=true;try{if(typeof startStarSfx==="function")startStarSfx();}catch(e){}}   // ★최초 접속 인트로 — 별 반짝임 효과음(T5)
     drawIntro(fctx,el);                                                                 // 풀해상도로 인트로
     lctx.imageSmoothingEnabled=true;lctx.clearRect(0,0,lw,lh);lctx.drawImage(full,0,0,W,H,0,0,lw,lh);   // 192 다운샘플(픽셀 필터)
     ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,W,H);ctx.drawImage(lo,0,0,lw,lh,0,0,W,H);ctx.imageSmoothingEnabled=true;   // nearest 업스케일 → 도트(처음부터 픽셀화)
