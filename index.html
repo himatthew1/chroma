@@ -245,6 +245,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   <canvas id="slideZoomCv" style="position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair"></canvas>
   <div style="position:absolute;left:12px;top:12px;z-index:2;font:12px/1.6 ui-monospace,monospace;color:#9fb6ff;background:rgba(5,8,20,.72);padding:8px 11px;border-radius:8px;pointer-events:none">🔍 자세히 보기 — 실제 인게임 필드<br>점 끌어 이동 · 빈 곳 클릭=추가 · 우클릭=삭제 · 여기서 잡은 모양·위치가 그대로 적용</div>
   <button id="slideZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
+  <button id="slideZoomTest" style="position:absolute;right:120px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #22a7ff;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="이 드래그만 실제 인게임 속도로 재생(키로 타격해 역행까지 확인)">▶ 실제 테스트</button>
 </div>
 <div id="errBanner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:100000;background:rgba(40,8,18,0.97);color:#ffeef4;border-top:3px solid #ff2e97;padding:10px 14px 12px;font:12px/1.45 monospace;max-height:42vh;overflow:auto;white-space:pre-wrap;">
   <button id="errCopy" style="position:absolute;right:70px;top:8px;font:11px monospace;padding:4px 9px;background:#22a7ff;color:#fff;border:none;border-radius:6px;cursor:pointer;">복사</button>
@@ -2263,10 +2264,12 @@ let _previewOpt=null;
 function startPreview(opt){
   _previewOpt=opt=opt||{fix:true,px:26};
   _dragGapFix=!!opt.fix; if(opt.px)_dragGapPx=clamp(opt.px|0,10,48);
-  const shapes=["arc","wave","zigzag","arc","zigzag","wave"],notes=[]; let t=2.2;
-  for(let i=0;i<14;i++){const sh=shapes[i%shapes.length];
-    notes.push({time:+t.toFixed(2),type:"slide",duration:0.9,lane:i%4,sShape:sh,sCount:5,sSpan:0.7,sAmp:0.26,pts:slideGenPts(sh,5,0.7,0.26)});
-    t+=1.5;}
+  let notes;
+  if(opt.notes&&opt.notes.length){ notes=opt.notes; }   // ★특정 노트만 (자세히 보기 → 실제 테스트)
+  else { notes=[]; const shapes=["arc","wave","zigzag","arc","zigzag","wave"]; let t=2.2;
+    for(let i=0;i<14;i++){const sh=shapes[i%shapes.length];
+      notes.push({time:+t.toFixed(2),type:"slide",duration:0.9,lane:i%4,sShape:sh,sCount:5,sSpan:0.7,sAmp:0.26,pts:slideGenPts(sh,5,0.7,0.26)});
+      t+=1.5;} }
   playChart={notes,zones:[]}; playFromEditor=false;
   curSongMeta={title:"DRAG PREVIEW",artist:"",diff:(opt.fix?("FIX "+_dragGapPx+"px"):"RAW"),id:null};
   playAudio={currentTime:0,duration:NaN,ended:false,play(){return Promise.resolve();},pause(){}};   // ★오디오 스텁(실제 Audio의 currentTime 예외 회피)
@@ -3880,7 +3883,7 @@ function _szHit(px,py){for(let i=0;i<_szPP.length;i++){if(Math.hypot(_szPP[i][0]
 function _szToN(px,py){if(!_szM)return[0.5,0.5];return [clamp((px-_szM.mx)/_szM.pw,0,1),clamp((py-_szM.top)/_szM.ph,0,1)];}
 function _szDraw(ts){const z=$("#slideZoomCv");if(!z||!edSel||edSel.type!=="slide"||!edSel.pts){_szRaf=null;return;}
   const c=z.getContext("2d"),W=window.innerWidth,H=window.innerHeight;if(z.width!==W||z.height!==H){z.width=W;z.height=H;}
-  const tt=((ts||0)/1000)%1.9, prog=clamp(tt/1.35,0,1), rot=(ts||0)/1000*3;
+  const AR=approachSec(),per=AR+0.6,tt=((ts||0)/1000)%per, prog=clamp(tt/AR,0,1), rot=(ts||0)/1000*3;   // ★실제 접근 속도(approachSec)로 루프
   const bg=c.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);bg.addColorStop(0,"#0a1233");bg.addColorStop(0.6,"#06091c");bg.addColorStop(1,"#04050c");c.fillStyle=bg;c.fillRect(0,0,W,H);
   const g=padGeomFor(W,H),m=playFieldMetrics(W,H),r=g.r;
   NoteFX_divider(c,g,W,H);
@@ -3901,6 +3904,9 @@ function openSlideZoom(){if(!edSel||edSel.type!=="slide"){toast("드래그 노�
 function closeSlideZoom(){$("#slideZoom").classList.add("hidden");if(_szRaf){cancelAnimationFrame(_szRaf);_szRaf=null;}if(edSel&&edSel.type==="slide")drawSlidePath(edSel);}
 if($("#slideZoomBtn"))$("#slideZoomBtn").onclick=openSlideZoom;
 if($("#slideZoomClose"))$("#slideZoomClose").onclick=closeSlideZoom;
+if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!=="slide")return;   // ★이 드래그만 실제 인게임 속도로 재생
+  const n={time:2.2,type:"slide",duration:edSel.duration||0.9,lane:edSel.lane||0,sShape:"custom",pts:edSel.pts.map(p=>p.slice())};if(edSel.ptt)n.ptt=edSel.ptt.slice();
+  closeSlideZoom();startPreview({fix:_dragGapFix,px:_dragGapPx,notes:[n]});toast("실제 테스트 — 키로 타격해보세요 · Esc=나가기");};
 (function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1;
   const open=()=>!$("#slideZoom").classList.contains("hidden");
   z.addEventListener("contextmenu",e=>e.preventDefault());
