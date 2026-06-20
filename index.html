@@ -2563,7 +2563,8 @@ function pressCol(col){
   const dt=best.time-now;
   const kind = Math.abs(dt)<=JW.good ? (judgeOf(dt)||"good") : "bad";   // 유예 안이면 BAD
   if(best.type==="press"||best.type==="slide"){best.headJudged=true;best.holding=true;best._headKind=kind;padBurst(best.col,kind,best.x,best.y);   // ★노트 위치에서 폭발(패드 아님) — 일반 노트와 동일
-    if(kind==="bad")badSound();else hitSound(kind,best.col);spawnJudge(kind,best.x,best.y);}
+    if(kind==="bad")badSound();else hitSound(kind,best.col);spawnJudge(kind,best.x,best.y);
+    if(best.type==="slide"){if(best._ptHit)best._ptHit[0]=true;scoreOnly(kind);}}   // ★드래그: 헤드=첫 노트포인트(점수 1회). 이후 포인트는 역행 중 키별 판정
   else{best.done=true;applyJudge(kind,best);}
 }
 function scoreOnly(kind){
@@ -2575,8 +2576,8 @@ function scoreOnly(kind){
 function releaseCol(col){
   const now=gameNow();
   for(const n of state.notes){
-    if(n.col===col&&(n.type==="press"||n.type==="slide")&&n.holding&&!n.done){
-      if(now>=n.time+n.duration-0.12){n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);}
+    if(n.col===col&&n.type==="press"&&n.holding&&!n.done){   // ★press만 — 드래그는 키를 떼도 별이 계속 가며 노트포인트별 판정(놓친 포인트에서 미스 끊김)
+      if(now>=n.time+n.duration-0.12){n.done=true;scoreOnly(n._headKind||"great");supernova(n.x,n.y,n.col);}
       else{n.holding=false;n.done=true;applyJudge("miss",n);}
     }
   }
@@ -2652,8 +2653,11 @@ function loop(){
     if(n.type==="space")continue;   // 스페이스 노트는 별도 패스에서 처리
     if(!n.missed&&!n.headJudged&&now-n.time>JW.good+LATEGRACE){n.missed=true;applyJudge("miss",n);}
     if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){
-      if(n.type==="slide"&&n._ptHit&&!n.missed){for(let j=0;j<n._ptHit.length;j++)if(!n._ptHit[j]){n._ptHit[j]=true;hitSound("perfect",n.col);}}   // ★남은(꼬리) 포인트 타격음 보장(일반음)
-      n.done=true;scoreOnly(n._headKind||"great");const ep=n.type==="slide"?slidePos(n,1):n;supernova(ep.x,ep.y,n.col);continue;}
+      if(n.type==="slide"){
+        if(!n.missed&&n._ptHit){for(let j=1;j<n._ptHit.length;j++){if(n._ptHit[j])continue;n._ptHit[j]=true;   // ★남은(꼬리) 노트포인트 키 체크
+          if(state.held[n.col]){hitSound("perfect",n.col);scoreOnly("perfect");}else{n.missed=true;scoreOnly("miss");const ep0=slidePos(n,clamp(n._tf[j],0,1));spawnJudge("miss",ep0.x,ep0.y);}}}
+        if(!n.missed){const ep=slidePos(n,1);supernova(ep.x,ep.y,n.col);}n.done=true;continue;}   // 점수는 포인트별 적립, 완료 시 폭발만
+      n.done=true;scoreOnly(n._headKind||"great");supernova(n.x,n.y,n.col);continue;}
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
     const prog0=1-(n._wT-wpNow)/n._arEff;
     const vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
@@ -2723,12 +2727,17 @@ function loop(){
             const prox=clamp(1-(fr-s)/0.16,0,1);
             const sc=pe*(1+prox*0.7); drawPt(P,sc,Math.min(1,pe)*0.95,j,false);
             {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(14);pctx.lineWidth=2;hexPath(pctx,P[0],P[1],9*pe);pctx.stroke();pctx.restore();}}
-          }else{ // 소모됨 → drag_v4 점화: 오로라 파티클 + 충격파 2 (입자 경량화)
-            if(!n._ptHit[j]){n._ptHit[j]=true; if(!n.missed)hitSound("perfect",n.col);
+          }else{ // 별이 노트포인트를 지남 → 그 순간 해당 키를 누르고 있으면 퍼펙트, 아니면 미스(드래그 끊김)
+            if(j>=1 && !n._ptHit[j] && !n.missed){n._ptHit[j]=true;
               const h=hueP(j),qx=P[0],qy=P[1];
-              (state.shocks||(state.shocks=[])).push({x:qx,y:qy,r:8,vr:7,life:1,dec:0.05,col:"#ffffff"});
-              state.shocks.push({x:qx,y:qy,r:6,vr:5,life:1,dec:0.05,col:h});
-              for(let z=0;z<pc(16);z++){const aa=Math.random()*6.2832,sp2=2.5+Math.random()*6;state.particles.push({x:qx,y:qy,px:qx,py:qy,vx:Math.cos(aa)*sp2,vy:Math.sin(aa)*sp2-1.4,life:1,decay:0.03+Math.random()*0.03,col:h,size:1.5+Math.random()*2.2,streak:Math.random()<0.6,white:Math.random()<0.3});}
+              if(state.held[n.col]){   // ★키 누름 유지 → 노트포인트 퍼펙트(개별 판정 문구)
+                hitSound("perfect",n.col);scoreOnly("perfect");spawnJudge("perfect",qx,qy);
+                (state.shocks||(state.shocks=[])).push({x:qx,y:qy,r:8,vr:7,life:1,dec:0.05,col:"#ffffff"});
+                state.shocks.push({x:qx,y:qy,r:6,vr:5,life:1,dec:0.05,col:h});
+                for(let z=0;z<pc(16);z++){const aa=Math.random()*6.2832,sp2=2.5+Math.random()*6;state.particles.push({x:qx,y:qy,px:qx,py:qy,vx:Math.cos(aa)*sp2,vy:Math.sin(aa)*sp2-1.4,life:1,decay:0.03+Math.random()*0.03,col:h,size:1.5+Math.random()*2.2,streak:Math.random()<0.6,white:Math.random()<0.3});}
+              } else {   // ★키를 안 누르고 있었음 → 미스, 드래그가 중간에 끊김
+                n.missed=true;n.done=true;scoreOnly("miss");spawnJudge("miss",qx,qy);
+              }
             }
           }
         }
@@ -3338,10 +3347,13 @@ function edBeatSounds(prev,cur){
     if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
-$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 Recording…":"🔴 Live input";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스), 스페이스바=스페이스 노트");};
+$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 Recording…":"🔴 Live input";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스) · 스페이스바=이동");};
 document.addEventListener("keydown",e=>{
   if(screens.editor.classList.contains("hidden"))return;
   const tag=e.target.tagName;
+  const isText=(tag==="INPUT"&&!/^(button|checkbox|radio|range|submit|reset|file)$/i.test(e.target.type||"text"))||tag==="TEXTAREA";
+  if(e.code==="Space"){ if(isText)return;   // 텍스트 입력 중엔 공백 허용
+    e.preventDefault();if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return; }   // ★에디터 스페이스 = 언제나 이동(팬). 다른 기능 없음 → 버튼/메뉴 포커스에도 안 막힘
   if(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA")return;
   const k=e.key.toLowerCase(), ctrl=e.ctrlKey||e.metaKey;
   if(ctrl&&k==="z"){e.preventDefault();if(e.shiftKey)doRedo();else doUndo();return;}
@@ -3350,9 +3362,7 @@ document.addEventListener("keydown",e=>{
   if(ctrl&&k==="v"){e.preventDefault();pasteClip();return;}
   if(ctrl&&k==="x"){e.preventDefault();copySel();deleteSelection();return;}
   if(ctrl&&k==="a"){e.preventDefault();edSelSet=edNotes.slice();edSel=edSelSet[edSelSet.length-1]||null;updateSelPanel();updateGrpPanel();return;}
-  if(e.code==="Space"){e.preventDefault();
-    if(recOn&&edPlaying){if(!e.repeat)recSpaceStart();return;}            // ★녹음 중엔 스페이스=스페이스 노트(길게=홀드)
-    if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return;}        // 평소엔 스페이스=이동(팬) 모드
+  // (스페이스는 진입부에서 처리 — 언제나 팬, 녹음 스페이스노트 없음)
   if(e.key==="Enter"){e.preventDefault();toggleEdPlay();return;}                                           // 엔터=재생/정지
   if(e.key==="Escape"){selClear();updateSelPanel();updateGrpPanel();return;}
   if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();deleteSelection();return;}
@@ -3360,7 +3370,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("keyup",e=>{
   if(screens.editor.classList.contains("hidden"))return;
-  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;if(recSpaceNote)recSpaceEnd();return;}
+  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;return;}
   const lane=KEYS.indexOf(e.key.toLowerCase());if(lane>=0)recEnd(lane);
 });
 
