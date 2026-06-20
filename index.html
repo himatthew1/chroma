@@ -2902,17 +2902,19 @@ function loop(){
       const s=(n.missed&&n._missS!=null)?n._missS:(n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0);   // ★미스 시 끊긴 지점에 별 정지
       const hueP=(j)=>_rgba(SP_AUR[j%5],1);   // ★drag_v4: 노트포인트 = 오로라 5색
       // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
-      function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gB(gray?5:10);pctx.lineWidth=gray?2.6:3.8;hexPath(pctx,P[0],P[1],12.5*sc);pctx.stroke();
-        pctx.globalAlpha=al*(gray?0.7:0.95);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(gray?4:7);pctx.beginPath();pctx.arc(P[0],P[1],3.8*sc*(gray?0.8:1),0,6.2832);pctx.fill();
-        if(!gray){pctx.globalAlpha=al*0.28;pctx.strokeStyle=hueP(j);pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(8);hexPath(pctx,P[0],P[1],12.5*sc);pctx.stroke();}pctx.restore();}
+      function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gB(gray?5:10);pctx.lineWidth=gray?2.6:3.8;hexPath(pctx,P[0],P[1],15.5*sc);pctx.stroke();
+        pctx.globalAlpha=al*(gray?0.7:0.95);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(gray?4:7);pctx.beginPath();pctx.arc(P[0],P[1],4.7*sc*(gray?0.8:1),0,6.2832);pctx.fill();
+        if(!gray){pctx.globalAlpha=al*0.28;pctx.strokeStyle=hueP(j);pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(8);hexPath(pctx,P[0],P[1],15.5*sc);pctx.stroke();}pctx.restore();}
       const eobk=(x)=>{x=clamp(x,0,1);return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);};
       pctx.save();pctx.lineCap="round";pctx.lineJoin="round";pctx.globalCompositeOperation="lighter";
       if(!n.holding){
-        // ── 생성(재설계): 유성 제거. 헤드(별)는 자리에 + 어프로치 링과 함께 회색 경로가 헤드(0)→꼬리로 점점 그려짐 ──
-        const ahead=clamp(prog,0,1);
+        // ── 생성(재설계): 헤드 자리에 + 회색 경로가 헤드(0)→꼬리로 점점 그려짐. 헤드 원 안쪽엔 안 그림(배경 그대로 비침) ──
+        const ahead=clamp(prog,0,1),h0=PP(0);
+        pctx.save();pctx.beginPath();pctx.rect(0,0,W,H);pctx.arc(h0[0],h0[1],r*1.05,0,6.2832,true);pctx.clip();   // ★헤드 원 제외 클립 → 경로/포인트가 노트 내부에 안 비침
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.55;pctx.lineWidth=3;
         pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(ahead*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        for(let j=1;j<NP;j++){ if(frac[j]<=ahead+0.001){ drawPt(PP(j),0.95, a*0.85, j, true); } }   // 헤드(0)는 별이 대신 → 회색 점은 1번부터, 더 크게(겹침 방지)
+        for(let j=1;j<NP;j++){ if(frac[j]<=ahead+0.001){ const rv=clamp((ahead-frac[j])/0.22,0,1),psc=(0.55+0.5*rv)*(0.82+0.32*ease); drawPt(PP(j),psc, a*0.85, j, true); } }   // ★헤드 가까워질수록 순차적으로 살짝씩 커짐
+        pctx.restore();
       }else{
         // ── 역행: 역행 시작과 함께 나머지 패스가 앞쪽에 나타나 있고, 별이 지나가며 소비 ──
         const pe=eobk(s/0.18);   // ★V4: 첫 18% 동안 부드럽게 등장(즉각 팝 아님)
@@ -2920,7 +2922,7 @@ function loop(){
           if(s<fr){
             const prox=clamp(1-(fr-s)/0.16,0,1);
             const sc=pe*(1+prox*0.7); drawPt(P,sc,Math.min(1,pe)*0.95*a,j,false);
-            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4*a;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(14);pctx.lineWidth=2;hexPath(pctx,P[0],P[1],12.5*pe);pctx.stroke();pctx.restore();}}
+            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4*a;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(14);pctx.lineWidth=2;hexPath(pctx,P[0],P[1],15.5*pe);pctx.stroke();pctx.restore();}}
           }else{ // 별이 노트포인트를 지남 → 그 순간 해당 키를 누르고 있으면 퍼펙트, 아니면 미스(드래그 끊김)
             if(j>=1 && !n._ptHit[j] && !n.missed){n._ptHit[j]=true;
               const h=hueP(j),qx=P[0],qy=P[1];
@@ -2959,14 +2961,12 @@ function loop(){
         pctx.globalAlpha=a*0.7;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,bsz,rot);pctx.stroke();
         const wc=Math.max(0.45,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(12+gl*0.6);star4Path(pctx,bx,by,bsz*(0.5+wh*0.2),rot);pctx.fill();pctx.restore();
       } else {
-        // ★헤드 = 완전한 일반 노트 + 뒤에 노트색 4각별(원 내부는 일반 노트 판박이 — 별/경로/포인트 안 비침)
-        const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1), starEdge=lerpHex(col,"#ffffff",0.5);
-        pctx.save();pctx.globalAlpha=a*0.95;pctx.shadowColor=col;pctx.shadowBlur=gB(12);pctx.fillStyle=col;star4Path(pctx,bx,by,br*1.7,0);pctx.fill();   // 뒤 별(노트색)
-        pctx.lineWidth=Math.max(2.5,br*0.1);pctx.strokeStyle=starEdge;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,br*1.7,0);pctx.stroke();pctx.restore();
-        // 노트 원 내부 마스킹 — 배경을 다시 깔아 별/경로/노트포인트 비침 차단
-        const mg=pctx.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);mg.addColorStop(0,"#0a1233");mg.addColorStop(0.6,"#06091c");mg.addColorStop(1,"#04050c");
-        pctx.save();pctx.beginPath();pctx.arc(bx,by,br*1.06,0,6.2832);pctx.clip();pctx.fillStyle=mg;pctx.fillRect(bx-br*1.3,by-br*1.3,br*2.6,br*2.6);pctx.restore();
-        // 앞 = 일반 노트 그대로(어프로치 링·오브·발광·심지·플래시)
+        // ★헤드 = 완전한 일반 노트 + 뒤에 노트색 4각별. 별은 헤드 원 '바깥'만 그림(원 안은 비워 둠 → 배경 그대로 비침, 일반 노트 판박이)
+        const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1), starEdge=lerpHex(col,"#ffffff",0.5), srot=now*0.7;   // ★살짝 회전
+        pctx.save();pctx.beginPath();pctx.rect(0,0,W,H);pctx.arc(bx,by,r*1.05,0,6.2832,true);pctx.clip();   // 헤드 원 제외 클립 → 별이 노트 내부에 안 비침(점만 삐져나옴)
+        pctx.globalAlpha=a*0.95;pctx.shadowColor=col;pctx.shadowBlur=gB(12);pctx.fillStyle=col;star4Path(pctx,bx,by,br*1.7,srot);pctx.fill();
+        pctx.lineWidth=Math.max(2.5,br*0.1);pctx.strokeStyle=starEdge;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,br*1.7,srot);pctx.stroke();pctx.restore();
+        // 앞 = 일반 노트 그대로(어프로치 링·오브·발광·심지·플래시) — 검은 칠 없음, 배경 그대로
         pctx.save();pctx.globalAlpha=a;
         NoteFX_approach(pctx,bx,by,br,r,prog,ease,a,col,false);
         NoteFX_noteBody(pctx,bx,by,br,col,{a:a,ease:ease,glowB:0,whiten:0,flash:flashS,hold:false});
