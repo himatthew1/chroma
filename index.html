@@ -2281,7 +2281,7 @@ function startPreview(opt){
     for(let i=0;i<14;i++){const sh=shapes[i%shapes.length];
       notes.push({time:+t.toFixed(2),type:"slide",duration:0.9,lane:i%4,sShape:sh,sCount:5,sSpan:0.7,sAmp:0.26,pts:slideGenPts(sh,5,0.7,0.26)});
       t+=1.5;} }
-  playChart={notes,zones:[]}; playFromEditor=false;
+  playChart={notes,zones:[]}; playFromEditor=!!opt.fromEditor;   // ★에디터에서 띄운 프리뷰는 뒤로가기/Esc 시 에디터로 복귀
   curSongMeta={title:"DRAG PREVIEW",artist:"",diff:(opt.fix?("FIX "+_dragGapPx+"px"):"RAW"),id:null};
   playAudio={currentTime:0,duration:NaN,ended:false,play(){return Promise.resolve();},pause(){}};   // ★오디오 스텁(실제 Audio의 currentTime 예외 회피)
   const pg=document.getElementById("pwGate"); if(pg)pg.classList.add("hidden");
@@ -2719,7 +2719,7 @@ function drawHudCanvas(now){
 }
 document.addEventListener("keydown",e=>{
   if(state&&!screens.play.classList.contains("hidden")){
-    if(e.key==="Escape"){stopPlay();openSongSelect();return;}
+    if(e.key==="Escape"){stopPlay();if(playFromEditor){playFromEditor=false;show("editor");}else openSongSelect();return;}   // ★에디터발 프리뷰/테스트는 에디터로 복귀
     // ★드래그 간격 A/B 비교: G=수정안 켜기/끄기, [ / ] = 간격 px 조절 (실시간 재배치)
     if(!e.repeat&&e.key.toLowerCase()==="g"){_dragGapFix=!_dragGapFix;if(state.notes)layoutPlayPositions(state.notes);toast(_dragGapFix?("드래그 간격: 수정안 "+_dragGapPx+"px"):"드래그 간격: 원본(RAW)");return;}
     if(!e.repeat&&(e.key==="["||e.key==="]")){_dragGapPx=clamp(_dragGapPx+(e.key==="]"?2:-2),10,48);_dragGapFix=true;if(state.notes)layoutPlayPositions(state.notes);toast("드래그 간격 "+_dragGapPx+"px");return;}
@@ -3532,7 +3532,7 @@ $("#edBpmVal").oninput=function(){const v=parseFloat(this.value);edBpm=isFinite(
 $("#edBpmOff").oninput=function(){const v=parseFloat(this.value);edBeatOff=isFinite(v)?v:0;};
 $("#edSnap").onchange=function(){edSnapOn=this.checked;toast(edSnapOn?"🧲 스냅 켜짐":"스냅 꺼짐");};
 $("#edSnapSub").onchange=function(){edSnapSub=parseInt(this.value)||4;};
-$("#edDragPrev").onclick=()=>{try{if(typeof edStopSrc==="function")edStopSrc();}catch(_){}; startPreview({fix:true,px:_dragGapPx});toast("드래그 프리뷰 — G=RAW/FIX · [ / ]=간격 · Esc=나가기");};
+$("#edDragPrev").onclick=()=>{try{if(typeof edStopSrc==="function")edStopSrc();}catch(_){}; startPreview({fix:true,px:_dragGapPx,fromEditor:true});toast("드래그 프리뷰 — G=RAW/FIX · [ / ]=간격 · Esc/← 로 에디터 복귀");};
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
   if(!edBeat||cur<=prev||edSfxVol<=0)return;
@@ -3938,7 +3938,7 @@ if($("#slideDockClose"))$("#slideDockClose").onclick=()=>$("#slideDock").classLi
 if($("#slideZoomClose"))$("#slideZoomClose").onclick=closeSlideZoom;
 if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!=="slide")return;   // ★이 드래그만 실제 인게임 속도로 재생
   const n={time:2.2,type:"slide",duration:edSel.duration||0.9,lane:edSel.lane||0,sShape:"custom",pts:edSel.pts.map(p=>p.slice())};if(edSel.ptt)n.ptt=edSel.ptt.slice();
-  closeSlideZoom();startPreview({fix:_dragGapFix,px:_dragGapPx,notes:[n]});toast("실제 테스트 — 키로 타격해보세요 · Esc=나가기");};
+  closeSlideZoom();startPreview({fix:_dragGapFix,px:_dragGapPx,notes:[n],fromEditor:true});toast("실제 테스트 — 키로 타격 · Esc/← 로 에디터 복귀(편집 유지)");};
 (function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1;
   const open=()=>!$("#slideZoom").classList.contains("hidden");
   z.addEventListener("contextmenu",e=>e.preventDefault());
