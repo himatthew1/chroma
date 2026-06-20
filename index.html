@@ -690,11 +690,12 @@ function _stRing(c,o,R,M,now){let stroke;   // 매끈한 이중 원(글자 제�
   if(M.aurora){const lg=c.createLinearGradient(o-R,o-R,o+R,o+R);for(let k=0;k<5;k++)lg.addColorStop(k/4,_rgba(_stAur((k+now*0.6)%5),1));stroke=lg;}else stroke=M.rep;
   c.strokeStyle=stroke;c.lineWidth=R*0.12;c.beginPath();c.arc(o,o,R*0.9,0,6.2832);c.stroke();
   c.lineWidth=R*0.075;c.beginPath();c.arc(o,o,R*0.64,0,6.2832);c.stroke();}
-function _stLetterMetal(c,cx,cy,sz,k,M,now){const S=Math.ceil(sz*2.0);_stLc.width=S;_stLc.height=S;const lc=_stLc.getContext('2d');lc.clearRect(0,0,S,S);
-  lc.textAlign="center";lc.textBaseline="middle";lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";
-  let grad; if(M.aurora){grad=lc.createLinearGradient(0,S*0.18,S*0.6,S*0.82);for(let i=0;i<=6;i++)grad.addColorStop(i/6,_rgba(_stAur((i*0.85+now*0.9)%5),1));}
-  else{grad=lc.createLinearGradient(0,S*0.16,0,S*0.84);M.stops.forEach(s=>grad.addColorStop(s[0],s[1]));}
-  lc.fillStyle=grad;lc.fillText(k,S/2,S/2);c.drawImage(_stLc,cx-S/2,cy-S/2);}
+function _stLetterMetal(c,cx,cy,sz,k,M,now){const S=Math.ceil(sz*2.2);_stLc.width=S;_stLc.height=S;const lc=_stLc.getContext('2d');lc.clearRect(0,0,S,S);
+  lc.textAlign="center";lc.textBaseline="alphabetic";lc.font=Math.round(sz)+"px 'Press Start 2P',monospace";
+  const m=lc.measureText(k),asc=m.actualBoundingBoxAscent||sz*0.7,des=m.actualBoundingBoxDescent||0,by=S/2+(asc-des)/2;   // 글리프 측정 → 오프스크린 정확히 중앙
+  let grad; if(M.aurora){grad=lc.createLinearGradient(0,S*0.2,S*0.6,S*0.8);for(let i=0;i<=6;i++)grad.addColorStop(i/6,_rgba(_stAur((i*0.85+now*0.9)%5),1));}
+  else{grad=lc.createLinearGradient(0,S*0.18,0,S*0.82);M.stops.forEach(s=>grad.addColorStop(s[0],s[1]));}
+  lc.fillStyle=grad;lc.fillText(k,S/2,by);c.drawImage(_stLc,cx-S/2,cy-S/2);}
 function drawRankStamp(g,cx,cy,R,k,now,slam){
   const M=STAMP_METAL[k]||STAMP_METAL.F, idx="FCBASM".indexOf(k), gl=idx<3?0:0.5+(idx-3)*0.25;   // F·C·B=0, A=0.5, S=0.75, M=1
   slam=clamp(slam,0,1);if(slam<=0)return;
@@ -713,11 +714,12 @@ function drawRankStamp(g,cx,cy,R,k,now,slam){
     for(let i=0;i<cnt;i++){const a=now*0.6+i/cnt*6.2832,rr=R*(1.06+0.12*Math.sin(now*2+i)),x=Math.cos(a)*rr,y=Math.sin(a)*rr,tw=0.35+0.65*Math.abs(Math.sin(now*3+i*1.7));
       const sc2=M.aurora?_rgba(_stAur((i+now)%5),1):M.glow;g.globalAlpha=sa*tw*(0.4+gl*0.5);g.fillStyle=sc2;g.shadowColor=sc2;g.shadowBlur=8+gl*8;star4Path(g,x,y,R*0.10*tw+1,now*3+i);g.fill();}
     g.restore();}
-  g.save();g.textAlign="center";g.textBaseline="middle";g.font=Math.round(R*0.82)+"px 'Press Start 2P',monospace";   // 블랙 외곽선(빛 쓸기 영향 X)
-  g.lineWidth=R*0.82*0.28;g.lineJoin="round";g.strokeStyle="#000000";g.strokeText(k,0,R*0.04);g.restore();
+  g.save();g.textAlign="center";g.textBaseline="alphabetic";g.font=Math.round(R*0.82)+"px 'Press Start 2P',monospace";   // 블랙 외곽선(빛 쓸기 영향 X) — 글리프 측정해 정확히 중앙
+  {const m=g.measureText(k),asc=m.actualBoundingBoxAscent||R*0.5,des=m.actualBoundingBoxDescent||0;
+   g.lineWidth=R*0.82*0.28;g.lineJoin="round";g.strokeStyle="#000000";g.strokeText(k,0,(asc-des)/2);}g.restore();
   const sz=R*0.82,LS=Math.ceil(sz*2.0),lo=LS/2;_stLt.width=LS;_stLt.height=LS;const ltc=_stLt.getContext('2d');ltc.clearRect(0,0,LS,LS);   // 금속 글자(최상단, 글로우 없이 선명)
   _stLetterMetal(ltc,lo,lo,sz,k,M,now);_stSweep(ltc,lo,sz*0.62,M,now,idx);
-  g.drawImage(_stLt,-lo,R*0.04-lo);
+  g.drawImage(_stLt,-lo,-lo);   // 중앙(0,0)에 정확히
   g.restore();
 }
 function drawFxMenu(t){
@@ -2584,7 +2586,11 @@ function pFlushText(){if(!pTextQ.length)return;
   if(_pTxt.width!==lw||_pTxt.height!==lh){_pTxt.width=lw;_pTxt.height=lh;}
   const tc=_pTxt.getContext("2d");tc.clearRect(0,0,lw,lh);
   for(const o of pTextQ){const sz=Math.max(6,o.sz*k);tc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{tc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
-    tc.textAlign=o.a;tc.textBaseline=o.bl;tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,o.x*k,o.y*k);tc.fillStyle=o.c;tc.fillText(o.t,o.x*k,o.y*k);}
+    tc.textAlign=o.a;
+    let by=o.y*k;   // ★'middle'은 실제 글리프 바운딩박스로 정확히 세로 중앙 정렬(픽셀폰트 떠보임 보정)
+    if(o.bl==="middle"){tc.textBaseline="alphabetic";const m=tc.measureText(o.t),asc=m.actualBoundingBoxAscent||sz*0.7,des=m.actualBoundingBoxDescent||0;by=o.y*k+(asc-des)/2;}
+    else tc.textBaseline=o.bl;
+    tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,o.x*k,by);tc.fillStyle=o.c;tc.fillText(o.t,o.x*k,by);}
   try{tc.letterSpacing="0px";}catch(_){}
   pctx.imageSmoothingEnabled=false;pctx.drawImage(_pTxt,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;
   pTextQ.length=0;}
