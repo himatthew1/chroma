@@ -2244,12 +2244,16 @@ function startPreview(opt){
     t+=1.5;}
   playChart={notes,zones:[]}; playFromEditor=false;
   curSongMeta={title:"DRAG PREVIEW",artist:"",diff:(opt.fix?("FIX "+_dragGapPx+"px"):"RAW"),id:null};
-  try{playAudio=new Audio();}catch(_){playAudio={currentTime:0,duration:NaN,play(){},pause(){},ended:false};}
+  playAudio={currentTime:0,duration:NaN,ended:false,play(){return Promise.resolve();},pause(){}};   // ★오디오 스텁(실제 Audio의 currentTime 예외 회피)
+  const pg=document.getElementById("pwGate"); if(pg)pg.classList.add("hidden");
   show("play"); startPlay(0);
   if(state){state.noAudio=true; state.readyGate=false; beginPlay();}   // 게이트/오디오 생략 — 바로 진입, 성능시계로 진행
+  else throw new Error("startPlay가 실패함(state=null)");
 }
-window.addEventListener("load",()=>{try{const q=new URLSearchParams(location.search);
-  if(q.get("preview")==="drag")startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});}catch(_){}});
+function _bootPreview(){const q=new URLSearchParams(location.search);if(q.get("preview")!=="drag")return;
+  try{startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});}
+  catch(e){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99999;color:#ff8a8a;background:#04050c;font:12px ui-monospace,monospace;padding:14px;white-space:pre-wrap;overflow:auto";d.textContent="PREVIEW ERROR:\n"+((e&&e.message)||e)+"\n\n"+((e&&e.stack)||"");document.body.appendChild(d);}}
+if(document.readyState==="complete")_bootPreview(); else window.addEventListener("load",_bootPreview);
 
 function showCountdown(txt,green){const el=$("#countdown");el.textContent=txt;el.style.color=green?"#39e36b":"#fff";
   el.style.fontSize=txt.length>3?"clamp(40px,7vw,68px)":"clamp(64px,12vw,104px)";
@@ -2605,10 +2609,11 @@ function pFlushText(){if(!pTextQ.length)return;
   const tc=_pTxt.getContext("2d");tc.clearRect(0,0,lw,lh);
   for(const o of pTextQ){const sz=Math.max(6,o.sz*k);tc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{tc.letterSpacing=Math.max(1,Math.round(sz*0.14))+"px";}catch(_){}
     tc.textAlign=o.a;
-    let by=o.y*k;   // ★'middle'은 실제 글리프 바운딩박스로 정확히 세로 중앙 정렬(픽셀폰트 떠보임 보정)
-    if(o.bl==="middle"){tc.textBaseline="alphabetic";const m=tc.measureText(o.t),asc=m.actualBoundingBoxAscent||sz*0.7,des=m.actualBoundingBoxDescent||0;by=o.y*k+(asc-des)/2;}
+    let bx=o.x*k, by=o.y*k;   // ★'middle'은 실제 글리프 잉크 박스로 가로·세로 정확히 중앙(픽셀폰트 어긋남 보정). HUD(alphabetic)엔 영향 없음
+    if(o.bl==="middle"){tc.textBaseline="alphabetic";const m=tc.measureText(o.t),asc=m.actualBoundingBoxAscent||sz*0.7,des=m.actualBoundingBoxDescent||0;by=o.y*k+(asc-des)/2;
+      if(o.a==="center"){const l=m.actualBoundingBoxLeft||0,rt=(m.actualBoundingBoxRight!=null?m.actualBoundingBoxRight:(m.width||sz*0.5));bx=o.x*k-(rt-l)/2;}}
     else tc.textBaseline=o.bl;
-    tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,o.x*k,by);tc.fillStyle=o.c;tc.fillText(o.t,o.x*k,by);}
+    tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,bx,by);tc.fillStyle=o.c;tc.fillText(o.t,bx,by);}
   try{tc.letterSpacing="0px";}catch(_){}
   pctx.imageSmoothingEnabled=false;pctx.drawImage(_pTxt,0,0,lw,lh,0,0,W,H);pctx.imageSmoothingEnabled=true;
   pTextQ.length=0;}
