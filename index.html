@@ -2761,7 +2761,9 @@ function pressCol(col){
   const kind = Math.abs(dt)<=JW.good ? (judgeOf(dt)||"good") : "bad";   // 유예 안이면 BAD
   if(best.type==="press"||best.type==="slide"){best.headJudged=true;best.holding=true;best._headKind=kind;padBurst(best.col,kind,best.x,best.y);   // ★노트 위치에서 폭발(패드 아님) — 일반 노트와 동일
     if(kind==="bad")badSound();else hitSound(kind,best.col);
-    if(best.type==="slide"){spawnJudge(kind,best.x,best.y);if(best._ptHit)best._ptHit[0]=true;scoreOnly(kind);}}   // ★드래그=헤드(첫 포인트) 문구 즉시 · press 홀드=캐치 땐 문구 없음(완료 시에만)
+    if(best.type==="slide"){spawnJudge(kind,best.x,best.y);if(best._ptHit)best._ptHit[0]=true;scoreOnly(kind);
+      if(kind!=="bad"){const R=noteR();(state.shocks||(state.shocks=[])).push({x:best.x,y:best.y,r:R*0.55,vr:12,life:1,dec:0.06,col:"#ffffff"});   // ★캐치 또렷한 펑 — 역행 별 위로 펀치
+        (state.flashes||(state.flashes=[])).push({x:best.x,y:best.y,r:R*1.5,life:1});}}}   // 드래그=헤드(첫 포인트) 문구 즉시 · press 홀드=캐치 땐 문구 없음(완료 시에만)
   else{best.done=true;applyJudge(kind,best);}
 }
 function scoreOnly(kind){
@@ -2948,6 +2950,7 @@ function loop(){
       if(n.holding){const jit=2+s*6;bx+=(Math.random()-0.5)*jit;by+=(Math.random()-0.5)*jit;bsz=hbr*(1+s*0.45);gl=30+s*50;wh=0.35+s*0.55;rot=-now*6;   // ★V4 역행별 역방향 회전
         if(!n.missed){for(let k=0;k<pc(3);k++){const ang=Math.random()*6.2832,sp=1.4+Math.random()*4;   // ★drag_v4: 역행 별 스파크(경량화)
           state.particles.push({x:bx,y:by,px:bx,py:by,vx:Math.cos(ang)*sp*0.5,vy:Math.sin(ang)*sp*0.5-1.2,life:1,decay:0.05+Math.random()*0.04,col:n.col,size:1+Math.random()*2,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
+      else{bsz=hbr*(1+ease*0.5);wh=ease*0.6;gl=ease*22;rot=now*(3+ease*5);}   // ★임박할수록 커지고·밝아지고·회전 빨라짐 = 또렷한 "지금!" 신호(일반 노트처럼)
       // 접근 어프로치 별 링
       if(!n.holding&&prog<1){const rr=bsz+(1-prog)*r*2.6;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=a*(0.4+0.45*ease);pctx.lineWidth=2+2*ease;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,rr,rot);pctx.stroke();pctx.restore();}
       // 별 코어(오라+색 솔리드+흰 외곽+흰 코어)
