@@ -2648,11 +2648,12 @@ function loop(){
   // notes (카운트다운 중엔 안 보임)
   if(state.started){
   const wpNow=warpAt(state.warp,now);   // ★워프된 현재 시각 (스피드 구간 시각속도)
-  const drawList=[];
+  const drawList=[], MFADE=0.34;   // ★미스 페이드아웃 길이(초)
   for(const n of state.notes){
     if(n.done)continue;
     if(n.type==="space")continue;   // 스페이스 노트는 별도 패스에서 처리
-    if(!n.missed&&!n.headJudged&&now-n.time>JW.good+LATEGRACE){n.missed=true;applyJudge("miss",n);}
+    if(!n.missed&&!n.headJudged&&now-n.time>JW.good+LATEGRACE){n.missed=true;n._missT=now;applyJudge("miss",n);}
+    if(n.missed&&n._missT!=null&&now>n._missT+MFADE+0.06){n.done=true;continue;}   // ★페이드 끝난 미스 정리
     if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){
       if(n.type==="slide"){
         if(!n.missed&&n._ptHit){for(let j=1;j<n._ptHit.length;j++){if(n._ptHit[j])continue;n._ptHit[j]=true;   // ★남은(꼬리) 노트포인트 키 체크
@@ -2661,7 +2662,8 @@ function loop(){
       n.done=true;scoreOnly(n._headKind||"great");supernova(n.x,n.y,n.col);continue;}
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
     const prog0=1-(n._wT-wpNow)/n._arEff;
-    const vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
+    let vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
+    if(n.missed)vEnd=Math.max(vEnd,(n._missT||now)+MFADE+0.06);   // ★미스 페이드 끝까지 표시
     if(prog0<=0||now>vEnd)continue;
     drawList.push(n);
   }
@@ -2685,7 +2687,7 @@ function loop(){
   }
   for(const n of drawList){
     const prog=clamp(1-(n._wT-wpNow)/n._arEff,0,1.25),col=COLHEX[n.col];   // ★노트별 접근창(_arEff): 슬로우 구간 쌓임 완화 + 경계 연속
-    let a=n.missed?0.2:1;
+    let a=n.missed?clamp(1-(now-(n._missT||now))/MFADE,0,1):1;   // ★미스 = 부드럽게 페이드아웃(뚝 사라짐 X)
     a*=clamp(prog*6,0,1);            // ★모든 노트 동일하게 페이드인 (홀드도 뚝 등장 X)
     const near=clamp(prog,0,1), ease=near*near;
     let br=r*(0.86+0.22*ease), dx=n.x, dy=n.y, glowB=0, whiten=0, holdT=0;
@@ -2706,7 +2708,7 @@ function loop(){
       const PP=(j)=>[n.ppts[j][0]+off.x*ph, n.ppts[j][1]+off.y*ph];
       const SP=(s)=>{const p=slidePos(n,s);return [p.x+off.x*ph, p.y+off.y*ph];};
       const NP=n.ppts.length, frac=n._tf, aSpan=n._aSpan, hbr=br*1.15;
-      const s=n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0;
+      const s=(n.missed&&n._missS!=null)?n._missS:(n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0);   // ★미스 시 끊긴 지점에 별 정지
       const hueP=(j)=>_rgba(SP_AUR[j%5],1);   // ★drag_v4: 노트포인트 = 오로라 5색
       // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
       function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gB(gray?5:10);pctx.lineWidth=gray?2:3;hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();
@@ -2726,8 +2728,8 @@ function loop(){
         for(let j=0;j<NP;j++){ const fr=frac[j],P=PP(j);
           if(s<fr){
             const prox=clamp(1-(fr-s)/0.16,0,1);
-            const sc=pe*(1+prox*0.7); drawPt(P,sc,Math.min(1,pe)*0.95,j,false);
-            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(14);pctx.lineWidth=2;hexPath(pctx,P[0],P[1],9*pe);pctx.stroke();pctx.restore();}}
+            const sc=pe*(1+prox*0.7); drawPt(P,sc,Math.min(1,pe)*0.95*a,j,false);
+            {if(prox>0.5){pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=(prox-0.5)*1.4*a;pctx.strokeStyle="#fff";pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(14);pctx.lineWidth=2;hexPath(pctx,P[0],P[1],9*pe);pctx.stroke();pctx.restore();}}
           }else{ // 별이 노트포인트를 지남 → 그 순간 해당 키를 누르고 있으면 퍼펙트, 아니면 미스(드래그 끊김)
             if(j>=1 && !n._ptHit[j] && !n.missed){n._ptHit[j]=true;
               const h=hueP(j),qx=P[0],qy=P[1];
@@ -2736,20 +2738,20 @@ function loop(){
                 (state.shocks||(state.shocks=[])).push({x:qx,y:qy,r:8,vr:7,life:1,dec:0.05,col:"#ffffff"});
                 state.shocks.push({x:qx,y:qy,r:6,vr:5,life:1,dec:0.05,col:h});
                 for(let z=0;z<pc(16);z++){const aa=Math.random()*6.2832,sp2=2.5+Math.random()*6;state.particles.push({x:qx,y:qy,px:qx,py:qy,vx:Math.cos(aa)*sp2,vy:Math.sin(aa)*sp2-1.4,life:1,decay:0.03+Math.random()*0.03,col:h,size:1.5+Math.random()*2.2,streak:Math.random()<0.6,white:Math.random()<0.3});}
-              } else {   // ★키를 안 누르고 있었음 → 미스, 드래그가 중간에 끊김
-                n.missed=true;n.done=true;scoreOnly("miss");spawnJudge("miss",qx,qy);
+              } else {   // ★키를 안 누르고 있었음 → 미스, 드래그가 끊긴 지점에서 페이드아웃
+                n.missed=true;n._missT=now;n._missS=s;scoreOnly("miss");spawnJudge("miss",qx,qy);
               }
             }
           }
         }
         // 앞쪽(아직 안 지난) 어두운 패스 — 별이 지나가면 사라짐
-        pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(4);pctx.globalAlpha=0.42;pctx.lineWidth=3;
+        pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(4);pctx.globalAlpha=0.42*a;pctx.lineWidth=3;
         pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(s+(1-s)*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
         // 뒤쪽 자취 — 유성 꼬리처럼 소비(컬러)
         {const tailL=0.42,fa=Math.max(0,s-tailL),NSEG=20;
          for(let i=0;i<NSEG;i++){const f1=fa+(s-fa)*i/NSEG,f2=fa+(s-fa)*(i+1)/NSEG,ag=i/NSEG,A=SP(f1),B=SP(f2);
-           pctx.globalAlpha=ag*ag*0.55;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=gB(8);pctx.lineWidth=1+ag*ag*4;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();
-           pctx.globalAlpha=ag*ag*0.8;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(5);pctx.lineWidth=0.5+ag*ag*1.8;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}}
+           pctx.globalAlpha=ag*ag*0.55*a;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=gB(8);pctx.lineWidth=1+ag*ag*4;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();
+           pctx.globalAlpha=ag*ag*0.8*a;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(5);pctx.lineWidth=0.5+ag*ag*1.8;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}}
       }
       pctx.restore();
       // ── 별 노트 본체 ──
@@ -3348,13 +3350,15 @@ function edBeatSounds(prev,cur){
     if(cross(n.time))beep("perfect",col);                        // 일반
   }
 }
-$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 Recording…":"🔴 Live input";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스) · 스페이스바=이동");};
+$("#edRec").onclick=()=>{recOn=!recOn;$("#edRec").classList.toggle("on",recOn);$("#edRec").textContent=recOn?"🔴 Recording…":"🔴 Live input";if(recOn)toast("재생 중 A·D·J·L=노트(누르면 프레스) · 스페이스바=스페이스 노트(길게=홀드) · 평소엔 스페이스=이동");};
 document.addEventListener("keydown",e=>{
   if(screens.editor.classList.contains("hidden"))return;
   const tag=e.target.tagName;
   const isText=(tag==="INPUT"&&!/^(button|checkbox|radio|range|submit|reset|file)$/i.test(e.target.type||"text"))||tag==="TEXTAREA";
   if(e.code==="Space"){ if(isText)return;   // 텍스트 입력 중엔 공백 허용
-    e.preventDefault();if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return; }   // ★에디터 스페이스 = 언제나 이동(팬). 다른 기능 없음 → 버튼/메뉴 포커스에도 안 막힘
+    e.preventDefault();
+    if(recOn&&edPlaying){if(!e.repeat)recSpaceStart();return;}   // ★녹음 중(재생 중)에만 스페이스 = 스페이스 노트(길게=홀드)
+    if(!spaceHeld){spaceHeld=true;tl.style.cursor="grab";}return; }   // ★그 외엔 언제나 이동(팬) — 버튼/메뉴 포커스에도 안 막힘
   if(tag==="INPUT"||tag==="SELECT"||tag==="TEXTAREA")return;
   const k=e.key.toLowerCase(), ctrl=e.ctrlKey||e.metaKey;
   if(ctrl&&k==="z"){e.preventDefault();if(e.shiftKey)doRedo();else doUndo();return;}
@@ -3371,7 +3375,7 @@ document.addEventListener("keydown",e=>{
 });
 document.addEventListener("keyup",e=>{
   if(screens.editor.classList.contains("hidden"))return;
-  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;return;}
+  if(e.code==="Space"){spaceHeld=false;tl.style.cursor="";if(edDrag&&edDrag.mode==="pan")edDrag=null;if(recSpaceNote)recSpaceEnd();return;}
   const lane=KEYS.indexOf(e.key.toLowerCase());if(lane>=0)recEnd(lane);
 });
 
