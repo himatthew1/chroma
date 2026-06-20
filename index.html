@@ -200,6 +200,12 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   #edBar2 .spacer{flex:0 0 100%;height:0;}   /* 줄바꿈 구분: 도구 다음 줄로 선택패널/도움말 */
   /* ★상황별 패널은 흐름에서 빼서 absolute 오버레이로 — 표시/숨김에 툴바·타임라인이 안 들썩이게 (edBar2 바로 위에 띄움) */
   #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:calc(100% + 6px);z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
+  #slideDock{position:absolute;top:96px;right:14px;width:264px;z-index:55;background:var(--panel);border:1px solid #39e36b;border-radius:12px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.6);}
+  #slideDock .sd-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px;}
+  #slideDock .sd-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0 2px;}
+  #slideDock .sd-row{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px;color:#cdd6f5;}
+  #slideDock .sd-row label{min-width:34px;color:var(--muted);}
+  #slideDock select{background:var(--panel2);color:var(--text);border:1px solid #2a3158;border-radius:6px;padding:3px 5px;flex:1;}
   #zonePanel.hidden{display:none;}
   #ed-help{color:var(--muted);font-size:12px;flex:1 1 100%;white-space:normal;line-height:1.5;}
   #genStatus{font-size:13px;color:var(--yellow);}
@@ -489,6 +495,19 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
 
       <div id="edSteps">① <b>🎵 Load track</b> → ② <b>⚡ Analyze & auto-gen</b> → ③ add/move/delete notes on the timeline → ④ <b>💾 Save</b> &nbsp;|&nbsp; 🎨 Color group: drag along a lane to group (Enter = play · Space+drag = pan · Ctrl+Z = undo)</div>
       <canvas id="edTimeline"></canvas>
+      <div id="slideDock" class="hidden">
+        <div class="sd-head"><span>↗ 드래그 모양 편집</span><button id="slideDockClose" title="닫기">×</button></div>
+        <div class="sd-row"><label>모양</label>
+          <select id="slideShape" title="Path shape"><option value="arc">Arc</option><option value="wave">Wave</option><option value="zigzag">Zigzag</option><option value="line">Line</option><option value="custom">Custom</option></select></div>
+        <div class="sd-row"><label>개수</label><input type="number" id="slideCount" min="2" max="16" step="1" value="7" style="width:54px"></div>
+        <div class="sd-row"><label>폭</label><input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="flex:1"></div>
+        <div class="sd-row"><label>진폭</label><input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="flex:1"></div>
+        <canvas id="slidePathCv" width="150" height="92" title="Edit path: click = add point · drag = move · right-click = delete" style="display:block;margin:6px 0;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair;width:100%"></canvas>
+        <div class="sd-row" style="justify-content:space-between">
+          <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="OFF = 곡선 궤도 · ON = 점 사이 직선"><input type="checkbox" id="slideStraight">직선</label>
+          <button class="tb-btn primary" id="slideZoomBtn" title="실제 인게임 필드에서 크게 보고 직접 조정">🔍 자세히 보기</button>
+        </div>
+      </div>
 
       <div id="edBar2">
         <b style="color:var(--yellow)">Auto-gen</b>
@@ -531,15 +550,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <span id="selCount">Selected:</span>
           <button class="tb-btn" id="selToggle">Toggle type</button>
           <span class="field">Length <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
-          <span class="field" id="selSlideWrap" style="display:none">
-            <select id="slideShape" title="Path shape" style="background:var(--panel2);color:var(--text);border:1px solid #2a3158;border-radius:6px;padding:3px 4px"><option value="arc">Arc</option><option value="wave">Wave</option><option value="zigzag">Zigzag</option><option value="line">Line</option><option value="custom">Custom</option></select>
-            Count<input type="number" id="slideCount" min="2" max="16" step="1" value="7" style="width:46px">
-            Span<input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="width:64px;vertical-align:middle">
-            Amp<input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="width:64px;vertical-align:middle">
-            <canvas id="slidePathCv" width="150" height="92" title="Edit path: click = add point · drag = move · right-click = delete" style="vertical-align:middle;margin-left:4px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair"></canvas>
-            <button class="tb-btn" id="slideZoomBtn" title="실제 인게임 필드에서 크게 보고 직접 조정">🔍 자세히 보기</button>
-            <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="OFF = curved orbital path (default) · ON = straight lines between points (manual placement)"><input type="checkbox" id="slideStraight" style="vertical-align:middle">Straight</label>
-          </span>
+          <span class="field" id="selSlideHint" style="display:none;color:var(--yellow)">↗ 드래그 모양 편집기 = 우측 상단 카드</span>
           <button class="tb-btn" id="selGroup" title="Make selected notes share one color">🎨 Color</button>
           <button class="tb-btn" id="selPosGroup" title="Cluster selected notes near one spawn spot">📍 Position</button>
           <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">Cohesion</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = exactly the same spot (same direction & speed). Saved per position group" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="Preview of this group's tightness (dots = notes, circle = spread)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas></span>
@@ -3828,7 +3839,8 @@ function updateSelPanel(){
     const cnt=edNotes.filter(n=>n.pg===pgSel[0].pg).length;drawPgPreview(v,cnt);}
   // ★슬라이드 경로 편집 패널 (단일 슬라이드 선택 시)
   const slideSel=single&&edSel.type==="slide";
-  $("#selSlideWrap").style.display=slideSel?"":"none";
+  $("#slideDock").classList.toggle("hidden",!slideSel);   // ★드래그 모양 편집 = 타임라인 우측 상단 고정 카드(레이아웃 안 밀림)
+  if($("#selSlideHint"))$("#selSlideHint").style.display=slideSel?"":"none";
   if(slideSel){ if(!edSel.pts)slideRegen(edSel);   // 처음이면 기본 경로 생성
     $("#slideShape").value=edSel.sShape||"arc";$("#slideCount").value=edSel.sCount||5;
     $("#slideSpan").value=edSel.sSpan||0.7;$("#slideAmp").value=(edSel.sAmp==null?0.26:edSel.sAmp);
@@ -3923,6 +3935,7 @@ function _szDraw(ts){const z=$("#slideZoomCv");if(!z||!edSel||edSel.type!=="slid
 function openSlideZoom(){if(!edSel||edSel.type!=="slide"){toast("드래그 노트를 먼저 선택하세요");return;}slideEnsurePtt(edSel);$("#slideZoom").classList.remove("hidden");if(_szRaf)cancelAnimationFrame(_szRaf);_szRaf=requestAnimationFrame(_szDraw);}
 function closeSlideZoom(){$("#slideZoom").classList.add("hidden");if(_szRaf){cancelAnimationFrame(_szRaf);_szRaf=null;}if(edSel&&edSel.type==="slide")drawSlidePath(edSel);}
 if($("#slideZoomBtn"))$("#slideZoomBtn").onclick=openSlideZoom;
+if($("#slideDockClose"))$("#slideDockClose").onclick=()=>$("#slideDock").classList.add("hidden");
 if($("#slideZoomClose"))$("#slideZoomClose").onclick=closeSlideZoom;
 if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!=="slide")return;   // ★이 드래그만 실제 인게임 속도로 재생
   const n={time:2.2,type:"slide",duration:edSel.duration||0.9,lane:edSel.lane||0,sShape:"custom",pts:edSel.pts.map(p=>p.slice())};if(edSel.ptt)n.ptt=edSel.ptt.slice();
