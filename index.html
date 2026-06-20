@@ -2638,8 +2638,8 @@ function pressCol(col){
   const dt=best.time-now;
   const kind = Math.abs(dt)<=JW.good ? (judgeOf(dt)||"good") : "bad";   // 유예 안이면 BAD
   if(best.type==="press"||best.type==="slide"){best.headJudged=true;best.holding=true;best._headKind=kind;padBurst(best.col,kind,best.x,best.y);   // ★노트 위치에서 폭발(패드 아님) — 일반 노트와 동일
-    if(kind==="bad")badSound();else hitSound(kind,best.col);spawnJudge(kind,best.x,best.y);
-    if(best.type==="slide"){if(best._ptHit)best._ptHit[0]=true;scoreOnly(kind);}}   // ★드래그: 헤드=첫 노트포인트(점수 1회). 이후 포인트는 역행 중 키별 판정
+    if(kind==="bad")badSound();else hitSound(kind,best.col);
+    if(best.type==="slide"){spawnJudge(kind,best.x,best.y);if(best._ptHit)best._ptHit[0]=true;scoreOnly(kind);}}   // ★드래그=헤드(첫 포인트) 문구 즉시 · press 홀드=캐치 땐 문구 없음(완료 시에만)
   else{best.done=true;applyJudge(kind,best);}
 }
 function scoreOnly(kind){
@@ -2652,7 +2652,7 @@ function releaseCol(col){
   const now=gameNow();
   for(const n of state.notes){
     if(n.col===col&&n.type==="press"&&n.holding&&!n.done){   // ★press만 — 드래그는 키를 떼도 별이 계속 가며 노트포인트별 판정(놓친 포인트에서 미스 끊김)
-      if(now>=n.time+n.duration-0.12){n.done=true;scoreOnly(n._headKind||"great");supernova(n.x,n.y,n.col);}
+      if(now>=n.time+n.duration-0.12){n.done=true;const hk=n._headKind||"great";scoreOnly(hk);spawnJudge(hk,n.x,n.y);supernova(n.x,n.y,n.col);}   // ★완료 시 판정 문구
       else{n.holding=false;n.done=true;applyJudge("miss",n);}
     }
   }
@@ -2712,7 +2712,7 @@ function loop(){
   // ★콘솔 그릇 곡선과 평행한 호(그 아래 +offY), 외삽 → 양옆도 직선 없이 호 유지. divY는 노트 클립 경계로도 사용 → 패드/분리선 위로는 노트가 안 잘림
   const divY=(x)=>{const t=(x-g0.ebx0)/(g0.ebx2-g0.ebx0);return g0.topEdge+g0.bowl*2*t*(1-t)+offY;};
   {
-    pctx.fillStyle="#080c1c";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();   // 아래(패드존) 불투명 — 뒤 안 비침
+    pctx.save();pctx.globalCompositeOperation="multiply";pctx.fillStyle="#b0b6c6";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();pctx.restore();   // ★아래(패드존) — 배경을 곱하기로 살짝 어둡게(비쳐보임)
     pctx.save();pctx.lineCap="round";
     pctx.strokeStyle="#22a7ff";pctx.globalAlpha=0.16;pctx.lineWidth=3;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
     pctx.strokeStyle="#9fb6ff";pctx.globalAlpha=0.45;pctx.lineWidth=1.1;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
@@ -2733,7 +2733,7 @@ function loop(){
         if(!n.missed&&n._ptHit){for(let j=1;j<n._ptHit.length;j++){if(n._ptHit[j])continue;n._ptHit[j]=true;   // ★남은(꼬리) 노트포인트 키 체크
           if(state.held[n.col]){hitSound("perfect",n.col);scoreOnly("perfect");}else{n.missed=true;scoreOnly("miss");const ep0=slidePos(n,clamp(n._tf[j],0,1));spawnJudge("miss",ep0.x,ep0.y);}}}
         if(!n.missed){const ep=slidePos(n,1);supernova(ep.x,ep.y,n.col);}n.done=true;continue;}   // 점수는 포인트별 적립, 완료 시 폭발만
-      n.done=true;scoreOnly(n._headKind||"great");supernova(n.x,n.y,n.col);continue;}
+      {n.done=true;const hk=n._headKind||"great";scoreOnly(hk);spawnJudge(hk,n.x,n.y);supernova(n.x,n.y,n.col);continue;}}   // ★press 홀드 완료 시에만 판정 문구
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
     const prog0=1-(n._wT-wpNow)/n._arEff;
     let vEnd=((n.type==="press"||n.type==="slide")&&n.holding)?n.time+n.duration+0.05:n.time+JW.good+LATEGRACE+0.04;
@@ -2886,19 +2886,19 @@ function loop(){
     pctx.restore();
   }
 
-  // receptor pads
+  // particles · 섬광 · 충격파 — ★패드보다 먼저 그려 패드가 항상 최상단(노트 이펙트가 패드 위로 안 올라옴)
+  if(state.particles.length>260)state.particles.splice(0,state.particles.length-260);  // 상한
+  NoteFX_drawParts(pctx,state.particles,1);state.particles=state.particles.filter(p=>p.life>0);
+  if(state.flashes&&state.flashes.length){NoteFX_drawFlashes(pctx,state.flashes);state.flashes=state.flashes.filter(fl=>fl.life>0);}
+  if(state.shocks&&state.shocks.length){NoteFX_drawShocks(pctx,state.shocks,1);state.shocks=state.shocks.filter(s=>s.life>0);}
+
+  // receptor pads — 항상 최상단 (모든 노트 이펙트 위)
   const g=padGeom();
   // ★패드 + 스페이스 콘솔 — 공유 함수(How-to와 동일 에셋)
   NoteFX_pads(pctx,g,W,H,state.held,state.padFx,(t,x,y,sz,col)=>{
     if(settings.retro)pPixText(t,x,y,sz,col,"center","middle");
     else{pctx.save();pctx.fillStyle=col;pctx.textAlign="center";pctx.textBaseline="middle";pctx.font="bold "+Math.round(sz)+"px monospace";pctx.fillText(t,x,y);pctx.restore();}
   },state.spaceDown);
-
-  // particles · 섬광 · 충격파 — 공유 함수(How-to와 동일한 그리기)
-  if(state.particles.length>260)state.particles.splice(0,state.particles.length-260);  // 상한
-  NoteFX_drawParts(pctx,state.particles,1);state.particles=state.particles.filter(p=>p.life>0);
-  if(state.flashes&&state.flashes.length){NoteFX_drawFlashes(pctx,state.flashes);state.flashes=state.flashes.filter(fl=>fl.life>0);}
-  if(state.shocks&&state.shocks.length){NoteFX_drawShocks(pctx,state.shocks,1);state.shocks=state.shocks.filter(s=>s.life>0);}
 
   // 판정 문구 — 노트가 있던 자리에 볼드로 떠오름
   pctx.textAlign="center";
