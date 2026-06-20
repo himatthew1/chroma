@@ -511,6 +511,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
         <span class="field">Offset <input type="number" id="edBpmOff" step="0.001" value="0" style="width:64px"></span>
         <label class="field" title="Snap notes to the beat grid"><input type="checkbox" id="edSnap"> 🧲 Snap</label>
         <select id="edSnapSub" title="Snap subdivision"><option value="1">1/1</option><option value="2">1/2</option><option value="4" selected>1/4</option><option value="8">1/8</option></select>
+        <button class="tb-btn" id="edDragPrev" title="드래그 노트 간격 프리뷰 — 테스트 채보 자동 재생(플레이 중 G=RAW/FIX · [ / ]=간격px)">🔍 드래그 프리뷰</button>
         <div class="spacer"></div>
         <div id="zonePanel" class="hidden">
           <span style="color:#c89bff">Zone:</span>
@@ -3482,6 +3483,7 @@ $("#edBpmVal").oninput=function(){const v=parseFloat(this.value);edBpm=isFinite(
 $("#edBpmOff").oninput=function(){const v=parseFloat(this.value);edBeatOff=isFinite(v)?v:0;};
 $("#edSnap").onchange=function(){edSnapOn=this.checked;toast(edSnapOn?"🧲 스냅 켜짐":"스냅 꺼짐");};
 $("#edSnapSub").onchange=function(){edSnapSub=parseInt(this.value)||4;};
+$("#edDragPrev").onclick=()=>{try{if(typeof edStopSrc==="function")edStopSrc();}catch(_){}; startPreview({fix:true,px:_dragGapPx});toast("드래그 프리뷰 — G=RAW/FIX · [ / ]=간격 · Esc=나가기");};
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
   if(!edBeat||cur<=prev||edSfxVol<=0)return;
