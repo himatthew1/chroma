@@ -241,6 +241,11 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
 <div id="boot" style="position:fixed;inset:0;background:#05060d;z-index:99999;display:block;transition:opacity 1s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;"></canvas></div>
 <!-- 화면 전환용 검정 페이드(게임 진입/곡 시작 첫 프레임 플래시 가림) -->
 <div id="scrFade" style="position:fixed;inset:0;background:#05060d;z-index:9000;opacity:0;pointer-events:none;transition:opacity .45s ease;"></div>
+<div id="slideZoom" class="hidden" style="position:fixed;inset:0;z-index:200;background:#04050c;">
+  <canvas id="slideZoomCv" style="position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair"></canvas>
+  <div style="position:absolute;left:12px;top:12px;z-index:2;font:12px/1.6 ui-monospace,monospace;color:#9fb6ff;background:rgba(5,8,20,.72);padding:8px 11px;border-radius:8px;pointer-events:none">🔍 자세히 보기 — 실제 인게임 필드<br>점 끌어 이동 · 빈 곳 클릭=추가 · 우클릭=삭제 · 여기서 잡은 모양·위치가 그대로 적용</div>
+  <button id="slideZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
+</div>
 <div id="errBanner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:100000;background:rgba(40,8,18,0.97);color:#ffeef4;border-top:3px solid #ff2e97;padding:10px 14px 12px;font:12px/1.45 monospace;max-height:42vh;overflow:auto;white-space:pre-wrap;">
   <button id="errCopy" style="position:absolute;right:70px;top:8px;font:11px monospace;padding:4px 9px;background:#22a7ff;color:#fff;border:none;border-radius:6px;cursor:pointer;">복사</button>
   <button id="errClose" style="position:absolute;right:10px;top:8px;font:11px monospace;padding:4px 9px;background:#555;color:#fff;border:none;border-radius:6px;cursor:pointer;">닫기 ✕</button>
@@ -531,6 +536,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
             Span<input type="range" id="slideSpan" min="0.2" max="0.92" step="0.02" value="0.6" style="width:64px;vertical-align:middle">
             Amp<input type="range" id="slideAmp" min="0" max="0.42" step="0.02" value="0.2" style="width:64px;vertical-align:middle">
             <canvas id="slidePathCv" width="150" height="92" title="Edit path: click = add point · drag = move · right-click = delete" style="vertical-align:middle;margin-left:4px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c;cursor:crosshair"></canvas>
+            <button class="tb-btn" id="slideZoomBtn" title="실제 인게임 필드에서 크게 보고 직접 조정">🔍 자세히 보기</button>
             <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none" title="OFF = curved orbital path (default) · ON = straight lines between points (manual placement)"><input type="checkbox" id="slideStraight" style="vertical-align:middle">Straight</label>
           </span>
           <button class="tb-btn" id="selGroup" title="Make selected notes share one color">🎨 Color</button>
@@ -3867,6 +3873,44 @@ function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const
     else{pushUndo();edSel.pts.push(toN(px,py));slideUniformPtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);}});
   window.addEventListener("pointermove",e=>{if(drag<0||!edSel||!edSel.pts)return;const r=cv.getBoundingClientRect();edSel.pts[drag]=toN(e.clientX-r.left,e.clientY-r.top);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];drawSlidePath(edSel);});
   window.addEventListener("pointerup",()=>{drag=-1;});
+})();
+// ===== 자세히 보기 — 실제 인게임 필드 전체화면 + 이 드래그 직접 조정 =====
+let _szRaf=null,_szPP=[],_szM=null;
+function _szHit(px,py){for(let i=0;i<_szPP.length;i++){if(Math.hypot(_szPP[i][0]-px,_szPP[i][1]-py)<18)return i;}return -1;}
+function _szToN(px,py){if(!_szM)return[0.5,0.5];return [clamp((px-_szM.mx)/_szM.pw,0,1),clamp((py-_szM.top)/_szM.ph,0,1)];}
+function _szDraw(ts){const z=$("#slideZoomCv");if(!z||!edSel||edSel.type!=="slide"||!edSel.pts){_szRaf=null;return;}
+  const c=z.getContext("2d"),W=window.innerWidth,H=window.innerHeight;if(z.width!==W||z.height!==H){z.width=W;z.height=H;}
+  const tt=((ts||0)/1000)%1.9, prog=clamp(tt/1.35,0,1), rot=(ts||0)/1000*3;
+  const bg=c.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);bg.addColorStop(0,"#0a1233");bg.addColorStop(0.6,"#06091c");bg.addColorStop(1,"#04050c");c.fillStyle=bg;c.fillRect(0,0,W,H);
+  const g=padGeomFor(W,H),m=playFieldMetrics(W,H),r=g.r;
+  NoteFX_divider(c,g,W,H);
+  const PX=p=>m.marginX+p[0]*(W-2*m.marginX),PY=p=>m.marginYt+p[1]*(m.marginYb-m.marginYt);
+  const PP=edSel.pts.map(p=>[PX(p),PY(p)]);_szPP=PP;_szM={mx:m.marginX,pw:(W-2*m.marginX),top:m.marginYt,ph:(m.marginYb-m.marginYt)};
+  const col=COLHEX[(edSel.lane||0)%4];
+  c.save();c.globalCompositeOperation="lighter";c.lineCap="round";c.lineJoin="round";
+  c.strokeStyle="#454c6e";c.shadowColor="#454c6e";c.shadowBlur=6;c.globalAlpha=0.7;c.lineWidth=3;c.beginPath();PP.forEach((P,i)=>i?c.lineTo(P[0],P[1]):c.moveTo(P[0],P[1]));c.stroke();
+  PP.forEach((P,j)=>{if(j===0)return;c.globalAlpha=0.85;c.strokeStyle="#454c6e";c.shadowColor="#454c6e";c.shadowBlur=5;c.lineWidth=2.4;hexPath(c,P[0],P[1],9);c.stroke();c.globalAlpha=0.7;c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=4;c.beginPath();c.arc(P[0],P[1],2.6,0,6.2832);c.fill();});
+  const hd=PP[0];c.globalAlpha=0.4+0.45*prog;c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=gB(8);c.lineWidth=2+2*prog;star4Path(c,hd[0],hd[1],r*0.9+(1-prog)*r*2.6,rot);c.stroke();
+  c.globalAlpha=0.95;c.fillStyle=col;c.shadowColor=col;c.shadowBlur=gB(14);star4Path(c,hd[0],hd[1],r*0.6,rot);c.fill();c.globalAlpha=0.9;c.fillStyle="#fff";star4Path(c,hd[0],hd[1],r*0.3,rot);c.fill();
+  c.restore();
+  NoteFX_pads(c,g,W,H,[false,false,false,false],null,(t2,x,y,sz,cl)=>{c.save();c.fillStyle=cl;c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(sz)+"px monospace";c.fillText(t2,x,y);c.restore();},false);
+  PP.forEach((P,j)=>{c.beginPath();c.arc(P[0],P[1],11,0,6.2832);c.fillStyle=j===0?"rgba(255,213,79,0.95)":"rgba(159,224,255,0.9)";c.fill();c.lineWidth=2;c.strokeStyle="#05070f";c.stroke();c.fillStyle="#05070f";c.font="bold 12px monospace";c.textAlign="center";c.textBaseline="middle";c.fillText(j===0?"H":String(j),P[0],P[1]);});
+  _szRaf=requestAnimationFrame(_szDraw);
+}
+function openSlideZoom(){if(!edSel||edSel.type!=="slide"){toast("드래그 노트를 먼저 선택하세요");return;}slideEnsurePtt(edSel);$("#slideZoom").classList.remove("hidden");if(_szRaf)cancelAnimationFrame(_szRaf);_szRaf=requestAnimationFrame(_szDraw);}
+function closeSlideZoom(){$("#slideZoom").classList.add("hidden");if(_szRaf){cancelAnimationFrame(_szRaf);_szRaf=null;}if(edSel&&edSel.type==="slide")drawSlidePath(edSel);}
+if($("#slideZoomBtn"))$("#slideZoomBtn").onclick=openSlideZoom;
+if($("#slideZoomClose"))$("#slideZoomClose").onclick=closeSlideZoom;
+(function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1;
+  const open=()=>!$("#slideZoom").classList.contains("hidden");
+  z.addEventListener("contextmenu",e=>e.preventDefault());
+  z.addEventListener("pointerdown",e=>{if(!open()||!edSel||!edSel.pts)return;e.preventDefault();const r=z.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,hh=_szHit(px,py);
+    if(e.button===2){if(hh>0&&edSel.pts.length>2){pushUndo();edSel.pts.splice(hh,1);if(edSel.ptt)edSel.ptt.splice(hh,1);slideEnsurePtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}return;}
+    if(hh>=0){drag=hh;pushUndo();}
+    else{pushUndo();edSel.pts.push(_szToN(px,py));slideUniformPtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}});
+  window.addEventListener("pointermove",e=>{if(drag<0||!open()||!edSel||!edSel.pts)return;const r=z.getBoundingClientRect();edSel.pts[drag]=_szToN(e.clientX-r.left,e.clientY-r.top);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];});
+  window.addEventListener("pointerup",()=>{drag=-1;});
+  window.addEventListener("keydown",e=>{if(open()&&e.key==="Escape"){e.preventDefault();e.stopPropagation();closeSlideZoom();}},true);
 })();
 function slideParamChange(){if(!edSel||edSel.type!=="slide")return;pushUndo();
   edSel.sShape=$("#slideShape").value;edSel.sCount=clamp(parseInt($("#slideCount").value)||5,2,12);
