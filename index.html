@@ -195,10 +195,11 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   #edWrap{position:absolute;top:0;bottom:0;left:0;right:0;display:flex;flex-direction:column;}
   #edTimeline{flex:1;min-height:0;display:block;width:100%;background:#080912;cursor:crosshair;}
   .topbar{flex:0 0 auto;}
-  #edBar2{display:flex;align-items:center;flex-wrap:wrap;gap:8px;row-gap:8px;padding:8px 14px;background:rgba(20,23,46,.85);max-height:42vh;overflow-y:auto;}
+  #edBar2{display:flex;align-items:center;flex-wrap:wrap;gap:8px;row-gap:8px;padding:8px 14px;background:rgba(20,23,46,.85);max-height:42vh;overflow-y:auto;position:relative;}
   #edBar2>*{flex:0 0 auto;}
   #edBar2 .spacer{flex:0 0 100%;height:0;}   /* 줄바꿈 구분: 도구 다음 줄로 선택패널/도움말 */
-  #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 12px;background:var(--panel);border-radius:10px;}
+  /* ★상황별 패널은 흐름에서 빼서 absolute 오버레이로 — 표시/숨김에 툴바·타임라인이 안 들썩이게 (edBar2 바로 위에 띄움) */
+  #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:calc(100% + 6px);z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
   #zonePanel.hidden{display:none;}
   #ed-help{color:var(--muted);font-size:12px;flex:1 1 100%;white-space:normal;line-height:1.5;}
   #genStatus{font-size:13px;color:var(--yellow);}
