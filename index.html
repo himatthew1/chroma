@@ -1803,7 +1803,7 @@ function NoteFX_pads(ctx,g,W,H,held,padFx,txt,spaceLit){
   ctx.textBaseline="alphabetic";
 }
 function padAt(px,py){const g=padGeom();for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.ys[c])<=g.r*1.1)return c;}return -1;}
-function horizonY(){const g=padGeom();return g.y-g.r-16;}  // 플레이 존 / 버튼 존 경계
+function horizonY(){const g=padGeom();return g.topEdge-g.r*0.2;}  // 플레이 존 / 버튼 존 경계 — 콘솔 윗변(분리선) 근처까지 확장
 function fmtTime(s){s=Math.max(0,s|0);return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");}
 function rankOf(a){return a>=98?"S+":a>=95?"S":a>=90?"A":a>=80?"B":a>=70?"C":"D";}
 
@@ -2634,10 +2634,10 @@ function loop(){
   }
 
   // perspective horizon — 플레이 존(위) / 버튼 존(아래) 분리
+  const g0=padGeom(),offY=g0.r*0.5;
+  // ★콘솔 그릇 곡선과 평행한 호(그 아래 +offY), 외삽 → 양옆도 직선 없이 호 유지. divY는 노트 클립 경계로도 사용 → 패드/분리선 위로는 노트가 안 잘림
+  const divY=(x)=>{const t=(x-g0.ebx0)/(g0.ebx2-g0.ebx0);return g0.topEdge+g0.bowl*2*t*(1-t)+offY;};
   {
-    const g0=padGeom(),offY=g0.r*0.5;
-    // ★콘솔 그릇 곡선과 평행한 호(그 아래 +offY), clamp 없이 외삽 → 양옆도 직선 없이 호 유지. 패드/콘솔이 위에 그려져 그 부분은 가려짐
-    const divY=(x)=>{const t=(x-g0.ebx0)/(g0.ebx2-g0.ebx0);return g0.topEdge+g0.bowl*2*t*(1-t)+offY;};
     pctx.fillStyle="#080c1c";pctx.beginPath();pctx.moveTo(0,divY(0));for(let x=0;x<=W;x+=4)pctx.lineTo(x,divY(x));pctx.lineTo(W,H);pctx.lineTo(0,H);pctx.closePath();pctx.fill();   // 아래(패드존) 불투명 — 뒤 안 비침
     pctx.save();pctx.lineCap="round";
     pctx.strokeStyle="#22a7ff";pctx.globalAlpha=0.16;pctx.lineWidth=3;pctx.beginPath();for(let x=0;x<=W;x+=4)x?pctx.lineTo(x,divY(x)):pctx.moveTo(0,divY(0));pctx.stroke();
@@ -2668,7 +2668,7 @@ function loop(){
     drawList.push(n);
   }
   drawList.sort((a,b)=>b.time-a.time);
-  pctx.save();pctx.beginPath();pctx.rect(0,0,W,horizonY());pctx.clip();  // 버튼 존엔 노트/링 안 그림
+  pctx.save();pctx.beginPath();pctx.moveTo(0,0);pctx.lineTo(W,0);for(let x=W;x>=0;x-=4)pctx.lineTo(x,divY(x));pctx.closePath();pctx.clip();  // ★분리선 곡선 위 = 플레이존(패드/분리선 위로는 안 잘림)
   // ★스와이프 체인 리본 — 멤버를 ci 순서로 잇는 발광 띠 (노드 밑에 깔림). 타격된 노드는 빠져 띠가 '소모'됨
   {
     const chDraw={};
@@ -2711,9 +2711,9 @@ function loop(){
       const s=(n.missed&&n._missS!=null)?n._missS:(n.holding?clamp((now-n.time)/Math.max(n.duration,0.001),0,1):0);   // ★미스 시 끊긴 지점에 별 정지
       const hueP=(j)=>_rgba(SP_AUR[j%5],1);   // ★drag_v4: 노트포인트 = 오로라 5색
       // 노트포인트 마커(육각형) + 무지개 옅은 오버레이
-      function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gB(gray?5:10);pctx.lineWidth=gray?2:3;hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();
-        pctx.globalAlpha=al*(gray?0.7:0.95);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(gray?4:7);pctx.beginPath();pctx.arc(P[0],P[1],2.2*sc*(gray?0.8:1),0,6.2832);pctx.fill();
-        if(!gray){pctx.globalAlpha=al*0.28;pctx.strokeStyle=hueP(j);pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(8);hexPath(pctx,P[0],P[1],7*sc);pctx.stroke();}pctx.restore();}
+      function drawPt(P,sc,al,j,gray){const mc=gray?"#454c6e":col;pctx.save();pctx.globalCompositeOperation="lighter";pctx.globalAlpha=al;pctx.strokeStyle=mc;pctx.shadowColor=mc;pctx.shadowBlur=gB(gray?5:10);pctx.lineWidth=gray?2.2:3.2;hexPath(pctx,P[0],P[1],9*sc);pctx.stroke();
+        pctx.globalAlpha=al*(gray?0.7:0.95);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(gray?4:7);pctx.beginPath();pctx.arc(P[0],P[1],2.8*sc*(gray?0.8:1),0,6.2832);pctx.fill();
+        if(!gray){pctx.globalAlpha=al*0.28;pctx.strokeStyle=hueP(j);pctx.shadowColor=hueP(j);pctx.shadowBlur=gB(8);hexPath(pctx,P[0],P[1],9*sc);pctx.stroke();}pctx.restore();}
       const eobk=(x)=>{x=clamp(x,0,1);return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);};
       pctx.save();pctx.lineCap="round";pctx.lineJoin="round";pctx.globalCompositeOperation="lighter";
       if(!n.holding){
@@ -2721,7 +2721,7 @@ function loop(){
         const ahead=clamp(prog,0,1);
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.55;pctx.lineWidth=3;
         pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(ahead*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        for(let j=0;j<NP;j++){ if(frac[j]<=ahead+0.001){ drawPt(PP(j),0.7, a*0.85, j, true); } }   // 그려진 구간의 회색 노트포인트
+        for(let j=1;j<NP;j++){ if(frac[j]<=ahead+0.001){ drawPt(PP(j),0.95, a*0.85, j, true); } }   // 헤드(0)는 별이 대신 → 회색 점은 1번부터, 더 크게(겹침 방지)
       }else{
         // ── 역행: 역행 시작과 함께 나머지 패스가 앞쪽에 나타나 있고, 별이 지나가며 소비 ──
         const pe=eobk(s/0.18);   // ★V4: 첫 18% 동안 부드럽게 등장(즉각 팝 아님)
@@ -3641,25 +3641,28 @@ function updateSelPanel(){
   const slideSel=single&&edSel.type==="slide";
   $("#selSlideWrap").style.display=slideSel?"":"none";
   if(slideSel){ if(!edSel.pts)slideRegen(edSel);   // 처음이면 기본 경로 생성
-    $("#slideShape").value=edSel.sShape||"arc";$("#slideCount").value=edSel.sCount||7;
-    $("#slideSpan").value=edSel.sSpan||0.6;$("#slideAmp").value=(edSel.sAmp==null?0.2:edSel.sAmp);
+    $("#slideShape").value=edSel.sShape||"arc";$("#slideCount").value=edSel.sCount||5;
+    $("#slideSpan").value=edSel.sSpan||0.7;$("#slideAmp").value=(edSel.sAmp==null?0.26:edSel.sAmp);
     if($("#slideStraight"))$("#slideStraight").checked=!!edSel.straight;
     drawSlidePath(edSel); }
 }
 // 슬라이드 경로 생성 (모양/개수/폭/진폭 → 정규화 노트포인트). custom이면 기존 pts 유지
 function slideGenPts(shape,count,span,amp){
-  count=clamp(Math.round(count),2,16);const pts=[],x0=0.5-span/2;
+  count=clamp(Math.round(count),2,12);
+  const minStep=0.13;                                          // ★점 사이 최소 가로 간격(정규화) → 자동생성부터 안 겹치게(축소 FSC 감안)
+  span=clamp(Math.max(span,(count-1)*minStep),0.2,0.92);       // 점이 많으면 폭을 자동으로 넓혀 간격 확보
+  const pts=[],x0=0.5-span/2;
   for(let i=0;i<count;i++){const t=count>1?i/(count-1):0;let x=x0+span*t,y=0.5;
-    if(shape==="wave")y=0.5+Math.sin(t*Math.PI*3)*amp;
+    if(shape==="wave")y=0.5+Math.sin(t*Math.PI*2.2)*amp;       // 주기 완화 → 봉우리끼리 분리
     else if(shape==="arc")y=0.5-Math.sin(t*Math.PI)*amp*1.4;
-    else if(shape==="zigzag")y=0.5+((i%2)?-amp:amp);
+    else if(shape==="zigzag")y=0.5+((i%2)?-amp:amp)*1.15;      // 톱니 진폭 살짝↑ → 점 수직 분리 뚜렷
     pts.push([clamp(x,0.04,0.96),clamp(y,0.06,0.94)]);}
   return pts;
 }
 function slideUniformPtt(n){const N=n.pts.length;n.ptt=n.pts.map((p,j)=>N>1?j/(N-1):0);}   // 시간비율 균등 초기화
 function slideEnsurePtt(n){if(!n.ptt||n.ptt.length!==n.pts.length)slideUniformPtt(n);}
 function slideRegen(n){const sh=n.sShape||"arc";if(sh==="custom"){slideEnsurePtt(n);return;}
-  n.sShape=sh;n.sCount=n.sCount||7;n.sSpan=n.sSpan||0.6;n.sAmp=(n.sAmp==null?0.2:n.sAmp);
+  n.sShape=sh;n.sCount=n.sCount||5;n.sSpan=n.sSpan||0.7;n.sAmp=(n.sAmp==null?0.26:n.sAmp);
   n.pts=slideGenPts(sh,n.sCount,n.sSpan,n.sAmp);slideUniformPtt(n);n.x=n.pts[0][0];n.y=n.pts[0][1];}
 function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const c=cv.getContext("2d"),W=cv.width,H=cv.height;
   const PAD=8,mx=v=>PAD+v*(W-2*PAD),my=v=>PAD+v*(H-2*PAD);
@@ -3686,8 +3689,8 @@ function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const
   window.addEventListener("pointerup",()=>{drag=-1;});
 })();
 function slideParamChange(){if(!edSel||edSel.type!=="slide")return;pushUndo();
-  edSel.sShape=$("#slideShape").value;edSel.sCount=clamp(parseInt($("#slideCount").value)||7,2,16);
-  edSel.sSpan=parseFloat($("#slideSpan").value)||0.6;edSel.sAmp=parseFloat($("#slideAmp").value);
+  edSel.sShape=$("#slideShape").value;edSel.sCount=clamp(parseInt($("#slideCount").value)||5,2,12);
+  edSel.sSpan=parseFloat($("#slideSpan").value)||0.7;edSel.sAmp=parseFloat($("#slideAmp").value);
   if(edSel.sShape!=="custom")slideRegen(edSel);drawSlidePath(edSel);}
 $("#slideShape").onchange=()=>{if(!edSel)return;if($("#slideShape").value==="custom"){pushUndo();edSel.sShape="custom";}else slideParamChange();};
 $("#slideCount").onchange=slideParamChange;
