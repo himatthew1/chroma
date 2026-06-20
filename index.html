@@ -1985,6 +1985,16 @@ function buildPlayNotes(chart){
   return notes;
 }
 // 노트의 픽셀 좌표를 현재 캔버스 크기에 맞춰 (재)배치. nx/ny(정규화 고정값)에서 계산하므로 색은 안 바뀜.
+let _dragGapFix=true,_dragGapPx=26;   // ★드래그 노트 최소 간격 보장(라이브 A/B 토글: G키 / [ ] 로 px 조절)
+function enforceGapPx(P,target,L,T,R,B){   // 인접 점 최소 픽셀 간격 보장 — 가까우면 중심 기준 확대 후 화면 안으로 이동(형태 보존)
+  if(!P||P.length<2)return P;
+  let mind=1e9;for(let i=1;i<P.length;i++){const d=Math.hypot(P[i][0]-P[i-1][0],P[i][1]-P[i-1][1]);if(d<mind)mind=d;}
+  let P2=P;
+  if(mind>0&&mind<target){const f=Math.min(target/mind,2.2);let cx=0,cy=0;P.forEach(p=>{cx+=p[0];cy+=p[1];});cx/=P.length;cy/=P.length;P2=P.map(p=>[cx+(p[0]-cx)*f,cy+(p[1]-cy)*f]);}
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;P2.forEach(p=>{mnx=Math.min(mnx,p[0]);mxx=Math.max(mxx,p[0]);mny=Math.min(mny,p[1]);mxy=Math.max(mxy,p[1]);});
+  let dx=0,dy=0;if(mnx<L)dx=L-mnx;else if(mxx>R)dx=R-mxx;if(mny<T)dy=T-mny;else if(mxy>B)dy=B-mxy;
+  return (dx||dy)?P2.map(p=>[p[0]+dx,p[1]+dy]):P2;
+}
 function layoutPlayPositions(notes){
   if(!notes||!notes.length)return;
   const r=noteR(),W=pcanvas.width,H=pcanvas.height;
@@ -2019,6 +2029,7 @@ function layoutPlayPositions(notes){
       }
       n.ppts=P.map(p=> useCtr ? [marginX+ctr(p[0],0.5)*(W-2*marginX), marginYt+ctr(p[1],0.62)*(marginYb-marginYt)]
                                : [marginX+p[0]*(W-2*marginX), marginYt+p[1]*(marginYb-marginYt)]);
+      if(_dragGapFix)n.ppts=enforceGapPx(n.ppts,_dragGapPx,marginX,marginYt,W-marginX,marginYb);   // ★최소 간격 보장(뭉침 방지)
       n.x=n.ppts[0][0]; n.y=n.ppts[0][1];                  // 머리=경로 시작점(캐치)
       n.x2=n.ppts[n.ppts.length-1][0]; n.y2=n.ppts[n.ppts.length-1][1];  // 꼬리=경로 끝점
       const cum=[0];for(let i=1;i<n.ppts.length;i++)cum.push(cum[i-1]+Math.hypot(n.ppts[i][0]-n.ppts[i-1][0],n.ppts[i][1]-n.ppts[i-1][1]));
@@ -2597,6 +2608,7 @@ function drawHudCanvas(now){
   const c=state.counts,j=c.perfect+c.great+c.good+(c.bad||0)+c.miss;
   const acc=j?((c.perfect+c.great*0.7+c.good*0.4+(c.bad||0)*0.15)/j*100):100;
   ot(acc.toFixed(2)+"%",W-pad,H*0.09+ssz*1.0,Math.max(12,H*0.022),"#ffd23f","right");   // ★게임 중엔 정확도만(랭크는 결과 화면에서만)
+  ot("DRAG: "+(_dragGapFix?("FIX "+_dragGapPx+"px"):"RAW")+"  (G / [ / ])",pad,H-10,Math.max(10,H*0.016),"#5a6190","left");   // ★드래그 간격 A/B 모드 표시(비교용)
   // ★상단 오로라 진행 타이머 — 진행될수록 무지개 색 변화, 남은 시간 숫자 없음
   const dur=(playAudio.duration&&isFinite(playAudio.duration))?playAudio.duration:(state.lastT||1);
   {const p=clamp(now/dur,0,1),pbY=Math.max(14,H*0.024),pbX=Math.max(16,W*0.022),pw=W-2*pbX,lw=Math.max(6,H*0.014);
@@ -2612,6 +2624,9 @@ function drawHudCanvas(now){
 document.addEventListener("keydown",e=>{
   if(state&&!screens.play.classList.contains("hidden")){
     if(e.key==="Escape"){stopPlay();openSongSelect();return;}
+    // ★드래그 간격 A/B 비교: G=수정안 켜기/끄기, [ / ] = 간격 px 조절 (실시간 재배치)
+    if(!e.repeat&&e.key.toLowerCase()==="g"){_dragGapFix=!_dragGapFix;if(state.notes)layoutPlayPositions(state.notes);toast(_dragGapFix?("드래그 간격: 수정안 "+_dragGapPx+"px"):"드래그 간격: 원본(RAW)");return;}
+    if(!e.repeat&&(e.key==="["||e.key==="]")){_dragGapPx=clamp(_dragGapPx+(e.key==="]"?2:-2),10,48);_dragGapFix=true;if(state.notes)layoutPlayPositions(state.notes);toast("드래그 간격 "+_dragGapPx+"px");return;}
     if(e.code==="Space"){e.preventDefault();if(state.started&&!state.readyGate){state.spaceDown=true;if(!e.repeat)pressSpace();}return;}
     const col=KEYS.indexOf(e.key.toLowerCase());
     if(col>=0){
