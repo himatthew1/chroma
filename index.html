@@ -1927,8 +1927,8 @@ function layoutPlayPositions(notes){
       let useCtr=true;
       if(n.sShape!=="custom"&&P.length>=2){
         const hs=(k)=>{const x=Math.sin(n.time*k+k*1.3)*43758.5453;return x-Math.floor(x);};   // 0~1 결정적 해시
-        const rot=hs(127.1)*6.2832, orb=hs(311.7)*6.2832, rOut=0.60, c=Math.cos(rot),s=Math.sin(rot);
-        const rel=P.map(([x,y])=>[(x-0.5)*c-(y-0.5)*s,(x-0.5)*s+(y-0.5)*c]);   // 중심 기준 회전(형태 보존)
+        const rot=hs(127.1)*6.2832, orb=hs(311.7)*6.2832, rOut=0.60, c=Math.cos(rot),s=Math.sin(rot), FSC=0.55;   // ★FSC: 포메이션 축소(화면 과점유 방지) — 형태 비율 유지, 노트 크기와 무관
+        const rel=P.map(([x,y])=>[((x-0.5)*c-(y-0.5)*s)*FSC,((x-0.5)*s+(y-0.5)*c)*FSC]);   // 중심 기준 회전(형태 보존) + 축소
         let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
         rel.forEach(([rx,ry])=>{if(rx<mnx)mnx=rx;if(rx>mxx)mxx=rx;if(ry<mny)mny=ry;if(ry>mxy)mxy=ry;});
         let ox=0.5+Math.cos(orb)*rOut*0.5, oy=0.5+Math.sin(orb)*rOut*0.5;
@@ -2710,20 +2710,11 @@ function loop(){
       const eobk=(x)=>{x=clamp(x,0,1);return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);};
       pctx.save();pctx.lineCap="round";pctx.lineJoin="round";pctx.globalCompositeOperation="lighter";
       if(!n.holding){
-        // ── 접근: 유성이 패스를 그리며 머리로. 머리 도착 = 판정선(즉시 역행) ──
-        const cp=clamp(prog,0,1),sm=aSpan*(1-cp);   // ★유성 머리 도착=판정선 일치
-        // 유성이 그려온 궤적(어두운 회색)
-        pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.5;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(sm+(aSpan-sm)*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
-        for(let j=0;j<NP;j++){ if(frac[j]<=aSpan && frac[j]>=sm-0.001){ drawPt(PP(j),0.7, a*0.8, j, true); } }
-        // ★V4 뾰족 혜성 꼬리 — 머리 앞쪽 14세그, 흰/회색
-        const TSPAN=Math.min(0.3,aSpan), TSEG=14, mh=SP(sm);
-        for(let i=0;i<TSEG;i++){const A=SP(clamp(sm+(i/TSEG)*TSPAN,0,1)),B=SP(clamp(sm+((i+1)/TSEG)*TSPAN,0,1)),lf=1-i/TSEG;
-          pctx.globalAlpha=a*lf*lf*0.5;pctx.strokeStyle=lf>0.85?"#cdd6f5":"#5a6285";pctx.shadowColor="#9aa3c2";pctx.shadowBlur=gB(10);pctx.lineWidth=0.6+lf*lf*6;
-          pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}
-        // ★V4 혜성 머리 — 흰/파랑 작은 원
-        pctx.globalAlpha=a;pctx.fillStyle="#dfe6ff";pctx.shadowColor="#cfe6ff";pctx.shadowBlur=gB(20);pctx.beginPath();pctx.arc(mh[0],mh[1],3+5*prog,0,6.2832);pctx.fill();
-        pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(15);pctx.beginPath();pctx.arc(mh[0],mh[1],2+3*prog,0,6.2832);pctx.fill();
+        // ── 생성(재설계): 유성 제거. 헤드(별)는 자리에 + 어프로치 링과 함께 회색 경로가 헤드(0)→꼬리로 점점 그려짐 ──
+        const ahead=clamp(prog,0,1);
+        pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.55;pctx.lineWidth=3;
+        pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(ahead*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        for(let j=0;j<NP;j++){ if(frac[j]<=ahead+0.001){ drawPt(PP(j),0.7, a*0.85, j, true); } }   // 그려진 구간의 회색 노트포인트
       }else{
         // ── 역행: 역행 시작과 함께 나머지 패스가 앞쪽에 나타나 있고, 별이 지나가며 소비 ──
         const pe=eobk(s/0.18);   // ★V4: 첫 18% 동안 부드럽게 등장(즉각 팝 아님)
