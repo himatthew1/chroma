@@ -199,7 +199,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   #edBar2>*{flex:0 0 auto;}
   #edBar2 .spacer{flex:0 0 100%;height:0;}   /* 줄바꿈 구분: 도구 다음 줄로 선택패널/도움말 */
   /* ★상황별 패널은 흐름에서 빼서 absolute 오버레이로 — 표시/숨김에 툴바·타임라인이 안 들썩이게 (edBar2 바로 위에 띄움) */
-  #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:calc(100% + 6px);z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
+  #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:72px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
   #slideDock{position:absolute;top:96px;right:14px;width:264px;z-index:55;background:var(--panel);border:1px solid #39e36b;border-radius:12px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.6);}
   #slideDock .sd-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px;}
   #slideDock .sd-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0 2px;}
@@ -3607,7 +3607,7 @@ function setTool(t){edTool=t;
   updateGrpPanel();
 }
 function updateZonePanel(){const p=$("#zonePanel");if(!p)return;
-  if(edTool==="speed"&&edZoneSel){p.classList.remove("hidden");const z=edZoneSel,up=z.type!=="down";
+  if(edTool==="speed"&&edZoneSel){p.classList.remove("hidden");_posPanel(p);const z=edZoneSel,up=z.type!=="down";
     $("#zoneType").textContent=up?"⏩ 스피드업":"🐢 슬로우";
     $("#zoneRin").value=z.rampIn||0;$("#zoneRout").value=z.rampOut||0;
     const sl=$("#zoneFactor");sl.min=up?ZUP_MIN:ZDN_MIN;sl.max=up?ZUP_MAX:ZDN_MAX;sl.step=up?0.1:0.02;
@@ -3620,8 +3620,11 @@ $("#zoneFactor").oninput=()=>{if(!edZoneSel)return;const up=edZoneSel.type!=="do
 $("#zoneRin").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampIn=Math.max(0,parseFloat($("#zoneRin").value)||0);};
 $("#zoneRout").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampOut=Math.max(0,parseFloat($("#zoneRout").value)||0);};
 $("#zoneDel").onclick=()=>{if(!edZoneSel)return;pushUndo();const i=edZones.indexOf(edZoneSel);if(i>=0)edZones.splice(i,1);edZoneSel=null;updateZonePanel();toast("구간 삭제됨");};
-function updateGrpPanel(){const el=$("#grpCount");if(!el)return;
-  el.textContent=edSelSet.length?(edSelSet.length+"개 노트 선택됨 (드래그는 라인별로 가능)"):"라인 위를 가로로 드래그해 묶을 노트를 선택";}
+function updateGrpPanel(){const el=$("#grpCount");if(el)el.textContent=edSelSet.length?(edSelSet.length+"개 노트 선택됨 (드래그는 라인별로 가능)"):"라인 위를 가로로 드래그해 묶을 노트를 선택";
+  const p=$("#grpPanel");if(p&&!p.classList.contains("hidden"))_posPanel(p);}
+// ★팝업 패널은 edBar2(overflow:auto)에 잘리므로 edWrap으로 옮기고 위치를 동적으로(=edBar2 바로 위)
+function _posPanel(el){if(!el)return;const b=$("#edBar2");el.style.bottom=((b?b.offsetHeight:64)+6)+"px";}
+(function(){const wrap=$("#edWrap");if(!wrap)return;["selPanel","grpPanel","zonePanel"].forEach(id=>{const el=$("#"+id);if(el&&el.parentNode!==wrap)wrap.appendChild(el);});})();
 $("#grpMake").onclick=makeGroupFromSel;
 $("#grpMakePos").onclick=makePosGroupFromSel;
 $("#grpClear").onclick=ungroupSel;
@@ -3824,7 +3827,7 @@ tl.addEventListener("wheel",e=>{
 },{passive:false});
 
 function updateSelPanel(){
-  const p=$("#selPanel"),cnt=edSelSet.length;
+  const p=$("#selPanel"),cnt=edSelSet.length;_posPanel(p);
   if(!edSel&&!cnt){p.classList.add("hidden");return;}
   p.classList.remove("hidden");
   const multi=cnt>1;
