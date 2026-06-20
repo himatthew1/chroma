@@ -2232,6 +2232,23 @@ function startReadyGate(){
 }
 function stopPlay(){cancelAnimationFrame(raf);if(state&&state.introTimers)state.introTimers.forEach(clearTimeout);if(playAudio)playAudio.pause();state=null;$("#playUI").classList.add("hidden");$("#countdown").classList.add("hidden");}
 $("#playBack").onclick=()=>{stopPlay();if(playFromEditor){playFromEditor=false;show("editor");}else openSongSelect();};
+// ===== 프리뷰 모드 (index.html?preview=drag&gap=raw|fix&gappx=N) — 테스트 드래그 채보를 실제 인게임 플레이로 자동 재생·루프 =====
+let _previewOpt=null;
+function startPreview(opt){
+  _previewOpt=opt=opt||{fix:true,px:26};
+  _dragGapFix=!!opt.fix; if(opt.px)_dragGapPx=clamp(opt.px|0,10,48);
+  const shapes=["arc","wave","zigzag","arc","zigzag","wave"],notes=[]; let t=2.2;
+  for(let i=0;i<14;i++){const sh=shapes[i%shapes.length];
+    notes.push({time:+t.toFixed(2),type:"slide",duration:0.9,lane:i%4,sShape:sh,sCount:5,sSpan:0.7,sAmp:0.26,pts:slideGenPts(sh,5,0.7,0.26)});
+    t+=1.5;}
+  playChart={notes,zones:[]}; playFromEditor=false;
+  curSongMeta={title:"DRAG PREVIEW",artist:"",diff:(opt.fix?("FIX "+_dragGapPx+"px"):"RAW"),id:null};
+  try{playAudio=new Audio();}catch(_){playAudio={currentTime:0,duration:NaN,play(){},pause(){},ended:false};}
+  show("play"); startPlay(0);
+  if(state){state.noAudio=true; state.readyGate=false; beginPlay();}   // 게이트/오디오 생략 — 바로 진입, 성능시계로 진행
+}
+window.addEventListener("load",()=>{try{const q=new URLSearchParams(location.search);
+  if(q.get("preview")==="drag")startPreview({fix:q.get("gap")!=="raw",px:+(q.get("gappx")||26)});}catch(_){}});
 
 function showCountdown(txt,green){const el=$("#countdown");el.textContent=txt;el.style.color=green?"#39e36b":"#fff";
   el.style.fontSize=txt.length>3?"clamp(40px,7vw,68px)":"clamp(64px,12vw,104px)";
@@ -2689,7 +2706,7 @@ function releaseCol(col){
 function loop(){
   raf=requestAnimationFrame(loop);
   // 리드인 종료 시 오디오 시작
-  if(state.started&&!state.audioStarted){
+  if(state.started&&!state.audioStarted&&!state.noAudio){   // ★프리뷰(noAudio)는 오디오 없이 성능시계로만
     const el=(performance.now()/1000)-state.t0;
     if(el>=state.leadIn){try{playAudio.currentTime=state.startAt||0;playAudio.play().catch(()=>{});}catch(e){}state.audioStarted=true;state._lastCt=undefined;}
   }
@@ -2970,7 +2987,8 @@ function loop(){
   $("#progTime").textContent=fmtTime(now)+" / "+fmtTime(dur);
 
   if(state.started&&!state.ended){
-    if((playAudio.ended)||(now>state.lastT+1.3)){state.ended=true;setTimeout(endPlay,1000);}  // 노래 끝나고 1초 뒤 결과창
+    if(state.noAudio){ if(now>state.lastT+1.0){startPreview(_previewOpt);return;} }   // ★프리뷰: 결과창 없이 루프
+    else if((playAudio.ended)||(now>state.lastT+1.3)){state.ended=true;setTimeout(endPlay,1000);}  // 노래 끝나고 1초 뒤 결과창
   }
 }
 function endPlay(){
