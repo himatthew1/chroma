@@ -1189,11 +1189,11 @@ function drawFxHowto(t){
     const SP=fr=>{fr=Math.max(0,Math.min(1,fr));return {x:sx+(ex-sx)*fr,y:cyc+amp*0.32-Math.sin(fr*Math.PI)*amp};};   // 단일 아치(가운데가 위로)
     if(!n.caught){
       if(prog>1.25&&!n.judged)_htBurst("miss",cx,cyc,n.col);   // ★안 잡으면 제때 미스
-      if(!n.judged){const cp=Math.min(1,prog),ahead=cp,ease=cp*cp,a=Math.min(1,prog*3),hd=SP(0),br=r*(0.86+0.22*ease),flash=clamp(1-Math.abs(prog-1)/0.16,0,1),srot=now*0.7,starEdge=lerpHex(col,"#ffffff",0.5);   // ★인게임 신규 헤드와 동일: 일반노트+뒤 별
+      if(!n.judged){const cp=Math.min(1,prog),ahead=cp,ease=cp*cp,a=Math.min(1,prog*3),hd=SP(0),br=r*(0.86+0.22*ease),flash=clamp(1-Math.abs(prog-1)/0.16,0,1);   // ★인게임 신규 헤드와 동일: 헤드 = 일반 노트(별 없음), 경로/포인트만 뒤에
         fxc.save();fxc.beginPath();fxc.rect(0,0,W,H);fxc.arc(hd.x,hd.y,r*1.05,0,6.283,true);fxc.clip();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";fxc.lineJoin="round";   // 헤드 원 바깥만 → 노트 내부엔 안 비침
         fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=5;fxc.globalAlpha=a*0.55;fxc.lineWidth=3;fxc.beginPath();for(let q=0;q<=24;q++){const P=SP(ahead*q/24);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();
         for(let k=1;k<FR.length;k++){const fr=FR[k];if(fr<=ahead+0.001){const P=SP(fr),rv=Math.max(0,Math.min(1,(ahead-fr)/0.22)),pr=r*0.55*(0.55+0.5*rv)*(0.82+0.32*ease);fxc.globalAlpha=a*0.85;fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=5;fxc.lineWidth=2.6;hexPath(fxc,P.x,P.y,pr);fxc.stroke();fxc.globalAlpha=a*0.6;fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=4;fxc.beginPath();fxc.arc(P.x,P.y,pr*0.3,0,6.283);fxc.fill();}}   // 순차 성장
-        fxc.globalCompositeOperation="lighter";fxc.globalAlpha=a*0.95;fxc.shadowColor=col;fxc.shadowBlur=12;fxc.fillStyle=col;star4Path(fxc,hd.x,hd.y,br*1.7,srot);fxc.fill();fxc.lineWidth=Math.max(2.5,br*0.1);fxc.strokeStyle=starEdge;fxc.shadowColor=col;fxc.shadowBlur=8;star4Path(fxc,hd.x,hd.y,br*1.7,srot);fxc.stroke();fxc.restore();   // 뒤 노트색 별(회전)
+        fxc.restore();   // 헤드 원 클립 해제 (별 제거 — 헤드 = 일반 노트와 동일)
         fxc.save();fxc.globalAlpha=a;NoteFX_approach(fxc,hd.x,hd.y,br,r,cp,ease,a,col,false);NoteFX_noteBody(fxc,hd.x,hd.y,br,col,{a:a,ease:ease,flash:flash,hold:false});fxc.restore();}   // 앞 = 일반 노트(어프로치·오브·심지·플래시)
     } else if(!n.judged){ const rt=Math.min(1,(now-n.catchT)/1.0),pe=(function(x){x=Math.max(0,Math.min(1,x));return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);})(rt/0.18);
       fxc.save();fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=4;fxc.globalAlpha=0.4;fxc.lineWidth=Math.max(2.5,r*0.06);fxc.beginPath();for(let q=0;q<=24;q++){const P=SP(rt+(1-rt)*q/24);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();fxc.restore();
@@ -1368,8 +1368,8 @@ async function openSongSelect(){
 }
 async function renderSongList(){
   const list=$("#songList");list.innerHTML='<div class="muted">불러오는 중…</div>';
-  const songs=await allSongsForPlay();
-  if(!songs.length){list.innerHTML='<div class="muted">곡이 없습니다. 에디터에서 "New Song"으로 만들어보세요.</div>';return;}
+  const songs=(await allSongsForPlay()).filter(s=>!songAllLocked(s));   // ★난이도가 전부 잠긴 곡만 숨김(하나라도 풀려 있으면 표시)
+  if(!songs.length){list.innerHTML='<div class="muted">표시할 곡이 없습니다. (에디터에서 난이도 잠금을 해제하거나 New Song으로 만들어보세요.)</div>';return;}
   list.innerHTML="";
   songs.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.dataset.song=song.id;   // ★기록 조회용
@@ -1383,9 +1383,16 @@ async function renderSongList(){
   });
 }
 const DIFFCOL={EASY:"var(--green)",NORMAL:"var(--yellow)",HARD:"var(--pink)"};
-// ★잠금 난이도(아직 미완성 → 플레이 불가). 완성되면 해당 이름을 지우세요. 예: {diamond:["HARD"]}
-const LOCKED_DIFFS={diamond:["HARD"],backinmybed:["HARD"],ilikeurlook:["EASY","HARD"],jetadore:["EASY","HARD"],ichooseyou:["EASY","HARD"]};
-function diffLocked(songId,name){const a=LOCKED_DIFFS[songId];return !!(a&&a.indexOf(name)>=0);}
+// ★난이도별 잠금: songs.js의 difficulty.locked(배포·전파 진실원) + 로컬 오버레이(에디터 토글 즉시·지속).
+//   규칙: 한 곡에 난이도가 하나라도 잠겨 있으면 곡 리스트에서 통째로 숨김.
+let _lockMap={}; try{_lockMap=JSON.parse(localStorage.getItem("chroma.locks.v1")||"{}")||{};}catch(e){_lockMap={};}
+function saveLocks(){try{localStorage.setItem("chroma.locks.v1",JSON.stringify(_lockMap));}catch(e){}}
+function diffLocked(songId,name){const k=songId+"::"+name; if(k in _lockMap)return !!_lockMap[k];
+  const s=(typeof builtinById==="function")?builtinById(songId):null; const d=s&&s.difficulties.find(x=>x.name===name); return !!(d&&d.locked);}   // 오버레이 우선, 없으면 songs.js 플래그
+function songAllLocked(song){return song.difficulties.length>0&&song.difficulties.every(d=>diffLocked(song.id,d.name));}   // ★난이도가 전부 잠긴 곡만 리스트에서 숨김(하나라도 풀려 있으면 표시)
+function toggleDiffLock(songId,name){const k=songId+"::"+name,cur=diffLocked(songId,name);_lockMap[k]=!cur;saveLocks();
+  const s=(typeof builtinById==="function")?builtinById(songId):null; if(s){const d=s.difficulties.find(x=>x.name===name); if(d)d.locked=!cur;}   // 내장곡 라이브 반영(export·즉시 일치)
+  return !cur;}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
   $("#diffView").classList.remove("hidden");
@@ -2085,6 +2092,10 @@ function layoutPlayPositions(notes){
       for(let i=1;i<NPP;i++)if(n._tf[i]<n._tf[i-1])n._tf[i]=n._tf[i-1];   // 단조 증가 보정
       n._aSpan=(n.duration||1)<=3?1:clamp(3/Math.max(n.duration||1,0.3),0.4,1);   // ★룰: 3초 이하면 전체 패스 그리며 진입, 3초+ 초장거리만 뒷부분 생략(역행 때 등장)
       n._ptHit=new Array(NPP).fill(false);                  // 타격음 1회 트리거용
+      // ★곡선 캐시: s∈[0,1]를 길이비례 고밀도(≈2px 간격)로 미리 샘플 → 매 프레임 곡선 재계산 제거. 픽셀 동일.
+      { const K=Math.max(64,Math.min(1024,Math.ceil(n._len/2)+1)),xs=new Float32Array(K),ys=new Float32Array(K);
+        for(let k=0;k<K;k++){const p=slidePosExact(n,k/(K-1));xs[k]=p.x;ys[k]=p.y;}
+        n._polyX=xs;n._polyY=ys;n._polyK=K; }
     }
   }
   // ★위치군: ①앵커(소환 스팟)를 화면 중앙에서 '먼 가장자리'에 ②동시에 뜨는 다른 위치군과 안 겹치게 ③멤버끼리도 안 겹치게
@@ -2219,7 +2230,7 @@ function layoutPlayPositions(notes){
 }
 
 // ★슬라이드 노트: 진행도 s(0~1, 0=머리/캐치, 1=꼬리)에서의 픽셀 좌표 (시간비율 _tf 기준 포인트 보간)
-function slidePos(n,s){
+function slidePosExact(n,s){
   const P=n.ppts,tf=n._tf;
   if(!P||P.length<2)return {x:n.x,y:n.y};
   s=clamp(s,0,1);
@@ -2230,6 +2241,15 @@ function slidePos(n,s){
   const p0=P[Math.max(0,i-2)],p1=P[i-1],p2=P[i],p3=P[Math.min(P.length-1,i+1)],t=f,t2=t*t,t3=t2*t;
   const cr=(a,b,c,d)=>0.5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
   return {x:cr(p0[0],p1[0],p2[0],p3[0]), y:cr(p0[1],p1[1],p2[1],p3[1])};
+}
+// ★최적화: 곡선을 빌드 시 1회 고밀도 폴리라인으로 캐시(buildSlideCache)해 두고, 매 프레임엔 룩업+선형보간만.
+// 매 프레임 Catmull-Rom 재계산(꼬리 트레일에서 노트당 ~40회)을 제거 — 결과는 레트로 256 다운샘플 하에서 픽셀 동일.
+function slidePos(n,s){
+  const xs=n._polyX; if(!xs)return slidePosExact(n,s);
+  s=s<0?0:s>1?1:s; const K=n._polyK, fk=s*(K-1), i=fk|0;
+  if(i>=K-1)return {x:xs[K-1],y:n._polyY[K-1]};
+  const ys=n._polyY,f=fk-i;
+  return {x:xs[i]+(xs[i+1]-xs[i])*f, y:ys[i]+(ys[i+1]-ys[i])*f};
 }
 function fadeFromBlack(sec){const el=document.getElementById("scrFade");if(!el)return;   // 검정에서 페이드인 — 전환 첫 프레임 플래시 가림
   el.style.transition="none";el.style.opacity="1";
@@ -2261,6 +2281,7 @@ function startPlay(startAt){try{
     readyGate:false,holdStart:0,readyProg:0};
   updateHUD();
   playAudio.currentTime=0;
+  warmUp();                          // ★렌더/오디오 경로 예열(첫 노트 버벅임 방지) — 시동 게이트 대기시간 동안 미리
   cancelAnimationFrame(raf);loop();
   startReadyGate();                 // 4개 키 모두 1초 홀드(시동) → 카운트다운 → 시작
 }catch(e){console.error("startPlay failed",e);const _st=(e&&e.stack||"").split("\n").slice(1,4).map(s=>s.replace(/https?:\/\/[^/]+\//g,"").replace(/[()]/g,"").trim()).join(" / ");toast("오류: "+(e&&e.message||e)+(_st?" | "+_st:""));   // ★예외 시 검은 화면 멈춤 방지 — 검정 해제 + 복구 + 원인+위치 노출
@@ -2620,6 +2641,23 @@ function NoteFX_drawFlashes(ctx,flashes){
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(fl.x,fl.y,rr,0,6.2832);ctx.fill();}
   ctx.restore();
 }
+let _warmed=false;
+function warmUp(){   // ★시작 직전 1회: 오디오 그래프 + 노트 렌더 경로(그림자/그라데이션) JIT 예열 → 첫 노트 버벅임 제거. 화면 밖 캔버스라 시각 변화 0
+  if(_warmed)return;_warmed=true;
+  try{
+    const c=getCtx();if(c.state==="suspended")c.resume();   // 오디오 컨텍스트 재개 + 무음 노드로 그래프 예열
+    const o=c.createOscillator(),g=c.createGain();g.gain.value=0.00006;o.connect(g).connect(c.destination);o.start();o.stop(c.currentTime+0.03);
+    const wc=document.createElement("canvas");wc.width=96;wc.height=96;const w=wc.getContext("2d");if(!w)return;
+    for(const col of ["#22a7ff","#ffd23f"]){   // 일반 노트 + 홀드 노트 경로 둘 다 예열
+      NoteFX_approach(w,48,48,16,16,0.5,0.25,1,col,false);NoteFX_approach(w,48,48,16,16,0.5,0.25,1,col,true);
+      NoteFX_noteBody(w,48,48,16,col,{a:1,ease:0.6,glowB:0,whiten:0.4,flash:0.5,hold:false});
+      NoteFX_noteBody(w,48,48,16,col,{a:1,ease:0.6,glowB:0,whiten:0.4,flash:0.5,hold:true});
+      w.save();w.globalCompositeOperation="lighter";w.fillStyle=col;w.shadowColor=col;w.shadowBlur=8;star4Path(w,48,48,16,0.4);w.fill();w.restore();   // 드래그 헤드 별 경로
+      hexPath(w,48,48,12,0);w.fillStyle=col;w.fill();
+    }
+    const pa=[],sh=[],fl=[];NoteFX_burst(pa,sh,fl,0,"perfect",48,48,1,16);NoteFX_drawParts(w,pa,1);NoteFX_drawShocks(w,sh,1);NoteFX_drawFlashes(w,fl);   // 파티클/충격파/섬광 경로
+  }catch(e){}
+}
 function drawSpaceNote(n,now,AR){
   const G=spaceGeom(),cx=G.cx,cy=G.cy,R=G.R,appear=n.time-AR,hold=(n.duration||0)>0;
   {const wp=(typeof state!=="undefined"&&state&&state.warp)?state.warp:null;   // ★워프 등장(슬로우=일찍 가까이서, 스피드=늦게)
@@ -2782,6 +2820,7 @@ function releaseCol(col){
   }
 }
 
+let _bgGrad=null,_bgGW=0,_bgGH=0;   // ★배경 그라데이션 캐시(매 프레임 재생성 방지)
 function loop(){
   raf=requestAnimationFrame(loop);
   // 리드인 종료 시 오디오 시작
@@ -2802,9 +2841,8 @@ function loop(){
   }
   const W=pcanvas.width,H=pcanvas.height;
   // background
-  const grd=pctx.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);
-  grd.addColorStop(0,"#0a1233");grd.addColorStop(0.6,"#06091c");grd.addColorStop(1,"#04050c");
-  pctx.fillStyle=grd;pctx.fillRect(0,0,W,H);
+  if(!_bgGrad||_bgGW!==W||_bgGH!==H){_bgGrad=pctx.createRadialGradient(W/2,H*0.66,30,W/2,H*0.66,H*1.05);_bgGrad.addColorStop(0,"#0a1233");_bgGrad.addColorStop(0.6,"#06091c");_bgGrad.addColorStop(1,"#04050c");_bgGW=W;_bgGH=H;}
+  pctx.fillStyle=_bgGrad;pctx.fillRect(0,0,W,H);
   {
     const scx=W/2,scy=H*0.40,maxR=Math.hypot(W,H)*0.62;
     const sf=zoneFactorAt(now,state.zones);   // ★스피드 구간 시각 배속 (별·노트 함께)
@@ -2960,12 +2998,8 @@ function loop(){
         pctx.globalAlpha=a*0.7;pctx.strokeStyle="#fff";pctx.lineWidth=2;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,bsz,rot);pctx.stroke();
         const wc=Math.max(0.45,wh);pctx.globalAlpha=a*Math.min(1,wc);pctx.fillStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(12+gl*0.6);star4Path(pctx,bx,by,bsz*(0.5+wh*0.2),rot);pctx.fill();pctx.restore();
       } else {
-        // ★헤드 = 완전한 일반 노트 + 뒤에 노트색 4각별. 별은 헤드 원 '바깥'만 그림(원 안은 비워 둠 → 배경 그대로 비침, 일반 노트 판박이)
-        const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1), starEdge=lerpHex(col,"#ffffff",0.5), srot=now*0.7;   // ★살짝 회전
-        pctx.save();pctx.beginPath();pctx.rect(0,0,W,H);pctx.arc(bx,by,r*1.05,0,6.2832,true);pctx.clip();   // 헤드 원 제외 클립 → 별이 노트 내부에 안 비침(점만 삐져나옴)
-        pctx.globalAlpha=a*0.95;pctx.shadowColor=col;pctx.shadowBlur=gB(12);pctx.fillStyle=col;star4Path(pctx,bx,by,br*1.7,srot);pctx.fill();
-        pctx.lineWidth=Math.max(2.5,br*0.1);pctx.strokeStyle=starEdge;pctx.shadowColor=col;pctx.shadowBlur=gB(8);star4Path(pctx,bx,by,br*1.7,srot);pctx.stroke();pctx.restore();
-        // 앞 = 일반 노트 그대로(어프로치 링·오브·발광·심지·플래시) — 검은 칠 없음, 배경 그대로
+        // ★헤드 = 완전한 일반 노트 (별·클립 제거 — 디자인/이펙트/판정 타이밍 모두 일반 노트와 토씨까지 동일). 경로·노트포인트만 뒤에 붙음
+        const flashS=clamp(1-Math.abs(prog-1)/0.16,0,1);
         pctx.save();pctx.globalAlpha=a;
         NoteFX_approach(pctx,bx,by,br,r,prog,ease,a,col,false);
         NoteFX_noteBody(pctx,bx,by,br,col,{a:a,ease:ease,glowB:0,whiten:0,flash:flashS,hold:false});
@@ -3247,9 +3281,9 @@ async function openEdHub(){
   // 내장곡 (수정 시 사본 저장)
   built.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
-    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-bsong="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button>`).join(" ");
+    const chips=song.difficulties.map(d=>`<span style="display:inline-flex;gap:2px"><button class="tb-btn diffchip" data-bsong="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button><button class="tb-btn diffchip" data-lock="${song.id}" data-ld="${encodeURIComponent(d.name)}" title="잠금/해제" style="color:${diffLocked(song.id,d.name)?'#ffd23f':'#7b82a8'}">${diffLocked(song.id,d.name)?'🔒':'🔓'}</button></span>`).join(" ");
     card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· Built-in · online latest</span></div>
-      <div class="ar muted">난이도 클릭 = 수정 (저장하면 온라인에 자동 반영)</div>
+      <div class="ar muted">난이도 클릭 = 수정 (저장하면 온라인에 자동 반영) · 🔒 = 잠금(곡 리스트에서 숨김)</div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips}
       <button class="tb-btn diffchip" data-badd="${song.id}">➕ 난이도 추가</button></div></div>`;
     list.appendChild(card);
@@ -3257,14 +3291,15 @@ async function openEdHub(){
   // 내가 등록한 곡
   user.forEach(song=>{
     const card=document.createElement("div");card.className="songcard";card.style.cursor="default";
-    const chips=song.difficulties.map(d=>`<button class="tb-btn diffchip" data-song="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button>`).join(" ");
+    const chips=song.difficulties.map(d=>`<span style="display:inline-flex;gap:2px"><button class="tb-btn diffchip" data-song="${song.id}" data-diff="${encodeURIComponent(d.name)}">✏️ ${d.name} (${cnt(song,d)})</button><button class="tb-btn diffchip" data-lock="${song.id}" data-ld="${encodeURIComponent(d.name)}" title="잠금/해제" style="color:${diffLocked(song.id,d.name)?'#ffd23f':'#7b82a8'}">${diffLocked(song.id,d.name)?'🔒':'🔓'}</button></span>`).join(" ");
     card.innerHTML=`<div class="cover"></div><div class="meta"><div class="nm">${song.title} <span class="muted" style="font-size:12px">· 내 라이브러리</span></div>
-      <div class="ar muted">난이도 클릭 = 수정</div>
+      <div class="ar muted">난이도 클릭 = 수정 · 🔒 = 잠금(곡 리스트에서 숨김)</div>
       <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${chips}
       <button class="tb-btn diffchip" data-add="${song.id}">➕ 난이도 추가</button>
       <button class="tb-btn diffchip" data-del="${song.id}" style="color:var(--pink)">🗑 곡 삭제</button></div></div>`;
     list.appendChild(card);
   });
+  list.querySelectorAll("[data-lock]").forEach(b=>b.onclick=()=>{const lk=toggleDiffLock(b.dataset.lock,decodeURIComponent(b.dataset.ld));toast(lk?"🔒 잠금 — 곡 리스트에서 숨김":"🔓 해제 — 곡 리스트에 표시");openEdHub();});   // ★난이도별 잠금 토글
   list.querySelectorAll("[data-bsong]").forEach(b=>b.onclick=()=>editorEditBuiltin(b.dataset.bsong,decodeURIComponent(b.dataset.diff)));
   list.querySelectorAll("[data-badd]").forEach(b=>b.onclick=()=>editorAddDiffBuiltin(b.dataset.badd));
   list.querySelectorAll("[data-song]").forEach(b=>b.onclick=()=>editorEdit(b.dataset.song,decodeURIComponent(b.dataset.diff)));
@@ -3392,6 +3427,7 @@ async function buildSongsBundle(){
     user.push({id:s.id,title:s.title,artist:s.artist||"",audio,difficulties:s.difficulties});
   }
   const all=built.concat(user);
+  all.forEach(s=>s.difficulties.forEach(d=>{ if(diffLocked(s.id,d.name))d.locked=true; else if("locked" in d)delete d.locked; }));   // ★현재 잠금 상태를 songs.js에 베이크(배포로 전파)
   return all.length?{txt:"window.SONGS="+JSON.stringify(all)+";\n",count:all.length}:null;
 }
 // (1) songs.js 파일로 다운로드 — 폴더의 songs.js를 이 파일로 교체
@@ -3944,9 +3980,9 @@ function _szDraw(ts){const z=$("#slideZoomCv");if(!z||!edSel||edSel.type!=="slid
   c.save();c.globalCompositeOperation="lighter";c.lineCap="round";c.lineJoin="round";
   c.strokeStyle="#454c6e";c.shadowColor="#454c6e";c.shadowBlur=6;c.globalAlpha=0.7;c.lineWidth=3;c.beginPath();PP.forEach((P,i)=>i?c.lineTo(P[0],P[1]):c.moveTo(P[0],P[1]));c.stroke();
   PP.forEach((P,j)=>{if(j===0)return;c.globalAlpha=0.85;c.strokeStyle="#454c6e";c.shadowColor="#454c6e";c.shadowBlur=5;c.lineWidth=2.4;hexPath(c,P[0],P[1],9);c.stroke();c.globalAlpha=0.7;c.fillStyle="#fff";c.shadowColor="#fff";c.shadowBlur=4;c.beginPath();c.arc(P[0],P[1],2.6,0,6.2832);c.fill();});
-  const hd=PP[0];c.globalAlpha=0.4+0.45*prog;c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=gB(8);c.lineWidth=2+2*prog;star4Path(c,hd[0],hd[1],r*0.9+(1-prog)*r*2.6,rot);c.stroke();
-  c.globalAlpha=0.95;c.fillStyle=col;c.shadowColor=col;c.shadowBlur=gB(14);star4Path(c,hd[0],hd[1],r*0.6,rot);c.fill();c.globalAlpha=0.9;c.fillStyle="#fff";star4Path(c,hd[0],hd[1],r*0.3,rot);c.fill();
   c.restore();
+  const hd=PP[0],ez=prog*prog,br2=r*(0.86+0.22*ez),fl=clamp(1-Math.abs(prog-1)/0.16,0,1);   // ★헤드 = 일반 노트(별 제거 — 인게임과 동일)
+  c.save();NoteFX_approach(c,hd[0],hd[1],br2,r,prog,ez,1,col,false);NoteFX_noteBody(c,hd[0],hd[1],br2,col,{a:1,ease:ez,flash:fl,hold:false});c.restore();
   NoteFX_pads(c,g,W,H,[false,false,false,false],null,(t2,x,y,sz,cl)=>{c.save();c.fillStyle=cl;c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(sz)+"px monospace";c.fillText(t2,x,y);c.restore();},false);
   PP.forEach((P,j)=>{c.beginPath();c.arc(P[0],P[1],11,0,6.2832);c.fillStyle=j===0?"rgba(255,213,79,0.95)":"rgba(159,224,255,0.9)";c.fill();c.lineWidth=2;c.strokeStyle="#05070f";c.stroke();c.fillStyle="#05070f";c.font="bold 12px monospace";c.textAlign="center";c.textBaseline="middle";c.fillText(j===0?"H":String(j),P[0],P[1]);});
   _szRaf=requestAnimationFrame(_szDraw);
