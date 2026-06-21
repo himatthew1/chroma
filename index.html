@@ -533,6 +533,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
         <button class="tb-btn" id="toolSpace" title="Spacebar note (giant center ring)">+Space</button>
         <button class="tb-btn" id="toolGroup">🎨 Color group</button>
         <button class="tb-btn" id="toolSpeed" title="Speed-up / slow zone (drag to create)">⏩ Speed zone</button>
+        <button class="tb-btn" id="edClearNotes" title="이 채보의 모든 노트를 삭제(비우기) — 되돌리기(Undo) 가능" style="color:var(--pink)">🗑 노트 비우기</button>
         <span style="width:18px"></span>
         <b style="color:#5cc8ff">Beat</b>
         <button class="tb-btn" id="edBpmBtn" title="Detect this track's BPM & downbeat offset">🥁 BPM 감지</button>
@@ -1192,13 +1193,13 @@ function drawFxHowto(t){
       if(prog>1.25&&!n.judged)_htBurst("miss",SP(0).x,SP(0).y,n.col);   // ★안 잡으면 제때 미스(헤드 위치)
       if(!n.judged){const cp=Math.min(1,prog),ahead=cp,ease=cp*cp,a=Math.min(1,prog*3),hd=SP(0),br=r*(0.86+0.22*ease),flash=clamp(1-Math.abs(prog-1)/0.16,0,1);   // ★인게임 신규 헤드와 동일: 헤드 = 일반 노트(별 없음), 경로/포인트만 뒤에
         fxc.save();fxc.beginPath();fxc.rect(0,0,W,H);fxc.arc(hd.x,hd.y,r*1.05,0,6.283,true);fxc.clip();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";fxc.lineJoin="round";   // 헤드 원 바깥만 → 노트 내부엔 안 비침
-        fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=5;fxc.globalAlpha=a*0.55;fxc.lineWidth=3;fxc.beginPath();for(let q=0;q<=24;q++){const P=SP(ahead*q/24);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();
+        fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=5;fxc.globalAlpha=a*0.55;fxc.lineWidth=3;fxc.beginPath();for(let q=0;q<=14;q++){const P=SP(ahead*q/14);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();
         for(let k=1;k<FR.length;k++){const fr=FR[k];if(fr<=ahead+0.001){const P=SP(fr),rv=Math.max(0,Math.min(1,(ahead-fr)/0.22)),pr=r*0.26*(0.55+0.5*rv)*(0.82+0.32*ease);fxc.globalAlpha=a*0.85;fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=5;fxc.lineWidth=2.6;hexPath(fxc,P.x,P.y,pr);fxc.stroke();fxc.globalAlpha=a*0.6;fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=4;fxc.beginPath();fxc.arc(P.x,P.y,pr*0.3,0,6.283);fxc.fill();}}   // 순차 성장(인게임 비율)
         fxc.restore();   // 헤드 원 클립 해제 (별 제거 — 헤드 = 일반 노트와 동일)
         fxc.save();fxc.globalAlpha=a;NoteFX_approach(fxc,hd.x,hd.y,br,r,cp,ease,a,col,false);NoteFX_noteBody(fxc,hd.x,hd.y,br,col,{a:a,ease:ease,flash:flash,hold:false});fxc.restore();}   // 앞 = 일반 노트(어프로치·오브·심지·플래시)
     } else if(!n.judged){ const rt=Math.min(1,(now-n.catchT)/1.0),pe=(function(x){x=Math.max(0,Math.min(1,x));return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);})(rt/0.18);
-      fxc.save();fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=4;fxc.globalAlpha=0.4;fxc.lineWidth=Math.max(2.5,r*0.06);fxc.beginPath();for(let q=0;q<=24;q++){const P=SP(rt+(1-rt)*q/24);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();fxc.restore();
-      {const fa=Math.max(0,rt-0.42);fxc.save();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";for(let i2=0;i2<18;i2++){const A=SP(fa+(rt-fa)*i2/18),B=SP(fa+(rt-fa)*(i2+1)/18),ag=i2/18;fxc.globalAlpha=ag*ag*0.55;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=8;fxc.lineWidth=1+ag*ag*r*0.1;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();fxc.globalAlpha=ag*ag*0.85;fxc.strokeStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=5;fxc.lineWidth=0.5+ag*ag*r*0.05;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();}fxc.restore();}
+      fxc.save();fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=4;fxc.globalAlpha=0.4;fxc.lineWidth=Math.max(2.5,r*0.06);fxc.beginPath();for(let q=0;q<=12;q++){const P=SP(rt+(1-rt)*q/12);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();fxc.restore();
+      {const fa=Math.max(0,rt-0.42);fxc.save();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";for(let i2=0;i2<12;i2++){const A=SP(fa+(rt-fa)*i2/12),B=SP(fa+(rt-fa)*(i2+1)/12),ag=i2/12;fxc.globalAlpha=ag*ag*0.55;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=8;fxc.lineWidth=1+ag*ag*r*0.1;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();fxc.globalAlpha=ag*ag*0.85;fxc.strokeStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=5;fxc.lineWidth=0.5+ag*ag*r*0.05;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();}fxc.restore();}
       for(const fr of FR){const P=SP(fr);if(rt<fr){const prox=Math.max(0,1-(fr-rt)/0.16),sc=pe*(1+prox*0.7);fxc.save();fxc.globalCompositeOperation="lighter";fxc.globalAlpha=Math.min(1,pe)*0.95;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=10;fxc.lineWidth=2.6;hexPath(fxc,P.x,P.y,r*0.26*sc);fxc.stroke();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.beginPath();fxc.arc(P.x,P.y,r*0.078*sc,0,6.283);fxc.fill();fxc.restore();}else if(!n._ig[fr]){n._ig[fr]=1;hitSound("perfect",n.col);htD.shocks.push({x:P.x,y:P.y,r:r*0.3,vr:r*0.18,life:1,col});htD.shocks.push({x:P.x,y:P.y,r:r*0.2,vr:r*0.14,life:1,col:"#fff"});for(let p=0;p<8;p++){const a=Math.random()*6.283,sp=1.5+Math.random()*4;htD.parts.push({x:P.x,y:P.y,px:P.x,py:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,dec:0.04,col,size:1.4+Math.random()*1.8,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
       const S=SP(rt);_htStar(S.x,S.y,r*0.95,-now*5,col);
       if(rt>=1)_htBurst(n.ck,SP(1).x,SP(1).y,n.col); }
@@ -2886,7 +2887,8 @@ function loop(){
     if((n.type==="press"||n.type==="slide")&&n.holding&&now>=n.time+n.duration){
       if(n.type==="slide"){
         if(!n.missed&&n._ptHit){for(let j=1;j<n._ptHit.length;j++){if(n._ptHit[j])continue;n._ptHit[j]=true;   // ★남은(꼬리) 노트포인트 키 체크
-          if(state.held[n.col]){hitSound("perfect",n.col);scoreOnly("perfect");}else{n.missed=true;scoreOnly("miss");const ep0=slidePos(n,clamp(n._tf[j],0,1));spawnJudge("miss",ep0.x,ep0.y);}}}
+          const epJ=slidePos(n,clamp(n._tf[j],0,1));   // ★남은 점(특히 마지막 fr=1) 위치 — 완료 시 판정 문구 누락 방지
+          if(state.held[n.col]){hitSound("perfect",n.col);scoreOnly("perfect");spawnJudge("perfect",epJ.x,epJ.y);}else{n.missed=true;scoreOnly("miss");spawnJudge("miss",epJ.x,epJ.y);}}}
         if(!n.missed){const ep=slidePos(n,1);supernova(ep.x,ep.y,n.col);}n.done=true;continue;}   // 점수는 포인트별 적립, 완료 시 폭발만
       {n.done=true;const hk=n._headKind||"great";scoreOnly(hk);spawnJudge(hk,n.x,n.y);supernova(n.x,n.y,n.col);continue;}}   // ★press 홀드 완료 시에만 판정 문구
     // ★등장: 워프 잔여시간이 AR 이내일 때 (슬로우=늦게 가까이서, 스피드=일찍 멀리서) — 판정 타이밍은 그대로
@@ -2950,7 +2952,7 @@ function loop(){
         const ahead=clamp(prog,0,1),h0=PP(0);
         pctx.save();pctx.beginPath();pctx.rect(0,0,W,H);pctx.arc(h0[0],h0[1],r*1.05,0,6.2832,true);pctx.clip();   // ★헤드 원 제외 클립 → 경로/포인트가 노트 내부에 안 비침
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.55;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=20;i++){const q=SP(ahead*i/20);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        pctx.beginPath();for(let i=0;i<=14;i++){const q=SP(ahead*i/14);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
         for(let j=1;j<NP;j++){ if(frac[j]<=ahead+0.001){ const rv=clamp((ahead-frac[j])/0.22,0,1),psc=(0.55+0.5*rv)*(0.82+0.32*ease); drawPt(PP(j),psc, a*0.85, j, true); } }   // ★헤드 가까워질수록 순차적으로 살짝씩 커짐
         pctx.restore();
       }else{
@@ -2977,9 +2979,9 @@ function loop(){
         }
         // 앞쪽(아직 안 지난) 어두운 패스 — 별이 지나가면 사라짐
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(4);pctx.globalAlpha=0.42*a;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=18;i++){const q=SP(s+(1-s)*i/18);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        pctx.beginPath();for(let i=0;i<=12;i++){const q=SP(s+(1-s)*i/12);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
         // 뒤쪽 자취 — 유성 꼬리처럼 소비(컬러)
-        {const tailL=0.42,fa=Math.max(0,s-tailL),NSEG=20;
+        {const tailL=0.42,fa=Math.max(0,s-tailL),NSEG=14;
          for(let i=0;i<NSEG;i++){const f1=fa+(s-fa)*i/NSEG,f2=fa+(s-fa)*(i+1)/NSEG,ag=i/NSEG,A=SP(f1),B=SP(f2);
            pctx.globalAlpha=ag*ag*0.55*a;pctx.strokeStyle=col;pctx.shadowColor=col;pctx.shadowBlur=gB(8);pctx.lineWidth=1+ag*ag*4;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();
            pctx.globalAlpha=ag*ag*0.8*a;pctx.strokeStyle="#fff";pctx.shadowColor="#fff";pctx.shadowBlur=gB(5);pctx.lineWidth=0.5+ag*ag*1.8;pctx.beginPath();pctx.moveTo(A[0],A[1]);pctx.lineTo(B[0],B[1]);pctx.stroke();}}
@@ -3553,6 +3555,15 @@ $("#posShuffle").onclick=()=>{
   pushUndo();
   layoutPositions(edNotes,'x','y',false);
   toast("노트 위치를 새로 배치했습니다 (이 배치가 채보에 고정 저장됩니다)");
+};
+$("#edClearNotes").onclick=()=>{   // ★채보 통째로 비우기 (Undo 가능)
+  const hasZ=edZones&&edZones.length;
+  if(!edNotes.length&&!hasZ){toast("이미 비어 있습니다");return;}
+  if(!confirm("이 채보의 노트"+(hasZ?"와 스피드 구간":"")+"를 모두 삭제할까요?\n(저장 전이며 Undo로 되돌릴 수 있습니다)"))return;
+  pushUndo();
+  edNotes=[];edZones=[];edClip=null;selClear();
+  updateSelPanel();updateGrpPanel();updateZonePanel();
+  toast("🗑 채보를 비웠습니다 (Undo로 복구 · 저장하면 빈 채보로 반영)");
 };
 $("#edHelpBtn").onclick=()=>openCoach();
 async function runTestPlay(startAt){
