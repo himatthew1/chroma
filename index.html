@@ -1389,12 +1389,14 @@ const DIFFCOL={EASY:"var(--green)",NORMAL:"var(--yellow)",HARD:"var(--pink)"};
 //   규칙: 한 곡에 난이도가 하나라도 잠겨 있으면 곡 리스트에서 통째로 숨김.
 let _lockMap={}; try{_lockMap=JSON.parse(localStorage.getItem("chroma.locks.v1")||"{}")||{};}catch(e){_lockMap={};}
 function saveLocks(){try{localStorage.setItem("chroma.locks.v1",JSON.stringify(_lockMap));}catch(e){}}
-function diffLocked(songId,name){const k=songId+"::"+name; if(k in _lockMap)return !!_lockMap[k];
-  const s=(typeof builtinById==="function")?builtinById(songId):null; const d=s&&s.difficulties.find(x=>x.name===name); return !!(d&&d.locked);}   // 오버레이 우선, 없으면 songs.js 플래그
+function diffLocked(songId,name){const k=songId+"::"+name; if(k in _lockMap)return !!_lockMap[k];   // 미발행 로컬 변경(토큰 없을 때만 남음)
+  const o=_remoteOv&&_remoteOv.find&&_remoteOv.find(x=>x.song===songId&&x.diff===name); if(o&&typeof o.locked==="boolean")return o.locked;   // ★전역(Gist) 잠금 — 모두에게 적용
+  const s=(typeof builtinById==="function")?builtinById(songId):null; const d=s&&s.difficulties.find(x=>x.name===name); return !!(d&&d.locked);}   // songs.js 배포 플래그(fallback)
 function songAllLocked(song){return song.difficulties.length>0&&song.difficulties.every(d=>diffLocked(song.id,d.name));}   // ★난이도가 전부 잠긴 곡만 리스트에서 숨김(하나라도 풀려 있으면 표시)
-function toggleDiffLock(songId,name){const k=songId+"::"+name,cur=diffLocked(songId,name);_lockMap[k]=!cur;saveLocks();
-  const s=(typeof builtinById==="function")?builtinById(songId):null; if(s){const d=s.difficulties.find(x=>x.name===name); if(d)d.locked=!cur;}   // 내장곡 라이브 반영(export·즉시 일치)
-  return !cur;}
+async function toggleDiffLock(songId,name){const k=songId+"::"+name,nv=!diffLocked(songId,name);   // ★토큰 있으면 Gist로 전역 반영(모두에게), 없으면 이 브라우저만
+  const s=(typeof builtinById==="function")?builtinById(songId):null; if(s){const d=s.difficulties.find(x=>x.name===name); if(d)d.locked=nv;}   // 라이브 UI 즉시 반영
+  if(ghToken()){ const ok=await uploadLockToGist(songId,name,nv); if(ok){delete _lockMap[k];saveLocks();return {nv,global:true};} }   // 업로드 성공=전역, 로컬 오버레이 제거
+  _lockMap[k]=nv;saveLocks();return {nv,global:false};}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
   $("#diffView").classList.remove("hidden");
@@ -3302,7 +3304,8 @@ async function openEdHub(){
       <button class="tb-btn diffchip" data-del="${song.id}" style="color:var(--pink)">🗑 곡 삭제</button></div></div>`;
     list.appendChild(card);
   });
-  list.querySelectorAll("[data-lock]").forEach(b=>b.onclick=()=>{const lk=toggleDiffLock(b.dataset.lock,decodeURIComponent(b.dataset.ld));toast(lk?"🔒 잠금 — 곡 리스트에서 숨김":"🔓 해제 — 곡 리스트에 표시");openEdHub();});   // ★난이도별 잠금 토글
+  list.querySelectorAll("[data-lock]").forEach(b=>b.onclick=async()=>{b.disabled=true;const res=await toggleDiffLock(b.dataset.lock,decodeURIComponent(b.dataset.ld));   // ★난이도별 잠금 토글(토큰 있으면 전역)
+    toast((res.nv?"🔒 잠금":"🔓 해제")+" · "+(res.global?"🌐 모두에게 적용됨":"💾 이 브라우저만 — 전역 반영하려면 상단에 GitHub 토큰 설정"));openEdHub();});
   list.querySelectorAll("[data-bsong]").forEach(b=>b.onclick=()=>editorEditBuiltin(b.dataset.bsong,decodeURIComponent(b.dataset.diff)));
   list.querySelectorAll("[data-badd]").forEach(b=>b.onclick=()=>editorAddDiffBuiltin(b.dataset.badd));
   list.querySelectorAll("[data-song]").forEach(b=>b.onclick=()=>editorEdit(b.dataset.song,decodeURIComponent(b.dataset.diff)));
@@ -3515,14 +3518,30 @@ async function uploadChartToGist(songId,diff,notes,silent,zones){
   if(!GIST_ID)return false;
   try{
     await refetchRemote();
+    const _prev=(_remoteOv||[]).find(o=>o.song===songId&&o.diff===diff);   // 기존 잠금 보존
     let ov=(_remoteOv||[]).filter(o=>!(o.song===songId&&o.diff===diff));
-    ov.push({song:songId,diff:diff,notes:notes,zones:zones||[],mtime:Date.now()});
+    const _e={song:songId,diff:diff,notes:notes,zones:zones||[],mtime:Date.now()}; if(_prev&&typeof _prev.locked==="boolean")_e.locked=_prev.locked; ov.push(_e);
     const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
       headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
       body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
     if(res.ok){_remoteOv=ov;_remoteDone=true;if(!silent)toast("✅ 온라인 반영 완료: "+diff+" ("+notes.length+"개) — 모두에게 적용");return true;}
     toast("업로드 실패 HTTP "+res.status+(res.status===401||res.status===404?" (토큰 gist 권한 확인)":""));return false;
   }catch(e){toast("업로드 오류: "+(e.message||e));return false;}
+}
+// ★잠금 상태만 Gist에 머지(채보 노트 보존) → 모두에게 전역 반영
+async function uploadLockToGist(songId,diff,locked){
+  const tok=ghToken(); if(!tok||!GIST_ID)return false;
+  try{
+    await refetchRemote();
+    let ov=(_remoteOv||[]).slice();
+    const e=ov.find(o=>o.song===songId&&o.diff===diff);
+    if(e){e.locked=locked;} else {ov.push({song:songId,diff:diff,locked:locked});}
+    const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
+      headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
+      body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
+    if(res.ok){_remoteOv=ov;_remoteDone=true;return true;}
+    toast("잠금 업로드 실패 HTTP "+res.status+(res.status===401||res.status===404?" (토큰 gist 권한 확인)":""));return false;
+  }catch(e){toast("잠금 업로드 오류: "+(e.message||e));return false;}
 }
 $("#ghTokenSave").onclick=()=>{const v=($("#ghToken").value||"").trim();localStorage.setItem("chroma_gh_token",v);
   $("#syncState").textContent=v?"· 켜짐 (저장 시 자동 업로드)":"· 토큰 없음";toast(v?"토큰 저장됨 — 이제 저장 시 자동 업로드":"토큰 비움");};
