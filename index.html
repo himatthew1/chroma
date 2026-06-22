@@ -1128,12 +1128,10 @@ function _htBurst(kind,x,y,col){if(htD.note)htD.note.judged=1;htD.floats.push({k
   if(kind==="bad"||kind==="miss")return;hitSound(kind,col);
   NoteFX_burst(htD.parts,htD.shocks,htD.flashes,col,kind,x,y,1,Math.max(26,fx.height*0.075));}   // ★공유 폭발(인게임 padBurst와 동일 — 파티클 하나까지)
 function _htFloat(kind,x,y){htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});}   // ★판정 문구만(노트 종료 안 함) — 인게임 spawnJudge 대응(헤드/포인트별 판정 표시)
-function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(performance.now()-(fxT0||performance.now()))/1000;htD.note.spKind=kind;}htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // ★스페이스 = 오로라 폭발(위젯) + 링 퇴장 시작점 기록
-  if(kind==="bad"||kind==="miss")return;hitSound(kind,0);
-  for(let i=0;i<50;i++){const a=Math.random()*6.283,sp=4+Math.random()*12;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.015+Math.random()*0.02,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
-  for(let i=0;i<16;i++){const a=Math.random()*6.283,sp=1.5+Math.random()*6;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.045,col:"#fff",size:1.9,white:1});}
-  htD.shocks.push({x,y,r:fx.height*0.05,vr:fx.height*0.03,life:1,col:"#bfeaff"});htD.shocks.push({x,y,r:fx.height*0.035,vr:fx.height*0.022,life:1,col:"#fff"});
-  htD.flashes.push({x,y,r:fx.height*0.15,life:1});}
+function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(performance.now()-(fxT0||performance.now()))/1000;htD.note.spKind=kind;}htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // 판정 문구 + 링 퇴장 시작점
+  noteHitSfx("space",kind,0);                       // ★인게임과 동일 사운드(beatKill/badThud, miss 무음)
+  if(kind==="miss")return;                           // 미스는 폭발 없음(인게임 동일)
+  spaceHitBurst(htD.parts,htD.shocks,x,y,Math.max(26,fx.height*0.075)*1.7,kind==="bad");}   // ★인게임 spaceBurst와 동일 폭발(공용 함수)
 function _htStar(x,y,r,rot,col){fxc.save();fxc.globalCompositeOperation="lighter";fxc.fillStyle=col;fxc.shadowColor=col;fxc.shadowBlur=14;star4Path(fxc,x,y,r,rot);fxc.fill();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=8;star4Path(fxc,x,y,r*0.55,rot);fxc.fill();fxc.restore();}
 function _htFx(){
   NoteFX_drawParts(fxc,htD.parts,1);                 // ★공유 그리기(인게임과 동일)
@@ -2508,12 +2506,23 @@ function applySpaceScore(kind){
   updateHUD();
 }
 // ★V3 오로라 폭발 — 중력 파티클(공유 state.particles → NoteFX_drawParts). 예전 spaceParts(sonic) 폐기
-function burstAur(x,y,n,fast){const m=fast||1;
-  for(let i=0;i<pc(n);i++){const a=Math.random()*6.2832,sp=(5+Math.random()*13)*m;state.particles.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,g:0.04,life:1,decay:0.014+Math.random()*0.018,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
-  for(let k=0;k<pc(Math.ceil(n*0.4));k++){const a2=Math.random()*6.2832,sp2=(1.5+Math.random()*6)*m;state.particles.push({x,y,px:x,py:y,vx:Math.cos(a2)*sp2,vy:Math.sin(a2)*sp2,g:0.04,life:1,decay:0.045,col:"#fff",size:1.8,white:true});}}
-function spaceBurst(weak){const G=spaceGeom(),sh=(state.shocks||(state.shocks=[]));
-  if(weak){burstAur(G.cx,G.cy,20,1.0);}
-  else{burstAur(G.cx,G.cy,64,1.25);sh.push({x:G.cx,y:G.cy,r:G.R*0.1,vr:18,life:1,dec:0.035,col:"#bfeaff"});sh.push({x:G.cx,y:G.cy,r:G.R*0.1,vr:12,life:1,dec:0.035,col:"#cfe6ff"});}}
+// ★공용: 오로라 입자 폭발을 임의의 입자 배열(인게임 state.particles / How-to htD.parts)에 분출
+function burstAurInto(parts,x,y,n,fast){const m=fast||1;
+  for(let i=0;i<pc(n);i++){const a=Math.random()*6.2832,sp=(5+Math.random()*13)*m;parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,g:0.04,life:1,decay:0.014+Math.random()*0.018,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
+  for(let k=0;k<pc(Math.ceil(n*0.4));k++){const a2=Math.random()*6.2832,sp2=(1.5+Math.random()*6)*m;parts.push({x,y,px:x,py:y,vx:Math.cos(a2)*sp2,vy:Math.sin(a2)*sp2,g:0.04,life:1,decay:0.045,col:"#fff",size:1.8,white:true});}}
+function burstAur(x,y,n,fast){burstAurInto(state.particles,x,y,n,fast);}   // 인게임 호환 래퍼
+// ★공용 스페이스 타격 폭발 — 인게임(state)·How-to(htD)가 둘 다 이 함수를 호출(단일 소스)
+function spaceHitBurst(parts,shocks,cx,cy,R,weak){
+  if(weak){burstAurInto(parts,cx,cy,20,1.0);}
+  else{burstAurInto(parts,cx,cy,64,1.25);shocks.push({x:cx,y:cy,r:R*0.1,vr:18,life:1,dec:0.035,col:"#bfeaff"});shocks.push({x:cx,y:cy,r:R*0.1,vr:12,life:1,dec:0.035,col:"#cfe6ff"});}}
+function spaceBurst(weak){const G=spaceGeom();spaceHitBurst(state.particles,(state.shocks||(state.shocks=[])),G.cx,G.cy,G.R,weak);}
+// ★공용 타격 사운드 — 노트 종류별 단일 소스. 스페이스=beatKill(쿵)/badThud, 그 외=hitSound/badSound. 인게임·How-to 공용.
+function noteHitSfx(type,kind,col){
+  if(kind==="miss")return;
+  if(type==="space"){ if(kind==="bad")badThud(); else beatKill(); return; }
+  if(kind==="bad"){badSound();return;}
+  hitSound(kind,col);
+}
 function _spConic(ctx,x,y,spin){const cg=ctx.createConicGradient(-1.5708+spin,x,y);const s=[SP_AUR[0],SP_AUR[1],SP_AUR[2],SP_AUR[3],SP_AUR[4],SP_AUR[0]];for(let i=0;i<6;i++)cg.addColorStop(i/5,_rgba(s[i],1));return cg;}
 function _spShape(ctx,x,y,r,hold,spin){if(hold)hexPath(ctx,x,y,r,spin);else{ctx.beginPath();ctx.arc(x,y,r,0,6.2832);}}
 // ──────────────────────────────────────────────────────────────────────────
