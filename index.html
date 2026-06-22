@@ -2160,7 +2160,10 @@ function layoutPlayPositions(notes){
         const ax=L+radPx*0.5+Math.random()*Math.max(1,(Rt-L)-radPx), ay=T+radPx*0.5+Math.random()*Math.max(1,(Bm-T)-radPx);
         let gap=1e9; for(const o of anchors){if(o.e<ga||ge<o.a)continue;const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep);if(d<gap)gap=d;}
         if(gap===1e9)gap=400;   // 동시 그룹 없음 = 자유
-        const score=Math.min(gap,400)*10 + Math.hypot(ax-scx,ay-scy)*0.3;   // ★겹침 회피 최우선(×10), 중앙에서 멀기는 미세 가산
+        const edgeX=Math.abs(ax-scx)/Math.max(1,hx);   // 0=가로 중앙, 1=가로 끝
+        const edgePen=Math.pow(clamp((edgeX-0.55)/0.45,0,1),2)*900;   // ★화면 양끝(가로) 회피: 바깥쪽일수록 급격히 페널티
+        // 겹침(gap<0)은 강하게 회피(1원칙). 일단 떨어지면 더 벌리지 말고 중앙 선호 → 끝은 겹침 못 피할 때만(완화 패스가 마무리)
+        const score=(gap>=0 ? 3000 : 3000+gap*40) - edgePen;
         if(score>bestScore){bestScore=score;best={x:ax,y:ay,rad:radPx,a:ga,e:ge,fx:false};}
       }
       grp.anchor=best; anchors.push(best);
