@@ -2548,7 +2548,7 @@ function NoteFX_spaceFrame(ctx,cx,cy,R,p){
 // Space HOLD charging visual (hexagon): embers + wide halo + contraction rings + incandescent core + base rim + white ring.
 // ch=0..1 charge, now=time(s) for spin/ring phase, em=ember array (persists per note).
 function NoteFX_spaceCharge(ctx,cx,cy,R,ch,now,em){   // ★V4: 회전 헥스 + 오로라 단색 수축링 + 와이드 광채 (코어/깜빡임 제거)
-  const eased=ch*ch*(3-2*ch),spin=now*0.6;
+  const eased=ch*ch*(3-2*ch),spin=now*0.35;   // ★접근·완료 단계와 동일 회전속도 → 타격/완료 순간 각도 점프(툭 끊김) 제거
   const rr2=R*(1+eased*0.35), ox=cx+(Math.random()-0.5)*ch*ch*7, oy=cy+(Math.random()-0.5)*ch*ch*7;
   if(ch>0.3&&Math.random()<ch*ch*0.7*PARTICLE_DENSITY){const a=Math.random()*6.2832,rd=rr2*(0.5+Math.random()*0.5);em.push({x:cx+Math.cos(a)*rd,y:cy+Math.sin(a)*rd,vx:Math.cos(a)*(0.5+ch*2),vy:Math.sin(a)*(0.5+ch*2),life:1,dec:0.016+Math.random()*0.02,size:1.4+Math.random()*2,col:Math.random()<0.5?[242,246,255]:SP_AUR[(Math.random()*5)|0]});}
   ctx.save();ctx.globalCompositeOperation="lighter";
