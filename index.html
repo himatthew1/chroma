@@ -2160,6 +2160,7 @@ function layoutPlayPositions(notes){
         const ax=clamp(scx+(Math.random()*2-1)*hx*0.66, L+radPx*0.5, Rt-radPx*0.5);
         const ay=clamp(scy+(Math.random()*2-1)*hy*0.60, T+radPx*0.5, Bm-radPx*0.5);
         let gap=1e9; for(const o of anchors){if(o.e<ga||ge<o.a)continue;const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep);if(d<gap)gap=d;}
+        for(const fn of notes){if(fn.pg!=null||fn.type==="space"||typeof fn.x!=="number")continue;if(fn._e<ga||ge<fn._a)continue;const d=Math.hypot(fn.x-ax,fn.y-ay)-(radPx+r*1.15);if(d<gap)gap=d;}   // ★이미 놓인 동시 단독 노트(고정 위치)도 피함 → 안 겹치게
         if(gap===1e9)gap=400;
         const edgeX=Math.abs(ax-scx)/Math.max(1,hx), edgeY=Math.abs(ay-scy)/Math.max(1,hy);
         const cenPen=Math.pow(clamp((edgeX-0.35)/0.65,0,1),2)*900 + Math.pow(clamp((edgeY-0.40)/0.60,0,1),2)*550;   // ★가로 강하게·세로 약하게 중앙 선호(겹침 회피보단 후순위)
