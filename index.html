@@ -2102,32 +2102,53 @@ function layoutPlayPositions(notes){
         n._polyX=xs;n._polyY=ys;n._polyK=K; }
     }
   }
-  // ★위치군: ①앵커(소환 스팟)를 화면 중앙에서 '먼 가장자리'에 ②동시에 뜨는 다른 위치군과 안 겹치게 ③멤버끼리도 안 겹치게
+  // ★위치군 배치 — 1원칙: 동시에 뜨는 위치군끼리 겹침을 최대한(무리해서) 회피. 직접설정(pgx/pgy) 그룹은 고정 좌표.
   {
     const pgM={};for(const n of notes){if(n.pg!=null)(pgM[n.pg]||(pgM[n.pg]=[])).push(n);}
     const scx=W/2, scy=(marginYt+marginYb)/2, hx=(W-2*marginX)/2, hy=(marginYb-marginYt)/2, minSep=r*2.15;
-    const anchors=[];   // {x,y,rad,a,e} — 시간이 겹치는 그룹끼리만 분리
+    const L=marginX,T=marginYt,Rt=W-marginX,Bm=marginYb;
+    const anchors=[];   // {x,y,rad,a,e,fx} — 시간이 겹치는 그룹끼리만 분리. fx=직접설정(고정·안 밀림)
+    const randGroups=[];
+    // 1) 직접설정(고정) 그룹: 멤버를 저장 좌표(0~1)로 직접 매핑 + 장애물로 등록
     for(const g in pgM){
       const mem=pgM[g], spread=clamp(typeof mem[0].pgs==="number"?mem[0].pgs:0.12,0,0.4), radPx=spread*Math.min(hx*2,hy*2)*0.95;
-      let ga=Infinity,ge=-Infinity; for(const n of mem){ga=Math.min(ga,n._a);ge=Math.max(ge,n._e);}   // 그룹 시간 구간
-      // 앵커: 중앙에서 먼 가장자리(f=0.55~0.9) + 동시 그룹과 거리 최대화 (best-candidate)
-      let best={x:scx,y:scy,rad:radPx,a:ga,e:ge},bestScore=-1;   // ★null 방지(앵커 후보 미선정 시 중앙)
-      for(let k=0;k<30;k++){
-        const ang=Math.random()*6.2832, f=0.2+Math.random()*0.25;   // 중앙에서 약간 떨어진 곳(너무 외곽 방지)
-        let ax=clamp(scx+Math.cos(ang)*hx*f, marginX+radPx*0.4, W-marginX-radPx*0.4);
-        let ay=clamp(scy+Math.sin(ang)*hy*f, marginYt+radPx*0.4, marginYb-radPx*0.4);
-        const distC=Math.hypot(ax-scx,ay-scy);
-        let gap=1e9;
-        for(const o of anchors){ if(o.e<ga||ge<o.a)continue; const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep); if(d<gap)gap=d; }
-        const score=distC*1.0 + Math.min(gap,500)*2.0;     // 중앙에서 멀고 + 동시 그룹과 안 겹침
-        if(score>bestScore){bestScore=score;best={x:ax,y:ay,rad:radPx,a:ga,e:ge};}
+      let ga=Infinity,ge=-Infinity; for(const n of mem){ga=Math.min(ga,n._a);ge=Math.max(ge,n._e);}
+      const fixed=mem.every(n=>typeof n.pgx==="number"&&typeof n.pgy==="number");
+      if(fixed){
+        let sx=0,sy=0; mem.forEach(n=>{n.x=clamp(L+n.pgx*(Rt-L),L,Rt);n.y=clamp(T+n.pgy*(Bm-T),T,Bm);sx+=n.x;sy+=n.y;});
+        const cx2=sx/mem.length,cy2=sy/mem.length; let mr=radPx; mem.forEach(n=>{mr=Math.max(mr,Math.hypot(n.x-cx2,n.y-cy2));});
+        anchors.push({x:cx2,y:cy2,rad:mr,a:ga,e:ge,fx:true});
+      } else randGroups.push({mem,radPx,ga,ge});
+    }
+    // 2) 랜덤 그룹 앵커 — 전체 필드에서 동시 그룹과 최소거리 최대화(겹침 회피 최우선)
+    for(const grp of randGroups){
+      const {radPx,ga,ge}=grp; let best=null,bestScore=-1e9;
+      for(let k=0;k<140;k++){
+        const ax=L+radPx*0.5+Math.random()*Math.max(1,(Rt-L)-radPx), ay=T+radPx*0.5+Math.random()*Math.max(1,(Bm-T)-radPx);
+        let gap=1e9; for(const o of anchors){if(o.e<ga||ge<o.a)continue;const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep);if(d<gap)gap=d;}
+        if(gap===1e9)gap=400;   // 동시 그룹 없음 = 자유
+        const score=Math.min(gap,400)*10 + Math.hypot(ax-scx,ay-scy)*0.3;   // ★겹침 회피 최우선(×10), 중앙에서 멀기는 미세 가산
+        if(score>bestScore){bestScore=score;best={x:ax,y:ay,rad:radPx,a:ga,e:ge,fx:false};}
       }
-      anchors.push(best);
-      // 멤버: 앵커 주변, 서로 안 겹치게 (best-candidate + 완화)
-      const placed=[];
+      grp.anchor=best; anchors.push(best);
+    }
+    // 3) 앵커 완화 — 동시 그룹이 겹치면 밀어냄(고정은 안 움직이고 랜덤만 비킴). 필드 안 유지. 끝까지 안 되면 그때만 약간 겹침.
+    for(let it=0;it<90;it++){let moved=false;
+      for(let i=0;i<anchors.length;i++)for(let j=i+1;j<anchors.length;j++){
+        const A=anchors[i],C=anchors[j]; if(A.e<C.a||C.e<A.a||(A.fx&&C.fx))continue;
+        let dx=C.x-A.x,dy=C.y-A.y,d=Math.hypot(dx,dy)||0.01,need=A.rad+C.rad+minSep;
+        if(d<need-0.5){const ux=dx/d,uy=dy/d,push=need-d;
+          if(A.fx){C.x=clamp(C.x+ux*push,L+C.rad*0.4,Rt-C.rad*0.4);C.y=clamp(C.y+uy*push,T+C.rad*0.4,Bm-C.rad*0.4);}
+          else if(C.fx){A.x=clamp(A.x-ux*push,L+A.rad*0.4,Rt-A.rad*0.4);A.y=clamp(A.y-uy*push,T+A.rad*0.4,Bm-A.rad*0.4);}
+          else{const pu=push/2;A.x=clamp(A.x-ux*pu,L+A.rad*0.4,Rt-A.rad*0.4);A.y=clamp(A.y-uy*pu,T+A.rad*0.4,Bm-A.rad*0.4);C.x=clamp(C.x+ux*pu,L+C.rad*0.4,Rt-C.rad*0.4);C.y=clamp(C.y+uy*pu,T+C.rad*0.4,Bm-C.rad*0.4);}
+          moved=true;}}
+      if(!moved)break;}
+    // 4) 랜덤 그룹 멤버 배치(앵커 주변, 서로 안 겹치게)
+    for(const grp of randGroups){
+      const {mem,radPx}=grp, best=grp.anchor, placed=[];
       for(const n of mem){let bx=best.x,by=best.y,bd=-1;
         for(let k=0;k<24;k++){const a2=Math.random()*6.2832,rr2=radPx*Math.sqrt(Math.random()),
-          x=clamp(best.x+Math.cos(a2)*rr2,marginX,W-marginX), y=clamp(best.y+Math.sin(a2)*rr2,marginYt,marginYb);
+          x=clamp(best.x+Math.cos(a2)*rr2,L,Rt), y=clamp(best.y+Math.sin(a2)*rr2,T,Bm);
           if(!placed.length){bx=x;by=y;break;}
           let md=1e9;for(const p of placed){const d=Math.hypot(p.x-x,p.y-y);if(d<md)md=d;}
           if(md>bd){bd=md;bx=x;by=y;}}
@@ -2136,8 +2157,8 @@ function layoutPlayPositions(notes){
         let dx=placed[b].x-placed[a].x,dy=placed[b].y-placed[a].y,d=Math.hypot(dx,dy)||0.01;
         const lim=Math.min(minSep,radPx*1.1);
         if(d<lim){const pu=(lim-d)/2,ux=dx/d,uy=dy/d;
-          placed[a].x=clamp(placed[a].x-ux*pu,marginX,W-marginX);placed[a].y=clamp(placed[a].y-uy*pu,marginYt,marginYb);
-          placed[b].x=clamp(placed[b].x+ux*pu,marginX,W-marginX);placed[b].y=clamp(placed[b].y+uy*pu,marginYt,marginYb);}}
+          placed[a].x=clamp(placed[a].x-ux*pu,L,Rt);placed[a].y=clamp(placed[a].y-uy*pu,T,Bm);
+          placed[b].x=clamp(placed[b].x+ux*pu,L,Rt);placed[b].y=clamp(placed[b].y+uy*pu,T,Bm);}}
       mem.forEach((n,idx)=>{n.x=placed[idx].x;n.y=placed[idx].y;});
     }
   }
