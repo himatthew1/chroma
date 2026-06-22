@@ -4145,13 +4145,24 @@ function _pgDraw(){
   NoteFX_divider(c,g,W,H);
   const PXf=nx=>m.marginX+nx*(W-2*m.marginX), PYf=ny=>m.marginYt+ny*(m.marginYb-m.marginYt);
   _pgM={mx:m.marginX,pw:(W-2*m.marginX),top:m.marginYt,ph:(m.marginYb-m.marginYt)};
-  if(_pgOnion){   // ★어니언 스킨: 이 위치군 전후 시간대의 다른 노트를 흐리게(파랑=이전, 주황=이후)
-    const gset=new Set(_pgMem),tMin=Math.min.apply(null,_pgMem.map(n=>n.time)),tMax=Math.max.apply(null,_pgMem.map(n=>n.time)),WIN=approachSec()*1.6;
-    c.save();c.lineWidth=2.5;
-    for(const n of edNotes){ if(gset.has(n)||n.type==="space"||typeof n.x!=="number"||typeof n.y!=="number")continue; if(n.time<tMin-WIN||n.time>tMax+WIN)continue;
-      const gx=PXf(clamp(n.x,0,1)),gy=PYf(clamp(n.y,0,1)),col=n.time<tMin?"#5a78ff":"#ffae5a";
-      c.globalAlpha=0.13;c.fillStyle=col;c.beginPath();c.arc(gx,gy,g.r*0.8,0,6.2832);c.fill();
-      c.globalAlpha=0.32;c.strokeStyle=col;c.beginPath();c.arc(gx,gy,g.r*0.8,0,6.2832);c.stroke();}
+  if(_pgOnion){   // ★어니언: 전/후 시간대의 "다른 위치군"만 표시(일반 노트 제외). 직접설정=정확 위치, 자동=ctr 보정 대략(점선·랜덤). 파랑=이전·주황=이후
+    const curPg=_pgMem[0].pg, tMin=Math.min.apply(null,_pgMem.map(n=>n.time)), tMax=Math.max.apply(null,_pgMem.map(n=>n.time)), mid=(tMin+tMax)/2, WIN=approachSec()*1.6;
+    const HX=(W-2*m.marginX)/2, HY=(m.marginYb-m.marginYt)/2, ctrf=(v,s)=>{let d=(v-0.5)*2;d=Math.sign(d)*Math.pow(Math.abs(d),1.6);return 0.5+d*0.5*s;};   // 인게임 ctr 중앙압축 동일
+    const others={};
+    for(const n of edNotes){ if(n.pg==null||n.pg===curPg||typeof n.time!=="number")continue; if(n.time<tMin-WIN||n.time>tMax+WIN)continue; (others[n.pg]||(others[n.pg]={mem:[]})).mem.push(n); }
+    c.save();
+    for(const pg in others){ const mem=others[pg].mem, manual=typeof mem[0].pgAx==="number";
+      let mt=0;mem.forEach(n=>mt+=n.time);mt/=mem.length; const before=mt<mid, col=before?"#5a78ff":"#ffae5a";
+      const spread=clamp(typeof mem[0].pgs==="number"?mem[0].pgs:0.12,0,0.4), radPx=Math.max(spread*Math.min(HX*2,HY*2)*0.95, g.r*0.5);
+      let cx,cy;
+      if(manual){ cx=PXf(clamp(mem[0].pgAx,0,1)); cy=PYf(clamp(mem[0].pgAy,0,1)); }
+      else { let sx=0,sy=0;mem.forEach(n=>{sx+=(typeof n.x==="number"?n.x:0.5);sy+=(typeof n.y==="number"?n.y:0.5);}); cx=m.marginX+ctrf(sx/mem.length,0.5)*(W-2*m.marginX); cy=m.marginYt+ctrf(sy/mem.length,0.62)*(m.marginYb-m.marginYt); }
+      c.globalAlpha=0.10;c.fillStyle=col;c.beginPath();c.arc(cx,cy,radPx,0,6.2832);c.fill();
+      c.globalAlpha=0.55;c.strokeStyle=col;c.lineWidth=2.5;c.setLineDash(manual?[]:[7,6]);c.beginPath();c.arc(cx,cy,radPx,0,6.2832);c.stroke();c.setLineDash([]);
+      c.globalAlpha=0.8;c.fillStyle=col;c.beginPath();c.arc(cx,cy,6,0,6.2832);c.fill();
+      c.globalAlpha=0.9;c.font="12px ui-monospace,monospace";c.textAlign="center";c.fillStyle=col;c.fillText((before?"◀ ":"")+"P"+pg+(manual?"":" 랜덤")+(before?"":" ▶"),cx,cy-radPx-9);
+      c.globalAlpha=1;
+    }
     c.restore();
   }
   const hx=(W-2*m.marginX)/2,hy=(m.marginYb-m.marginYt)/2;
