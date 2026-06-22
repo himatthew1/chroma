@@ -262,6 +262,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   <div style="position:absolute;left:12px;top:12px;z-index:2;font:12px/1.6 ui-monospace,monospace;color:#9fb6ff;background:rgba(5,8,20,.72);padding:8px 11px;border-radius:8px;pointer-events:none">📍 위치군 직접설정 — 실제 인게임 필드<br>⚪앵커=형성점 · 🟢=에리어(응집도) · 🟡=이동방향&최대속력 · 🔵=최저속력<br>응집도 0으로 줄이면 한 점에 겹쳐 정지(위치 고정) · 초기화=다시 완전 랜덤</div>
   <button id="pgZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
   <button id="pgZoomReset" style="position:absolute;right:120px;top:12px;z-index:2;background:#141a32;color:#ff9a9a;border:1px solid #ff7a7a;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="직접설정 해제 → 다시 완전 랜덤 배치">↺ 초기화(랜덤)</button>
+  <button id="pgZoomOnion" style="position:absolute;right:280px;top:12px;z-index:2;background:#141a32;color:#9fb6ff;border:1px solid #2a3158;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="이 위치군 전후 시간대의 다른 노트를 흐리게 겹쳐 보기">🧅 어니언 스킨: 끄기</button>
 </div>
 <div id="errBanner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:100000;background:rgba(40,8,18,0.97);color:#ffeef4;border-top:3px solid #ff2e97;padding:10px 14px 12px;font:12px/1.45 monospace;max-height:42vh;overflow:auto;white-space:pre-wrap;">
   <button id="errCopy" style="position:absolute;right:70px;top:8px;font:11px monospace;padding:4px 9px;background:#22a7ff;color:#fff;border:none;border-radius:6px;cursor:pointer;">복사</button>
@@ -2155,11 +2156,14 @@ function layoutPlayPositions(notes){
     for(const grp of randGroups){
       const {radPx,ga,ge}=grp; let best=null,bestScore=-1e9;
       for(let k=0;k<140;k++){
-        const ax=L+radPx*0.5+Math.random()*Math.max(1,(Rt-L)-radPx), ay=T+radPx*0.5+Math.random()*Math.max(1,(Bm-T)-radPx);
+        // ★후보를 중앙 대역으로 좁힘(가로 ±0.66·세로 ±0.6 반경) → 자동생성 스폰 폭 축소. 더 벌릴 필요 시 완화 패스가 처리.
+        const ax=clamp(scx+(Math.random()*2-1)*hx*0.66, L+radPx*0.5, Rt-radPx*0.5);
+        const ay=clamp(scy+(Math.random()*2-1)*hy*0.60, T+radPx*0.5, Bm-radPx*0.5);
         let gap=1e9; for(const o of anchors){if(o.e<ga||ge<o.a)continue;const d=Math.hypot(o.x-ax,o.y-ay)-(o.rad+radPx+minSep);if(d<gap)gap=d;}
         if(gap===1e9)gap=400;
-        const edgeX=Math.abs(ax-scx)/Math.max(1,hx), edgePen=Math.pow(clamp((edgeX-0.55)/0.45,0,1),2)*900;
-        const score=(gap>=0?3000:3000+gap*40)-edgePen;
+        const edgeX=Math.abs(ax-scx)/Math.max(1,hx), edgeY=Math.abs(ay-scy)/Math.max(1,hy);
+        const cenPen=Math.pow(clamp((edgeX-0.35)/0.65,0,1),2)*900 + Math.pow(clamp((edgeY-0.40)/0.60,0,1),2)*550;   // ★가로 강하게·세로 약하게 중앙 선호(겹침 회피보단 후순위)
+        const score=(gap>=0?3000:3000+gap*40)-cenPen;
         if(score>bestScore){bestScore=score;best={x:ax,y:ay,rad:radPx,a:ga,e:ge,fx:false};}
       }
       grp.anchor=best; anchors.push(best);
@@ -4127,7 +4131,7 @@ if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!==
   window.addEventListener("keydown",e=>{if(open()&&e.key==="Escape"){e.preventDefault();e.stopPropagation();closeSlideZoom();}},true);
 })();
 // ===== 위치군 자세히 보기 — 실제 인게임 필드에서 멤버를 끌어 직접 배치(고정). 안 하면 완전 랜덤 =====
-let _pgRaf=null,_pgMem=null,_pgM=null,_pgHandles=null,_pgDrag=null;
+let _pgRaf=null,_pgMem=null,_pgM=null,_pgHandles=null,_pgDrag=null,_pgOnion=false;
 function _pgGroupSel(){const sel=selList().filter(n=>typeof n.pg==="number");if(!sel.length)return null;const g=sel[0].pg;return edNotes.filter(n=>n.pg===g);}
 function _pgGet(k,def){const v=_pgMem&&_pgMem[0]?_pgMem[0][k]:undefined;return typeof v==="number"?v:def;}
 function _pgSet(obj){if(_pgMem)_pgMem.forEach(n=>{for(const k in obj)n[k]=obj[k];});}
@@ -4141,6 +4145,15 @@ function _pgDraw(){
   NoteFX_divider(c,g,W,H);
   const PXf=nx=>m.marginX+nx*(W-2*m.marginX), PYf=ny=>m.marginYt+ny*(m.marginYb-m.marginYt);
   _pgM={mx:m.marginX,pw:(W-2*m.marginX),top:m.marginYt,ph:(m.marginYb-m.marginYt)};
+  if(_pgOnion){   // ★어니언 스킨: 이 위치군 전후 시간대의 다른 노트를 흐리게(파랑=이전, 주황=이후)
+    const gset=new Set(_pgMem),tMin=Math.min.apply(null,_pgMem.map(n=>n.time)),tMax=Math.max.apply(null,_pgMem.map(n=>n.time)),WIN=approachSec()*1.6;
+    c.save();c.lineWidth=2.5;
+    for(const n of edNotes){ if(gset.has(n)||n.type==="space"||typeof n.x!=="number"||typeof n.y!=="number")continue; if(n.time<tMin-WIN||n.time>tMax+WIN)continue;
+      const gx=PXf(clamp(n.x,0,1)),gy=PYf(clamp(n.y,0,1)),col=n.time<tMin?"#5a78ff":"#ffae5a";
+      c.globalAlpha=0.13;c.fillStyle=col;c.beginPath();c.arc(gx,gy,g.r*0.8,0,6.2832);c.fill();
+      c.globalAlpha=0.32;c.strokeStyle=col;c.beginPath();c.arc(gx,gy,g.r*0.8,0,6.2832);c.stroke();}
+    c.restore();
+  }
   const hx=(W-2*m.marginX)/2,hy=(m.marginYb-m.marginYt)/2;
   const ax=_pgGet("pgAx",0.5),ay=_pgGet("pgAy",0.42),s=_pgGet("pgs",0.12),dir=_pgGet("pgDir",-Math.PI/2),sp0=_pgGet("pgSp0",0),sp1=_pgGet("pgSp1",0.6);
   const cx=PXf(ax),cy=PYf(ay),radPx=s*Math.min(hx*2,hy*2)*0.95,fixed=s<=0.001,ARROW=Math.min(W,H)*0.22;
@@ -4177,6 +4190,7 @@ function pgResetGroup(){if(!_pgMem)return;pushUndo();_pgMem.forEach(n=>{delete n
 if($("#pgPlaceBtn"))$("#pgPlaceBtn").onclick=openPgZoom;
 if($("#pgZoomClose"))$("#pgZoomClose").onclick=closePgZoom;
 if($("#pgZoomReset"))$("#pgZoomReset").onclick=pgResetGroup;
+if($("#pgZoomOnion"))$("#pgZoomOnion").onclick=function(){_pgOnion=!_pgOnion;this.textContent="🧅 어니언 스킨: "+(_pgOnion?"켜기":"끄기");this.style.color=_pgOnion?"#ffd23f":"#9fb6ff";this.style.borderColor=_pgOnion?"#ffd23f":"#2a3158";};
 (function(){const z=$("#pgZoomCv");if(!z)return;
   const open=()=>!$("#pgZoom").classList.contains("hidden");
   function pick(px,py){const h=_pgHandles;if(!h)return null;const near=(x,y,r)=>Math.hypot(x-px,y-py)<r;
