@@ -563,6 +563,13 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <span class="field">Length <input type="number" id="selDur" value="0.40" step="0.05" min="0.1" style="width:64px"></span>
           <span class="field" id="selSlideHint" style="display:none;color:var(--yellow)">↗ 드래그 모양 편집기 = 우측 상단 카드</span>
           <button class="tb-btn" id="selGroup" title="Make selected notes share one color">🎨 Color</button>
+          <span class="field" id="selFixColWrap" title="선택 노트를 항상 이 색으로 고정 (지정 안 하면 매판 랜덤)">🎯 색 고정
+            <button class="fcsw" data-fc="0" title="핑크 고정" style="width:20px;height:20px;border-radius:50%;border:2px solid #2a3158;background:#ff2e97;cursor:pointer;vertical-align:middle;margin:0 1px;padding:0"></button>
+            <button class="fcsw" data-fc="1" title="블루 고정" style="width:20px;height:20px;border-radius:50%;border:2px solid #2a3158;background:#22a7ff;cursor:pointer;vertical-align:middle;margin:0 1px;padding:0"></button>
+            <button class="fcsw" data-fc="2" title="그린 고정" style="width:20px;height:20px;border-radius:50%;border:2px solid #2a3158;background:#39e36b;cursor:pointer;vertical-align:middle;margin:0 1px;padding:0"></button>
+            <button class="fcsw" data-fc="3" title="옐로 고정" style="width:20px;height:20px;border-radius:50%;border:2px solid #2a3158;background:#ffd23f;cursor:pointer;vertical-align:middle;margin:0 1px;padding:0"></button>
+            <button class="tb-btn" id="selFixColClear" title="색 고정 해제 → 매판 랜덤" style="padding:4px 8px">✕ 랜덤</button>
+          </span>
           <button class="tb-btn" id="selPosGroup" title="Cluster selected notes near one spawn spot">📍 Position</button>
           <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">Cohesion</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = exactly the same spot (same direction & speed). Saved per position group" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="Preview of this group's tightness (dots = notes, circle = spread)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas><button class="tb-btn" id="pgPlaceBtn" title="실제 인게임 필드에서 이 위치군의 자리를 직접 배치(고정). 안 하면 완전 랜덤" style="margin-left:6px;vertical-align:middle">🔍 위치 직접설정</button></span>
           <button class="tb-btn" id="selUngroup">Ungroup</button>
@@ -2016,6 +2023,7 @@ function buildPlayNotes(chart){
     sShape:(typeof n.sShape==="string"?n.sShape:null),   // ★드래그 모양 종류(custom이면 빚은 그대로 고정, 아니면 외곽 공전 배치)
     ch:(typeof n.ch==="number"?n.ch:null),ci:(typeof n.ci==="number"?n.ci:0),
     g:(typeof n.g==="number"?n.g:null),
+    fc:(typeof n.fc==="number"?n.fc:undefined),   // ★고정 색(0~3)
     pg:(typeof n.pg==="number"?n.pg:null),pgs:(typeof n.pgs==="number"?n.pgs:0.12),
     pgx:(typeof n.pgx==="number"?n.pgx:undefined),pgy:(typeof n.pgy==="number"?n.pgy:undefined),
     done:false,missed:false,holding:false,headJudged:false})).sort((a,b)=>a.time-b.time);
@@ -2031,10 +2039,11 @@ function buildPlayNotes(chart){
   const gcols=shuffle([0,1,2,3]),groupColor={};
   groupOrder.forEach((g,idx)=>{groupColor[g]=gcols[idx%4];});
   for(let idx=0;idx<notes.length;idx++){ if(notes[idx].g!=null)notes[idx].col=groupColor[notes[idx].g]; }
+  for(let idx=0;idx<notes.length;idx++){ if(typeof notes[idx].fc==="number"&&notes[idx].type!=="space")notes[idx].col=notes[idx].fc; }   // ★고정 색: 항상 지정 색(그룹·랜덤보다 우선)
   // 비그룹: ★홀드 노트의 등장~소멸 전 구간 동안 그 색을 다른 노트에서 금지 + 동시타 distinct + 직전 판과 다르게
   const AR=approachSec();
   notes.forEach(n=>{ n._a=n.time-AR; n._e=(n.type==="press"||n.type==="slide")?n.time+(n.duration||0):n.time+0.3; });
-  const order=notes.map((n,idx)=>idx).filter(idx=>notes[idx].g==null&&notes[idx].type!=="space").sort((a,b)=>notes[a]._a-notes[b]._a);
+  const order=notes.map((n,idx)=>idx).filter(idx=>notes[idx].g==null&&typeof notes[idx].fc!=="number"&&notes[idx].type!=="space").sort((a,b)=>notes[a]._a-notes[b]._a);
   const pickFrom=(avail,lc)=>{const pool=avail.filter(c=>c!==lc),fp=pool.length?pool:avail;return fp[Math.floor(Math.random()*fp.length)];};
   // Phase 1: ★프레스 노트 색 우선 배정 (겹치는 프레스끼리 분리)
   for(const i of order){ if(notes[i].type!=="press"&&notes[i].type!=="slide")continue;
@@ -3230,7 +3239,7 @@ function selList(){return edSelSet.length?edSelSet:(edSel?[edSel]:[]);}
 function deleteSelection(){const set=selList();if(!set.length)return;pushUndo();const s=new Set(set);edNotes=edNotes.filter(n=>!s.has(n));selClear();updateSelPanel();updateGrpPanel();}
 function copySel(){const set=selList();if(!set.length){toast("복사할 노트를 선택하세요");return;}
   const t0=Math.min.apply(null,set.map(n=>n.time));
-  edClip=set.map(n=>{const c={type:n.type,duration:n.duration,lane:n.lane||0,x:n.x,y:n.y,g:n.g,dt:+(n.time-t0).toFixed(3)};
+  edClip=set.map(n=>{const c={type:n.type,duration:n.duration,lane:n.lane||0,x:n.x,y:n.y,g:n.g,fc:n.fc,dt:+(n.time-t0).toFixed(3)};
     if(n.type==="slide"){if(Array.isArray(n.pts))c.pts=n.pts.map(p=>p.slice());if(Array.isArray(n.ptt))c.ptt=n.ptt.slice();c.sShape=n.sShape;}  // ★드래그 경로·포인트 깊은 복사
     if(typeof n.ch==="number"){c.ch=n.ch;c.ci=n.ci;}        // 체인 멤버십
     if(typeof n.pg==="number"){c.pg=n.pg;c.pgs=n.pgs;if(typeof n.pgx==="number"){c.pgx=n.pgx;c.pgy=n.pgy;}}      // 위치군(+직접설정 좌표)
@@ -3246,6 +3255,7 @@ function pasteClip(){if(!edClip||!edClip.length){toast("붙여넣을 게 없습�
     if(c.duration!=null&&(c.type==="press"||c.type==="slide"||c.type==="space"))n.duration=c.duration;
     if(c.type==="slide"){if(Array.isArray(c.pts))n.pts=c.pts.map(p=>p.slice());if(Array.isArray(c.ptt))n.ptt=c.ptt.slice();if(c.sShape)n.sShape=c.sShape;}  // ★드래그 경로 복원
     if(c.g!=null)n.g=c.g;
+    if(typeof c.fc==="number")n.fc=c.fc;
     if(typeof c.ch==="number"){if(!(c.ch in chMap))chMap[c.ch]=++maxCh;n.ch=chMap[c.ch];n.ci=c.ci;}
     if(typeof c.pg==="number"){if(!(c.pg in pgMap))pgMap[c.pg]=++maxPg;n.pg=pgMap[c.pg];n.pgs=c.pgs;if(typeof c.pgx==="number"){n.pgx=c.pgx;n.pgy=c.pgy;}}
     return n;});
@@ -3769,6 +3779,11 @@ $("#grpClear").onclick=ungroupSel;
 $("#selGroup").onclick=makeGroupFromSel;
 $("#selPosGroup").onclick=makePosGroupFromSel;
 $("#selUngroup").onclick=ungroupSel;
+// ★색 고정: 선택 노트를 항상 지정 색으로 (스페이스 제외). 미지정이면 매판 랜덤.
+function setFixedColor(fc){const set=selList().filter(n=>n.type!=="space");if(!set.length){toast("색을 고정할 노트를 선택하세요");return;}pushUndo();set.forEach(n=>{n.fc=fc;});updateSelPanel();toast(set.length+"개 색 고정: "+["핑크","블루","그린","옐로"][fc]);}
+function clearFixedColor(){const set=selList();if(!set.length)return;pushUndo();set.forEach(n=>{delete n.fc;});updateSelPanel();toast("색 고정 해제 — 매판 랜덤");}
+document.querySelectorAll("#selFixColWrap .fcsw").forEach(b=>b.onclick=()=>setFixedColor(+b.dataset.fc));
+if($("#selFixColClear"))$("#selFixColClear").onclick=clearFixedColor;
 function _spreadVal(){let v=parseFloat($("#selSpread").value);return isNaN(v)?0.12:v;}
 function _spreadTxt(v){return v<=0.001?"완전 일치":v<=0.06?v.toFixed(2)+" (빡빡)":v.toFixed(2);}
 $("#selSpread").oninput=()=>{const v=_spreadVal();$("#selSpreadVal").textContent=_spreadTxt(v);const pg=selList().filter(n=>typeof n.pg==="number");drawPgPreview(v,pg.length?edNotes.filter(n=>n.pg===pg[0].pg).length:6);};
@@ -3974,6 +3989,11 @@ function updateSelPanel(){
   $("#selToggle").style.display=single?"":"none";
   $("#selDur").parentElement.style.display=(single&&(edSel.type==="press"||edSel.type==="slide"))?"":"none";
   if(single&&(edSel.type==="press"||edSel.type==="slide"))$("#selDur").value=edSel.duration||0.3;
+  // 색 고정: 색 있는 노트(스페이스 제외) 선택 시 표시 + 현재 고정 색 스와치 강조
+  const colSel=selList().filter(n=>n.type!=="space");
+  if($("#selFixColWrap")){$("#selFixColWrap").style.display=colSel.length?"":"none";
+    const fcs=[...new Set(colSel.map(n=>typeof n.fc==="number"?n.fc:-1))],cur=fcs.length===1?fcs[0]:-2;
+    document.querySelectorAll("#selFixColWrap .fcsw").forEach(b=>{b.style.borderColor=(+b.dataset.fc===cur)?"#fff":"#2a3158";});}
   // 위치군 이격 슬라이더 + 밀집도 미리보기: 선택에 위치군 노트가 있으면 표시
   const pgSel=selList().filter(n=>typeof n.pg==="number");
   $("#selSpreadWrap").style.display=pgSel.length?"":"none";
@@ -4249,7 +4269,7 @@ function edLoop(){
       tctx.fillStyle=sel?"#ffffff":"#9fe0ff";tctx.font="13px Segoe UI";tctx.textAlign="center";tctx.textBaseline="top";
       tctx.fillText(n.duration?"✦HOLD":"✦SPACE",x,3);tctx.textBaseline="alphabetic";continue;}
     const yy=laneY(n.lane||0);
-    const base=typeof n.g==="number"?grpColor(n.g):(n.type==="press"?"#ffd54f":n.type==="slide"?"#37e6c0":(typeof n.ch==="number"?"#c89bff":"#4f9bff"));
+    const base=typeof n.fc==="number"?COLHEX[n.fc]:(typeof n.g==="number"?grpColor(n.g):(n.type==="press"?"#ffd54f":n.type==="slide"?"#37e6c0":(typeof n.ch==="number"?"#c89bff":"#4f9bff")));   // ★고정 색이면 그 색으로 표시
     if(n.type==="press"||n.type==="slide"){const x2=xOf(n.time+(n.duration||0));tctx.fillStyle=base+"55";tctx.fillRect(x,yy-10,Math.max(x2-x,4),20);
       tctx.fillStyle=base;tctx.fillRect(x2-2,yy-11,4,22);}   // 끝 핸들(잡아서 길이조절)
     const sel=n===edSel||selSet.has(n);
@@ -4308,7 +4328,7 @@ function currentChart(){
     .map(n=>{
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=(n.type==="press"||n.type==="slide")?{time:n.time,type:n.type,duration:n.duration||0.3}:{time:n.time,type:"normal"};
-      o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;
+      o.x=+(+n.x).toFixed(4);o.y=+(+n.y).toFixed(4);if(typeof n.g==="number")o.g=n.g;if(typeof n.fc==="number")o.fc=n.fc;
       if(n.type==="slide"&&Array.isArray(n.pts)&&n.pts.length>=2){slideEnsurePtt(n);o.pts=n.pts.map((p,j)=>[+(+p[0]).toFixed(4),+(+p[1]).toFixed(4),+(+n.ptt[j]).toFixed(3)]);if(n.sShape)o.sShape=n.sShape;}   // 슬라이드 경로 노트포인트([x,y,시간비율]) + 모양종류(custom=고정/그외=외곽 공전 배치)
       if(typeof n.ch==="number"){o.ch=n.ch;o.ci=n.ci||0;}   // 스와이프 체인
       if(typeof n.pg==="number"){o.pg=n.pg;o.pgs=+(+(typeof n.pgs==="number"?n.pgs:0.12)).toFixed(3);if(typeof n.pgx==="number"&&typeof n.pgy==="number"){o.pgx=+n.pgx.toFixed(4);o.pgy=+n.pgy.toFixed(4);}}   // 직접설정 좌표(있으면 고정)
