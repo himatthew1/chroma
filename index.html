@@ -1127,6 +1127,7 @@ function _htReset(){htD.note=null;htD.parts.length=0;htD.shocks.length=0;htD.fla
 function _htBurst(kind,x,y,col){if(htD.note)htD.note.judged=1;htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});
   if(kind==="bad"||kind==="miss")return;hitSound(kind,col);
   NoteFX_burst(htD.parts,htD.shocks,htD.flashes,col,kind,x,y,1,Math.max(26,fx.height*0.075));}   // ★공유 폭발(인게임 padBurst와 동일 — 파티클 하나까지)
+function _htFloat(kind,x,y){htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});}   // ★판정 문구만(노트 종료 안 함) — 인게임 spawnJudge 대응(헤드/포인트별 판정 표시)
 function _htBurstAur(kind,x,y){if(htD.note){htD.note.judged=1;htD.note.spT0=(performance.now()-(fxT0||performance.now()))/1000;htD.note.spKind=kind;}htD.floats.push({kind,x,y:y-Math.max(40,fx.height*0.1),life:1});   // ★스페이스 = 오로라 폭발(위젯) + 링 퇴장 시작점 기록
   if(kind==="bad"||kind==="miss")return;hitSound(kind,0);
   for(let i=0;i<50;i++){const a=Math.random()*6.283,sp=4+Math.random()*12;htD.parts.push({x,y,px:x,py:y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,dec:0.015+Math.random()*0.02,col:_rgba(SP_AUR[(Math.random()*5)|0],1),size:1.6+Math.random()*2.8,streak:Math.random()<0.7});}
@@ -1146,7 +1147,7 @@ function _htFx(){
 let _htKeyDown=function(e){if(fxScreen!=="howto"||e.repeat)return;const lane=KEYS.indexOf((e.key||"").toLowerCase()),sp=(e.code==="Space");if(lane<0&&!sp)return;e.preventDefault();
   if(lane>=0)htD.down[lane]=1;if(sp)htD.space=1;const n=htD.note;if(!n||n.judged)return;const now=(performance.now()-(fxT0||performance.now()))/1000,prog=(now-n.t0)/n.dur,d=Math.abs(prog-1);
   if(_htMode==="tap"&&lane===n.col){if(d<0.4)_htBurst(d<0.06?"perfect":d<0.14?"great":d<0.26?"good":"bad",n.x,n.y,n.col);}
-  else if(_htMode==="drag"&&lane===n.col&&!n.caught){if(d<0.4){n.caught=1;n.catchT=now;n.ck=d<0.08?"perfect":d<0.18?"great":"good";}}
+  else if(_htMode==="drag"&&lane===n.col&&!n.caught){const k=judgeOf((prog-1)*n.dur);if(k){n.caught=1;n.catchT=now;n.ck=k;}}   // ★인게임과 동일한 판정 윈도우(JW: perfect 0.06/great 0.12/good 0.17s)
   else if(_htMode==="space"&&n.variant!=="hold"&&sp){if(d<0.45)_htBurstAur(d<0.08?"perfect":d<0.18?"great":d<0.3?"good":"bad",n.x,n.y);}   // ★스페이스바 전용 (4키 동시 불가)
   // 스페이스 홀드는 누르는 동안 충전(draw에서 처리) — 떼서 판정 안 함, 다 차면 자동 완성
 };
@@ -1198,11 +1199,12 @@ function drawFxHowto(t){
         fxc.restore();   // 헤드 원 클립 해제 (별 제거 — 헤드 = 일반 노트와 동일)
         fxc.save();fxc.globalAlpha=a;NoteFX_approach(fxc,hd.x,hd.y,br,r,cp,ease,a,col,false);NoteFX_noteBody(fxc,hd.x,hd.y,br,col,{a:a,ease:ease,flash:flash,hold:false});fxc.restore();}   // 앞 = 일반 노트(어프로치·오브·심지·플래시)
     } else if(!n.judged){ const rt=Math.min(1,(now-n.catchT)/1.0),pe=(function(x){x=Math.max(0,Math.min(1,x));return 1+2.70158*Math.pow(x-1,3)+1.70158*Math.pow(x-1,2);})(rt/0.18);
+      if(!n._hj){n._hj=1;n._ig[0]=1;hitSound(n.ck,n.col);_htFloat(n.ck,SP(0).x,SP(0).y);NoteFX_burst(htD.parts,htD.shocks,htD.flashes,n.col,n.ck,SP(0).x,SP(0).y,1,r);}   // ★헤드 캐치 판정 문구(인게임 spawnJudge(kind) 동일) · 헤드 포인트(fr=0)는 여기서 처리됨
       fxc.save();fxc.strokeStyle="#454c6e";fxc.shadowColor="#454c6e";fxc.shadowBlur=4;fxc.globalAlpha=0.4;fxc.lineWidth=Math.max(2.5,r*0.06);fxc.beginPath();for(let q=0;q<=12;q++){const P=SP(rt+(1-rt)*q/12);q?fxc.lineTo(P.x,P.y):fxc.moveTo(P.x,P.y);}fxc.stroke();fxc.restore();
       {const fa=Math.max(0,rt-0.42);fxc.save();fxc.globalCompositeOperation="lighter";fxc.lineCap="round";for(let i2=0;i2<12;i2++){const A=SP(fa+(rt-fa)*i2/12),B=SP(fa+(rt-fa)*(i2+1)/12),ag=i2/12;fxc.globalAlpha=ag*ag*0.55;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=8;fxc.lineWidth=1+ag*ag*r*0.1;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();fxc.globalAlpha=ag*ag*0.85;fxc.strokeStyle="#fff";fxc.shadowColor="#fff";fxc.shadowBlur=5;fxc.lineWidth=0.5+ag*ag*r*0.05;fxc.beginPath();fxc.moveTo(A.x,A.y);fxc.lineTo(B.x,B.y);fxc.stroke();}fxc.restore();}
-      for(const fr of FR){const P=SP(fr);if(rt<fr){const prox=Math.max(0,1-(fr-rt)/0.16),sc=pe*(1+prox*0.7);fxc.save();fxc.globalCompositeOperation="lighter";fxc.globalAlpha=Math.min(1,pe)*0.95;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=10;fxc.lineWidth=2.6;hexPath(fxc,P.x,P.y,r*0.26*sc);fxc.stroke();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.beginPath();fxc.arc(P.x,P.y,r*0.078*sc,0,6.283);fxc.fill();fxc.restore();}else if(!n._ig[fr]){n._ig[fr]=1;hitSound("perfect",n.col);htD.shocks.push({x:P.x,y:P.y,r:r*0.3,vr:r*0.18,life:1,col});htD.shocks.push({x:P.x,y:P.y,r:r*0.2,vr:r*0.14,life:1,col:"#fff"});for(let p=0;p<8;p++){const a=Math.random()*6.283,sp=1.5+Math.random()*4;htD.parts.push({x:P.x,y:P.y,px:P.x,py:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,dec:0.04,col,size:1.4+Math.random()*1.8,streak:Math.random()<0.5,white:Math.random()<0.4});}}}
+      for(const fr of FR){const P=SP(fr);if(rt<fr){const prox=Math.max(0,1-(fr-rt)/0.16),sc=pe*(1+prox*0.7);fxc.save();fxc.globalCompositeOperation="lighter";fxc.globalAlpha=Math.min(1,pe)*0.95;fxc.strokeStyle=col;fxc.shadowColor=col;fxc.shadowBlur=10;fxc.lineWidth=2.6;hexPath(fxc,P.x,P.y,r*0.26*sc);fxc.stroke();fxc.fillStyle="#fff";fxc.shadowColor="#fff";fxc.beginPath();fxc.arc(P.x,P.y,r*0.078*sc,0,6.283);fxc.fill();fxc.restore();}else if(!n._ig[fr]){n._ig[fr]=1;hitSound("perfect",n.col);_htFloat("perfect",P.x,P.y);htD.shocks.push({x:P.x,y:P.y,r:r*0.3,vr:r*0.18,life:1,col});htD.shocks.push({x:P.x,y:P.y,r:r*0.2,vr:r*0.14,life:1,col:"#fff"});for(let p=0;p<8;p++){const a=Math.random()*6.283,sp=1.5+Math.random()*4;htD.parts.push({x:P.x,y:P.y,px:P.x,py:P.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1,life:1,dec:0.04,col,size:1.4+Math.random()*1.8,streak:Math.random()<0.5,white:Math.random()<0.4});}}}   // ★포인트마다 PERFECT 문구(인게임 동일)
       const S=SP(rt);_htStar(S.x,S.y,r*0.95,-now*5,col);
-      if(rt>=1)_htBurst(n.ck,SP(1).x,SP(1).y,n.col); }
+      if(rt>=1)n.judged=1; }   // ★마지막 점은 위 루프에서 PERFECT 문구가 이미 떴으므로 노트만 종료(중복 문구 없음)
   } else { // space — SHARED NoteFX 에셋 (인게임 drawSpaceNote와 100% 동일한 그리기 함수 호출)
     const R=r*1.7,isHold=n.variant==="hold",spin=now*0.35;
     const despawn=()=>{   // 타격/미스 후 퇴장: 퍼펙트/그레잇 = 색상환 링이 화면 밖으로 폭발, 그 외 = 잔잔히 소멸 (인게임 동일)
