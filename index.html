@@ -1361,10 +1361,10 @@ async function allSongsForPlay(){
     } if(ch)dbPut(lib); }
   }catch(e){}
   // 내장곡: 난이도 목록=내장(NORMAL 삭제 유지), 노트=내 편집본>Gist>내장
-  const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"Built-in",audio:s.audio,
+  const built=SONGS.map(s=>({id:s.id,title:s.title,artist:"Built-in",audio:s.audio,vol:(typeof s.vol==="number"?s.vol:1),
     difficulties:s.difficulties.map(d=>({name:d.name,chart:pickChart(s.id,d.name,d.chart,userById[s.id])}))}));
   // 내가 등록한 "새 곡"만 별도 추가
-  const user=userRaw.filter(s=>!builtinIds.has(s.id)).map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),difficulties:s.difficulties}));
+  const user=userRaw.filter(s=>!builtinIds.has(s.id)).map(s=>({id:s.id,title:s.title,artist:"내 라이브러리",audio:URL.createObjectURL(s.audio),vol:(typeof s.vol==="number"?s.vol:1),difficulties:s.difficulties}));
   return built.concat(user);
 }
 async function openSongSelect(){
@@ -1431,6 +1431,7 @@ let playFromEditor=false;   // 테스트 플레이로 진입했는지 (뒤로가
 function playEmbedded(song,diff){
   playFromEditor=false;
   playAudio=new Audio(song.audio);playAudio.preload="auto";
+  playAudio.volume=(typeof song.vol==="number")?clamp(song.vol,0,1):1;   // ★곡별 음량 정규화(-16 LUFS 기준) — 곡마다 데시벨 맞춤
   playChart=diff.chart;
   curSongMeta={title:song.title,artist:song.artist||"",diff:diff.name,id:song.id};   // ★id=기록 키
   show("play");startPlay();
@@ -1651,6 +1652,21 @@ function toMono(buf){
   const ch1=buf.getChannelData(1),out=new Float32Array(ch0.length);
   for(let i=0;i<ch0.length;i++)out[i]=(ch0[i]+ch1[i])*0.5;
   return out;
+}
+const LOUD_TARGET=-16;   // ★곡 음량 정규화 기준 (LUFS). 모든 곡을 이 수준으로(감쇠-only, 클리핑 없음)
+function measureSongVol(buf){   // 게이트 적분 라우드니스(BS.1770 근사) → 기준 대비 게인(≤1)
+  try{
+    const data=toMono(buf),sr=buf.sampleRate;
+    const RC=1/(2*Math.PI*120),dt=1/sr,a=RC/(RC+dt);let py=0,px=0;const x=new Float32Array(data.length);   // ~120Hz 하이패스(러프 K-weight)
+    for(let i=0;i<data.length;i++){const y=a*(py+data[i]-px);x[i]=y;py=y;px=data[i];}
+    const win=Math.floor(0.4*sr),hop=Math.floor(0.1*sr);if(win<1||x.length<win)return 1;
+    const blocks=[];for(let s=0;s+win<=x.length;s+=hop){let e=0;for(let i=0;i<win;i++){const v=x[s+i];e+=v*v;}const ms=e/win,L=-0.691+10*Math.log10(Math.max(ms,1e-12));blocks.push({L,ms});}
+    let kept=blocks.filter(b=>b.L>-70);if(!kept.length)return 1;
+    const meanMs=kept.reduce((p,b)=>p+b.ms,0)/kept.length,relGate=-0.691+10*Math.log10(meanMs)-10;
+    let k2=kept.filter(b=>b.L>relGate);if(!k2.length)k2=kept;
+    const mMs=k2.reduce((p,b)=>p+b.ms,0)/k2.length,lufs=-0.691+10*Math.log10(Math.max(mMs,1e-12));
+    return +Math.min(1,Math.max(0.05,Math.pow(10,(LOUD_TARGET-lufs)/20))).toFixed(3);
+  }catch(e){return 1;}
 }
 function detectOnsets(buf,sensitivity,minGap){
   const data=toMono(buf),sr=buf.sampleRate;
@@ -3414,6 +3430,7 @@ async function editorSave(silent){
     song.title=title;
     if(edAudioFile)song.audio=edAudioFile;
   }
+  if(edBuffer)song.vol=measureSongVol(edBuffer);   // ★앞으로 삽입할 곡: 저장 시 음량 자동 측정 → -16 LUFS 기준 정규화(곡마다 데시벨 맞춤)
   const i=song.difficulties.findIndex(d=>d.name===diff);
   if(i>=0)song.difficulties[i].chart=chart;else song.difficulties.push({name:diff,chart});
   try{await dbPut(song);edSeedDiffs=null;
@@ -3467,12 +3484,12 @@ async function buildSongsBundle(){
   const userIds=new Set(userRaw.map(s=>s.id));
   const built=((typeof window.SONGS!=="undefined"&&Array.isArray(window.SONGS))?window.SONGS:[])
     .filter(b=>!userIds.has(b.id))
-    .map(s=>({id:s.id,title:s.title,artist:s.artist||"",audio:s.audio,difficulties:s.difficulties}));
+    .map(s=>({id:s.id,title:s.title,artist:s.artist||"",audio:s.audio,difficulties:s.difficulties,...(typeof s.vol==="number"?{vol:s.vol}:{})}));
   const user=[];
   for(const s of userRaw){
     let audio=s.audio;
     if(audio instanceof Blob)audio=await blobToDataURL(audio);
-    user.push({id:s.id,title:s.title,artist:s.artist||"",audio,difficulties:s.difficulties});
+    user.push({id:s.id,title:s.title,artist:s.artist||"",audio,difficulties:s.difficulties,...(typeof s.vol==="number"?{vol:s.vol}:{})});
   }
   const all=built.concat(user);
   all.forEach(s=>s.difficulties.forEach(d=>{ if(diffLocked(s.id,d.name))d.locked=true; else if("locked" in d)delete d.locked; }));   // ★현재 잠금 상태를 songs.js에 베이크(배포로 전파)
