@@ -808,37 +808,54 @@ function drawFxResult(t){
   fxPixelate();
 }
 // ===== 곡 선택 (HTML 카드/난이도 구조를 미러 + 필터) =====
+let _songSel=[], _ssRec={}, _ssScroll=0, _ssDrag=null;   // ★FX 곡선택(통합 카드)
+const _ssStampCache={};
+function _ssStamp(g,cx,cy,stR,rank){   // 도장을 1회 렌더해 캐시(성능) → 매 프레임 drawImage. 글로우 여유 포함.
+  const key=rank+"|"+Math.round(stR);
+  let cnv=_ssStampCache[key];
+  if(!cnv){const CV=Math.ceil(stR*4.6);cnv=document.createElement('canvas');cnv.width=CV;cnv.height=CV;drawRankStamp(cnv.getContext('2d'),CV/2,CV/2,stR,rank,0.6,1);_ssStampCache[key]=cnv;}
+  g.drawImage(cnv,cx-cnv.width/2,cy-cnv.height/2);
+}
 function drawFxSongsel(t){
   const W=fx.width,H=fx.height,cx=W/2;
   fxBgDraw();fxBtns=[];
-  const diffOpen=!document.getElementById("diffView").classList.contains("hidden");
-  fxTitle(diffOpen?(document.getElementById("diffSongTitle").textContent||"DIFFICULTY"):"SONG SELECT",cx,H*0.10,Math.min(W*0.05,H*0.055,34));
-  // 뒤로 버튼
-  fxButton(W*0.04,H*0.04,Math.min(W*0.2,150),Math.max(38,H*0.06),diffOpen?"< SONGS":"< MENU",()=>{(diffOpen?document.getElementById("backToSongs"):document.querySelector("#songsel [data-home]")).click();},900);
-  const list=document.querySelectorAll(diffOpen?"#diffList .diffcard":"#songList .songcard");
-  const top=H*0.18,bh=diffOpen?Math.max(50,H*0.1):Math.max(58,H*0.13),gap=bh*0.22,bw=Math.min(W*0.86,560),bx=cx-bw/2;
-  list.forEach((el,i)=>{const yy=top+i*(bh+gap);if(yy>H-bh)return;
-    const nmEl=el.querySelector(".nm")||el.querySelector(".lv")||el.querySelector("h3");
-    const nm=(nmEl||el).textContent.trim().split("\n")[0].replace("🔒","").trim().slice(0,40);
-    const subEl=el.querySelector(".ar")||el.querySelector(".sub")||el.querySelector(".cnt");
-    const sub=subEl?subEl.textContent.trim().slice(0,40):"";
-    const locked=/🔒|locked/i.test(el.textContent);
-    const idx=fxBtns.length;fxBtns.push({x:bx,y:yy,w:bw,h:bh,fn:()=>el.click()});const hov=fxHover===idx;
-    fxc.save();fxc.shadowColor=hov?"#bfe3ff":"#22a7ff";fxc.shadowBlur=hov?22:9;
-    fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,yy,bw,bh);
-    fxc.lineWidth=hov?5:3;fxc.strokeStyle=hov?"#bfe3ff":"#3a4a86";fxc.strokeRect(bx,yy,bw,bh);
-    const pad=Math.max(16,bw*0.045);
-    // 커버 스와치
-    fxc.shadowBlur=0;const sw=bh*0.56,swx=bx+pad,swy=yy+(bh-sw)/2;const cg=fxc.createLinearGradient(swx,swy,swx+sw,swy+sw);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(swx,swy,sw,sw);
-    const rec=(!diffOpen&&el.dataset.song)?bestRankForSong(el.dataset.song):null;   // ★플레이한 곡 = 최고 랭크 미니 도장
-    const stR=bh*0.34;
-    const tx=swx+sw+pad,rightLim=bx+bw-pad-(rec?stR*2.3:0);let nx=tx;
-    fxc.shadowBlur=0;
-    if(locked){fxc.save();fxc.font=Math.round(bh*0.3)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="left";fxc.textBaseline="middle";fxc.fillStyle="#ffd23f";fxc.fillText("🔒",nx,yy+bh*0.42);fxc.restore();nx+=bh*0.44;}
-    fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(nm,nx,yy+bh*0.42,fxPixFit(nm,rightLim-nx,bh*0.26),"#fff","left");
-    if(sub){fxc.shadowBlur=2;fxPixText(sub,tx,yy+bh*0.74,fxPixFit(sub,rightLim-tx,bh*0.17),"#bcc8ee","left");}
-    fxc.restore();
-    if(rec)drawRankStamp(fxc,bx+bw-pad-stR,yy+bh/2,stR,rec.rank,t,1);});
+  fxTitle("SONG SELECT",cx,H*0.085,Math.min(W*0.05,H*0.055,34));
+  fxButton(W*0.04,H*0.04,Math.min(W*0.2,150),Math.max(38,H*0.06),"< MENU",()=>document.querySelector("#songsel [data-home]").click(),900);
+  const songs=_songSel||[], rec=_ssRec||{};
+  const cardW=Math.min(W*0.9,660), cardH=Math.max(96,H*0.20), gap=cardH*0.16, x0=cx-cardW/2;
+  const viewTop=H*0.155, viewBot=H-H*0.03, viewH=viewBot-viewTop;
+  const totalH=songs.length*(cardH+gap), maxScroll=Math.max(0,totalH-viewH);
+  _ssScroll=clamp(_ssScroll,0,maxScroll);
+  fxc.save();fxc.beginPath();fxc.rect(0,viewTop-2,W,viewH+4);fxc.clip();   // 리스트 뷰포트
+  songs.forEach((song,i)=>{
+    const yy=viewTop+i*(cardH+gap)-_ssScroll;
+    if(yy>viewBot||yy+cardH<viewTop)return;
+    fxc.save();fxc.shadowColor="#22a7ff";fxc.shadowBlur=9;fxc.fillStyle="rgba(20,28,60,0.92)";fxc.fillRect(x0,yy,cardW,cardH);
+    fxc.lineWidth=3;fxc.strokeStyle="#3a4a86";fxc.strokeRect(x0,yy,cardW,cardH);fxc.restore();
+    const pad=Math.max(14,cardW*0.028);
+    const cv=cardH*0.62, cvx=x0+pad, cvy=yy+(cardH-cv)/2;   // 커버(앨범커버 자리) — 지금은 그라데이션
+    const cg=fxc.createLinearGradient(cvx,cvy,cvx+cv,cvy+cv);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(cvx,cvy,cv,cv);
+    const metaX=cvx+cv+pad, metaR=x0+cardW-pad;
+    fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(song.title,metaX,yy+cardH*0.27,fxPixFit(song.title,metaR-metaX,cardH*0.2),"#fff","left");fxc.restore();
+    const diffs=song.difficulties||[], chipGap=pad*0.6, chipsW=metaR-metaX, chipW=(chipsW-(diffs.length-1)*chipGap)/Math.max(1,diffs.length), chipH=cardH*0.42, chipY=yy+cardH*0.46;
+    diffs.forEach((d,di)=>{
+      const lk=diffLocked(song.id,d.name), col=DIFFCOL[d.name]||"#22a7ff", cnt=(d.chart&&d.chart.notes?d.chart.notes.length:0);
+      const r=rec[song.id+"::"+d.name], rank=(r&&!lk)?r.rank:null;
+      const chX=metaX+di*(chipW+chipGap), idx=fxBtns.length, hov=(!lk&&fxHover===idx);
+      if(!lk)fxBtns.push({x:chX,y:chipY,w:chipW,h:chipH,fn:()=>playEmbedded(song,d)});
+      fxc.save();fxc.fillStyle=lk?"rgba(40,44,70,0.5)":(hov?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.05)");fxc.fillRect(chX,chipY,chipW,chipH);
+      fxc.lineWidth=hov?3.5:2.5;fxc.strokeStyle=lk?"#3a3f5c":col;if(hov){fxc.shadowColor=col;fxc.shadowBlur=10;}fxc.strokeRect(chX,chipY,chipW,chipH);fxc.restore();
+      const stR=chipH*0.34, stx=chX+chipH*0.52, sty=chipY+chipH/2;
+      if(rank)_ssStamp(fxc,stx,sty,stR,rank);
+      else{fxc.save();fxc.fillStyle="rgba(255,255,255,0.05)";fxc.beginPath();fxc.arc(stx,sty,stR,0,6.2832);fxc.fill();fxc.restore();
+        fxc.save();fxc.font=Math.round(stR*1.1)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="center";fxc.textBaseline="middle";fxc.fillStyle="#5a6190";fxc.fillText(lk?"🔒":"—",stx,sty+1);fxc.restore();}
+      const txX=chX+chipH*1.02, txR=chX+chipW-pad*0.5;
+      fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=2;
+      fxPixText(d.name,txX,chipY+chipH*0.36,fxPixFit(d.name,txR-txX,chipH*0.3),lk?"#7b82a8":col,"left");
+      fxPixText(lk?"잠김":(cnt+" notes"),txX,chipY+chipH*0.72,fxPixFit(lk?"잠김":(cnt+" notes"),txR-txX,chipH*0.2),"#9fa7cc","left");fxc.restore();
+    });
+  });
+  fxc.restore();
   fxPixelate();
 }
 // ===== 설정 화면 (HTML 컨트롤을 캔버스로 미러링 + 필터) =====
@@ -949,14 +966,17 @@ function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxH
   fxc.restore();}
 function fxXY(e){const r=fx.getBoundingClientRect();return [e.clientX-r.left,e.clientY-r.top];}
 fx.addEventListener("pointermove",e=>{const [mx,my]=fxXY(e);
+  if(_ssDrag){_ssScroll=_ssDrag.s-(my-_ssDrag.y);return;}
   if(fxDrag){fxSliderSet(fxDrag,mx,false);return;}
   let h=-1;fxBtns.forEach((b,i)=>{if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h)h=i;});fxHover=h;
   const onSl=fxSliders.some(s=>mx>=s.x-12&&mx<=s.x+s.w+12&&my>=s.y&&my<=s.y+s.h);
   fx.style.cursor=(h>=0||onSl)?"pointer":"default";});
 fx.addEventListener("pointerdown",e=>{const [mx,my]=fxXY(e);
   for(const s of fxSliders){if(mx>=s.x-14&&mx<=s.x+s.w+14&&my>=s.y&&my<=s.y+s.h){fxDrag=s;fxSliderSet(s,mx,false);try{fx.setPointerCapture(e.pointerId);}catch(_){}return;}}
-  for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}});
-fx.addEventListener("pointerup",e=>{if(fxDrag){fxDrag.el.dispatchEvent(new Event("change",{bubbles:true}));fxDrag=null;}});
+  for(const b of fxBtns){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){b.fn();return;}}
+  if(fxScreen==="songsel"){_ssDrag={y:my,s:_ssScroll};}});   // ★빈 영역 드래그 = 곡 리스트 스크롤
+fx.addEventListener("pointerup",e=>{if(fxDrag){fxDrag.el.dispatchEvent(new Event("change",{bubbles:true}));fxDrag=null;}_ssDrag=null;});
+fx.addEventListener("wheel",e=>{if(fxScreen==="songsel"){_ssScroll+=e.deltaY;e.preventDefault();}},{passive:false});   // ★곡 리스트 휠 스크롤
 window.addEventListener("resize",()=>{if(fxScreen)fxFit();});
 setTimeout(()=>{if(!screens.menu.classList.contains("hidden"))fxUpdate("menu");},0);   // 시작 시 홈 화면이면 픽셀 필터 켜기
 document.querySelectorAll("[data-home]").forEach(b=>b.onclick=()=>{stopPlay();stopEditor();stopSettingsMetro();show("menu");});
@@ -1385,6 +1405,7 @@ async function openSongSelect(){
 async function renderSongList(){
   const list=$("#songList");list.innerHTML='<div class="muted">불러오는 중…</div>';
   const songs=(await allSongsForPlay()).filter(s=>!songAllLocked(s));   // ★난이도가 전부 잠긴 곡만 숨김(하나라도 풀려 있으면 표시)
+  _songSel=songs; _ssRec=loadRecords(); _ssScroll=0;   // ★FX 곡선택(통합 카드)용 데이터/스크롤
   if(!songs.length){list.innerHTML='<div class="muted">표시할 곡이 없습니다. (에디터에서 난이도 잠금을 해제하거나 New Song으로 만들어보세요.)</div>';return;}
   list.innerHTML="";
   songs.forEach(song=>{
