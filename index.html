@@ -1514,11 +1514,13 @@ function dbDel(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transac
 let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}));}   // ★latencyHint:"interactive"=출력 버퍼 최소화(모바일 효과음 지연 대폭 감소)
 // ★모바일 오디오 unlock — 첫 사용자 제스처(탭/키)에서 즉시 컨텍스트 resume + 무음 버퍼 1샘플 재생.
 //   iOS/모바일은 제스처 안에서 깨워야 저지연으로 동작하므로, 메뉴 효과음·첫 노트 타격음까지 지연 없이 나오게 미리 unlock.
-(function(){let done=false;function unlock(){if(done)return;done=true;
-  try{const c=getCtx();if(c.state==="suspended")c.resume();
-    const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(_){}
-  ["pointerdown","touchstart","keydown","click"].forEach(ev=>window.removeEventListener(ev,unlock,true));}
-  ["pointerdown","touchstart","keydown","click"].forEach(ev=>window.addEventListener(ev,unlock,true));})();
+// ★iOS의 resume()는 비동기라 첫 제스처에 바로 running이 안 될 수 있음 → 실제 running이 될 때까지 매 제스처 재시도(무음 버퍼 소스로 하드웨어 클록 기동). running 확인 전엔 리스너를 떼지 않음.
+(function(){const EVS=["pointerdown","touchstart","keydown","click","pointerup"];
+  function kick(){let c;try{c=getCtx();}catch(_){return;}
+    if(c.state!=="running"){try{c.resume();}catch(_){}}
+    try{const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(_){}
+    if(c.state==="running")EVS.forEach(ev=>window.removeEventListener(ev,kick,true));}
+  EVS.forEach(ev=>window.addEventListener(ev,kick,true));})();
 // 경쾌한 탬버린 징글 효과음 (합성, 파일 없음)
 let _noiseBuf=null;
 function noiseBuf(ctx){
@@ -4508,8 +4510,9 @@ window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidde
   let started=false; const tp=performance.now();
   function waitFrame(now){if(started)return;drawPrompt(fctx,(now-tp)/1000);blitText();requestAnimationFrame(waitFrame);}   // 탭 전: 텍스트 필터로 깜빡 안내
   function begin(){if(started)return;started=true;window.removeEventListener("pointerdown",begin);window.removeEventListener("keydown",begin);
-    try{const c=getCtx();if(c.state==="suspended")c.resume();}catch(e){}                 // 제스처로 오디오 잠금 해제
-    try{if(typeof startStarSfx==="function")startStarSfx();}catch(e){}                    // ★별 반짝임 효과음(T5)
+    // ★별 반짝임 효과음(T5) — iOS는 resume이 끝나야 클록이 돌므로, running이면 즉시·아니면 resume 완료 후 울려서 곡선택창까지 밀리지 않게
+    try{const c=getCtx();const fire=()=>{try{if(typeof startStarSfx==="function")startStarSfx();}catch(e){}};
+      if(c.state==="running")fire(); else {const p=c.resume();if(p&&p.then)p.then(fire);else fire();}}catch(e){}
     const t0=performance.now();
     function frame(now){const el=(now-t0)/1000;drawIntro(fctx,el);blit();
       if(el<INTRO+HOLD)requestAnimationFrame(frame);
