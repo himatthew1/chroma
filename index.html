@@ -1511,7 +1511,14 @@ function dbAll(){return db().then(d=>new Promise((res,rej)=>{const t=d.transacti
 function dbGet(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs").objectStore("songs").get(id);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error);}));}
 function dbPut(s){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite").objectStore("songs").put(s);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));}
 function dbDel(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite").objectStore("songs").delete(id);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));}
-let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)());}
+let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}));}   // ★latencyHint:"interactive"=출력 버퍼 최소화(모바일 효과음 지연 대폭 감소)
+// ★모바일 오디오 unlock — 첫 사용자 제스처(탭/키)에서 즉시 컨텍스트 resume + 무음 버퍼 1샘플 재생.
+//   iOS/모바일은 제스처 안에서 깨워야 저지연으로 동작하므로, 메뉴 효과음·첫 노트 타격음까지 지연 없이 나오게 미리 unlock.
+(function(){let done=false;function unlock(){if(done)return;done=true;
+  try{const c=getCtx();if(c.state==="suspended")c.resume();
+    const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(_){}
+  ["pointerdown","touchstart","keydown","click"].forEach(ev=>window.removeEventListener(ev,unlock,true));}
+  ["pointerdown","touchstart","keydown","click"].forEach(ev=>window.addEventListener(ev,unlock,true));})();
 // 경쾌한 탬버린 징글 효과음 (합성, 파일 없음)
 let _noiseBuf=null;
 function noiseBuf(ctx){
