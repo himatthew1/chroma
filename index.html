@@ -2398,7 +2398,7 @@ function startPlay(startAt){try{
 function startReadyGate(){
   if(!state)return;
   state.readyGate=true;state.holdStart=0;state.readyProg=0;state.started=false;
-  $("#countdown").classList.add("hidden");
+  _cdTxt="";$("#countdown").classList.add("hidden");
 }
 function stopPlay(){cancelAnimationFrame(raf);if(state&&state.introTimers)state.introTimers.forEach(clearTimeout);if(playAudio)playAudio.pause();state=null;$("#playUI").classList.add("hidden");$("#countdown").classList.add("hidden");}
 $("#playBack").onclick=()=>{stopPlay();if(playFromEditor){playFromEditor=false;show("editor");}else openSongSelect();};
@@ -2436,10 +2436,13 @@ function _bootPreview(){const q=new URLSearchParams((location.hash&&location.has
 }
 if(document.readyState==="complete")_bootPreview(); else window.addEventListener("load",_bootPreview);
 
-function showCountdown(txt,green){const el=$("#countdown");el.textContent=txt;el.style.color=green?"#39e36b":"#fff";
+let _cdTxt="",_cdCol="#fff";   // ★레트로 캔버스가 읽는 카운트다운 상태 — DOM opacity 캐스케이드(엔진별 차이)에 의존하지 않음
+function showCountdown(txt,green){_cdTxt=txt;_cdCol=green?"#39e36b":"#fff";
+  const el=$("#countdown");el.textContent=txt;el.style.color=_cdCol;
   el.style.fontSize=txt.length>3?"clamp(40px,7vw,68px)":"clamp(64px,12vw,104px)";
+  if(settings.retro){el.classList.add("hidden");return;}   // ★레트로: DOM은 완전히 숨김(캔버스로만 표시) → WebKit에서 !important 무시로 이중 출력되던 문제 차단
   el.classList.remove("hidden","pop");void el.offsetWidth;el.classList.add("pop");}
-function hideCountdown(){$("#countdown").classList.add("hidden");}
+function hideCountdown(){_cdTxt="";$("#countdown").classList.add("hidden");}
 function runIntro(){
   if(!state)return;state.introTimers=[];
   const seq=[["3",560,false],["2",560,false],["1",560,false],["START!",700,true]];
@@ -3211,10 +3214,9 @@ function loop(){
   // ★레트로: HUD/카운트다운을 캔버스에 그려 필터와 함께 통과
   if(settings.retro){
     if(state.started&&!state.ended)drawHudCanvas(now);
-    const cd=$("#countdown");
-    if(cd&&!cd.classList.contains("hidden")&&cd.textContent){
-      const W=pcanvas.width,H=pcanvas.height,big=cd.textContent.length>3,sz=big?Math.max(40,H*0.1):Math.max(64,H*0.16);
-      pPixText(cd.textContent,W/2,H*0.46,sz,cd.style.color||"#fff","center");
+    if(_cdTxt){
+      const W=pcanvas.width,H=pcanvas.height,big=_cdTxt.length>3,sz=big?Math.max(40,H*0.1):Math.max(64,H*0.16);
+      pPixText(_cdTxt,W/2,H*0.46,sz,_cdCol||"#fff","center");
     }
   }
   // ★레트로(저해상도) 후처리 — 세로 ~192 밀도(정사각 픽셀)로 다운샘플 후 니어리스트 확대. 화면비 무관·풀스크린
