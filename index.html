@@ -8,7 +8,7 @@
 window.addEventListener("error",function(e){showErr((e.error&&e.error.stack||e.message)+(e.filename?"\n@ "+(""+e.filename).replace(/.*\//,"")+":"+e.lineno+":"+e.colno:""));});
 window.addEventListener("unhandledrejection",function(e){var r=e.reason;showErr("Promise: "+((r&&r.stack)||(r&&r.message)||r));});
 window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;if(t.id==="errClose"){var b=document.getElementById("errBanner");b.style.display="none";document.getElementById("errMsg").textContent="";}else if(t.id==="errCopy"){var x=document.getElementById("errMsg").textContent;try{navigator.clipboard.writeText(x);t.textContent="복사됨!";setTimeout(function(){t.textContent="복사";},1200);}catch(_){}}});})();</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CHROMA — Color Your Beat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
@@ -235,8 +235,8 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   html.retro .nm{font-size:15px;}
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
   /* 레트로 전체화면 픽셀 필터 오버레이 캔버스 */
-  #fx{position:fixed;inset:0;z-index:60;display:none;image-rendering:pixelated;background:#04050c;}
-  #playCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;}   /* 캡된 백킹을 화면 가득 nearest 업스케일(도트 유지) */
+  #fx{position:fixed;inset:0;z-index:60;display:none;image-rendering:pixelated;background:#04050c;touch-action:none;}
+  #playCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;}   /* 캡된 백킹을 화면 가득 nearest 업스케일(도트 유지) · touch-action:none=터치로 스크롤/줌 방지 */
   html.retro.fxon #fx{display:block;}
   /* 레트로: 인게임 HUD는 캔버스에 직접 그리므로 HTML HUD(글자)는 숨김 (✕ 종료 버튼 클릭영역은 유지) */
   html.retro #playUI .hud-logo,html.retro #playUI .hud-song,html.retro #playUI .hud-combo,html.retro #playUI .hud-score,html.retro #playUI .hud-prog,html.retro #countdown{opacity:0!important;}
@@ -2887,10 +2887,22 @@ document.addEventListener("keyup",e=>{
     const col=KEYS.indexOf(e.key.toLowerCase());if(col>=0){state.held[col]=false;if(state.started&&!state.readyGate)releaseCol(col);}}
 });
 window.addEventListener("blur",()=>{if(state){state.held=[false,false,false,false];state.spaceDown=false;}});  // 포커스 이탈 시 키 고정 해제
-let _ptrCol=-1;
-pcanvas.addEventListener("pointerdown",e=>{if(!state)return;const r=pcanvas.getBoundingClientRect();
-  const c=padAt(e.clientX-r.left,e.clientY-r.top);if(c>=0&&state.started&&!state.held[c]){_ptrCol=c;state.held[c]=true;pressCol(c);}});
-pcanvas.addEventListener("pointerup",()=>{if(state&&_ptrCol>=0){state.held[_ptrCol]=false;releaseCol(_ptrCol);_ptrCol=-1;}});
+// ★터치/포인터 입력 — 멀티터치(여러 패드 동시) + 스페이스 패드(콘솔 바) + 시동게이트. CSS→캔버스 좌표 스케일 보정.
+const _ptrs=new Map();   // pointerId → 0~3(레인) | 'space'
+function _ptrTarget(px,py){const g=padGeom();
+  for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.ys[c])<=g.r*1.15)return c;}                 // 레인 패드
+  if(px>=g.sx-8&&px<=g.ex+8&&py>=g.topEdge-g.r*0.4&&py<=g.bottomY+6)return 'space';               // 콘솔 바 = 스페이스
+  return null;}
+function _ptrXY(e){const r=pcanvas.getBoundingClientRect();return [(e.clientX-r.left)*(pcanvas.width/Math.max(1,r.width)),(e.clientY-r.top)*(pcanvas.height/Math.max(1,r.height))];}
+pcanvas.addEventListener("pointerdown",e=>{if(!state||state.ended)return;const [px,py]=_ptrXY(e);const tg=_ptrTarget(px,py);if(tg==null)return;
+  e.preventDefault();_ptrs.set(e.pointerId,tg);try{pcanvas.setPointerCapture(e.pointerId);}catch(_){}
+  if(tg==='space'){ if(state.started&&!state.readyGate){state.spaceDown=true;pressSpace();} }   // 게이트는 4레인 전용 → 스페이스는 무시
+  else { if(state.readyGate)state.held[tg]=true; else if(state.started&&!state.held[tg]){state.held[tg]=true;pressCol(tg);} }});
+function _ptrEnd(e){const tg=_ptrs.get(e.pointerId);if(tg==null)return;_ptrs.delete(e.pointerId);if(!state)return;
+  if(tg==='space'){state.spaceDown=false;if(state.started&&!state.readyGate)releaseSpace();}
+  else{state.held[tg]=false;if(state.started&&!state.readyGate)releaseCol(tg);}}
+pcanvas.addEventListener("pointerup",_ptrEnd);
+pcanvas.addEventListener("pointercancel",_ptrEnd);
 
 function pressCol(col){
   const now=gameNow();let best=null,bd=1e9;
