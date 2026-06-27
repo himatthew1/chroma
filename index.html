@@ -665,12 +665,14 @@ function fxFlushText(){if(!fxTextQ.length)return;
   if(_fxTxt.width!==lw||_fxTxt.height!==lh){_fxTxt.width=lw;_fxTxt.height=lh;}
   const tc=_fxTxt.getContext("2d");tc.clearRect(0,0,lw,lh);
   for(const o of fxTextQ){const sz=Math.max(6,o.sz*k);tc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{tc.letterSpacing=Math.max(1,Math.round(sz*0.16))+"px";}catch(_){}
+    if(o.clip){tc.save();tc.beginPath();tc.rect(o.clip.x*k,o.clip.y*k,o.clip.w*k,o.clip.h*k);tc.clip();}   // ★항목별 클립(버퍼 좌표=fx*k) — 스크롤 뷰포트 밖 글자 잘라냄
     tc.textAlign=o.a;
     let bx=o.x*k, by=o.y*k;
     if(o.ctr){tc.textBaseline="alphabetic";const m=tc.measureText(o.t),asc=m.actualBoundingBoxAscent||sz*0.7,des=m.actualBoundingBoxDescent||0;by=o.y*k+(asc-des)/2;   // ★글리프 잉크 박스로 정밀 중앙(패드 글자 등)
       if(o.a==="center"){const l=m.actualBoundingBoxLeft||0,rt=(m.actualBoundingBoxRight!=null?m.actualBoundingBoxRight:(m.width||sz*0.5));bx=o.x*k-(rt-l)/2;}}
     else tc.textBaseline="middle";
-    tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,bx,by);tc.fillStyle=o.c;tc.fillText(o.t,bx,by);}
+    tc.lineJoin="round";tc.lineWidth=Math.max(1.5,sz*0.2);tc.strokeStyle="#05070f";tc.strokeText(o.t,bx,by);tc.fillStyle=o.c;tc.fillText(o.t,bx,by);
+    if(o.clip)tc.restore();}
   try{tc.letterSpacing="0px";}catch(_){}
   fxc.imageSmoothingEnabled=false;fxc.drawImage(_fxTxt,0,0,lw,lh,0,0,W,H);fxc.imageSmoothingEnabled=true;
   fxTextQ.length=0;}
@@ -829,6 +831,7 @@ function drawFxSongsel(t){
   const viewTop=H*0.155, viewBot=H-H*0.03, viewH=viewBot-viewTop;
   const totalH=songs.length*(cardH+gap), maxScroll=Math.max(0,totalH-viewH);
   _ssScroll=clamp(_ssScroll,0,maxScroll);
+  const ssClip={x:0,y:viewTop-2,w:W,h:viewH+4};   // ★카드 텍스트도 같은 뷰포트로 클립(텍스트는 나중에 플러시되므로 명시 클립 필요) → 스크롤 시 헤더와 안 겹침
   fxc.save();fxc.beginPath();fxc.rect(0,viewTop-2,W,viewH+4);fxc.clip();   // 리스트 뷰포트
   songs.forEach((song,i)=>{
     const yy=viewTop+i*(cardH+gap)-_ssScroll;
@@ -839,7 +842,7 @@ function drawFxSongsel(t){
     const cv=cardH*0.62, cvx=x0+pad, cvy=yy+(cardH-cv)/2;   // 커버(앨범커버 자리) — 지금은 그라데이션
     const cg=fxc.createLinearGradient(cvx,cvy,cvx+cv,cvy+cv);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(cvx,cvy,cv,cv);
     const metaX=cvx+cv+pad, metaR=x0+cardW-pad;
-    fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(song.title,metaX,yy+cardH*0.22,fxPixFit(song.title,metaR-metaX,cardH*0.17),"#fff","left");fxc.restore();
+    fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(song.title,metaX,yy+cardH*0.22,fxPixFit(song.title,metaR-metaX,cardH*0.17),"#fff","left",false,ssClip);fxc.restore();
     const diffs=song.difficulties||[], chipGap=pad*0.6, chipsW=metaR-metaX, chipW=(chipsW-(diffs.length-1)*chipGap)/Math.max(1,diffs.length), chipH=cardH*0.5, chipY=yy+cardH*0.42;
     diffs.forEach((d,di)=>{
       const lk=diffLocked(song.id,d.name), col=DIFFCOL[d.name]||"#22a7ff", cnt=(d.chart&&d.chart.notes?d.chart.notes.length:0);
@@ -854,8 +857,8 @@ function drawFxSongsel(t){
         fxc.save();fxc.font=Math.round(stR*1.1)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="center";fxc.textBaseline="middle";fxc.fillStyle="#5a6190";fxc.fillText(lk?"🔒":"—",stx,sty+1);fxc.restore();}
       const txX=chX+chipH*1.12, txR=chX+chipW-pad*0.5;
       fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=2;
-      fxPixText(d.name,txX,chipY+chipH*0.36,fxPixFit(d.name,txR-txX,chipH*0.3),lk?"#7b82a8":col,"left");
-      fxPixText(lk?"잠김":(cnt+" notes"),txX,chipY+chipH*0.72,fxPixFit(lk?"잠김":(cnt+" notes"),txR-txX,chipH*0.2),"#9fa7cc","left");fxc.restore();
+      fxPixText(d.name,txX,chipY+chipH*0.36,fxPixFit(d.name,txR-txX,chipH*0.3),lk?"#7b82a8":col,"left",false,ssClip);
+      fxPixText(lk?"잠김":(cnt+" notes"),txX,chipY+chipH*0.72,fxPixFit(lk?"잠김":(cnt+" notes"),txR-txX,chipH*0.2),"#9fa7cc","left",false,ssClip);fxc.restore();
     });
   });
   fxc.restore();
@@ -958,7 +961,7 @@ function fxBgDraw(){const W=fx.width,H=fx.height,cx=W/2;
 // 픽셀폰트(도트필터에서도 또렷)로 maxW 안에 들어가게 크기 맞춤
 function _ls(sz){return Math.max(1,Math.round(sz*0.16))+"px";}   // 자간(가독성): 닌텐도식 또렷한 분리
 function fxPixFit(text,maxW,sz){fxc.font=Math.round(sz)+"px 'Press Start 2P',monospace";try{fxc.letterSpacing=_ls(sz);}catch(_){}const w=fxc.measureText(text).width;try{fxc.letterSpacing="0px";}catch(_){}if(w>maxW)sz=sz*maxW/w;return Math.max(8,Math.round(sz));}
-function fxPixText(text,x,y,sz,col,align,ctr){fxTextQ.push({t:text,x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",ctr:!!ctr});}
+function fxPixText(text,x,y,sz,col,align,ctr,clip){fxTextQ.push({t:text,x:x,y:y,sz:sz,c:col||"#fff",a:align||"center",ctr:!!ctr,clip:clip||null});}   // clip={x,y,w,h}(fx좌표) 주면 그 사각형으로 잘라 그림(스크롤 뷰포트용)
 function fxButton(bx,by,bw,bh,label,fn,i,accent){const idx=fxBtns.length,hov=fxHover===idx;fxBtns.push({x:bx,y:by,w:bw,h:bh,fn});
   fxc.save();fxc.shadowColor=accent||"#22a7ff";fxc.shadowBlur=hov?26:10;
   fxc.fillStyle=hov?"rgba(40,60,120,0.95)":"rgba(20,28,60,0.92)";fxc.fillRect(bx,by,bw,bh);
