@@ -822,7 +822,7 @@ function drawFxSongsel(t){
   fxTitle("SONG SELECT",cx,H*0.085,Math.min(W*0.05,H*0.055,34));
   fxButton(W*0.04,H*0.04,Math.min(W*0.2,150),Math.max(38,H*0.06),"< MENU",()=>document.querySelector("#songsel [data-home]").click(),900);
   const songs=_songSel||[], rec=_ssRec||{};
-  const cardW=Math.min(W*0.9,660), cardH=Math.max(96,H*0.20), gap=cardH*0.16, x0=cx-cardW/2;
+  const cardW=Math.min(W*0.94,760), cardH=Math.max(150,H*0.27), gap=cardH*0.11, x0=cx-cardW/2;   // ★도장 크게 → 카드/요소 비례 확대(레트로 필터에서 글자 안 깨지게)
   const viewTop=H*0.155, viewBot=H-H*0.03, viewH=viewBot-viewTop;
   const totalH=songs.length*(cardH+gap), maxScroll=Math.max(0,totalH-viewH);
   _ssScroll=clamp(_ssScroll,0,maxScroll);
@@ -836,8 +836,8 @@ function drawFxSongsel(t){
     const cv=cardH*0.62, cvx=x0+pad, cvy=yy+(cardH-cv)/2;   // 커버(앨범커버 자리) — 지금은 그라데이션
     const cg=fxc.createLinearGradient(cvx,cvy,cvx+cv,cvy+cv);cg.addColorStop(0,FX_COLS[i%4]);cg.addColorStop(1,FX_COLS[(i+2)%4]);fxc.fillStyle=cg;fxc.fillRect(cvx,cvy,cv,cv);
     const metaX=cvx+cv+pad, metaR=x0+cardW-pad;
-    fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(song.title,metaX,yy+cardH*0.27,fxPixFit(song.title,metaR-metaX,cardH*0.2),"#fff","left");fxc.restore();
-    const diffs=song.difficulties||[], chipGap=pad*0.6, chipsW=metaR-metaX, chipW=(chipsW-(diffs.length-1)*chipGap)/Math.max(1,diffs.length), chipH=cardH*0.42, chipY=yy+cardH*0.46;
+    fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=3;fxPixText(song.title,metaX,yy+cardH*0.22,fxPixFit(song.title,metaR-metaX,cardH*0.17),"#fff","left");fxc.restore();
+    const diffs=song.difficulties||[], chipGap=pad*0.6, chipsW=metaR-metaX, chipW=(chipsW-(diffs.length-1)*chipGap)/Math.max(1,diffs.length), chipH=cardH*0.5, chipY=yy+cardH*0.42;
     diffs.forEach((d,di)=>{
       const lk=diffLocked(song.id,d.name), col=DIFFCOL[d.name]||"#22a7ff", cnt=(d.chart&&d.chart.notes?d.chart.notes.length:0);
       const r=rec[song.id+"::"+d.name], rank=(r&&!lk)?r.rank:null;
@@ -845,11 +845,11 @@ function drawFxSongsel(t){
       if(!lk)fxBtns.push({x:chX,y:chipY,w:chipW,h:chipH,fn:()=>playEmbedded(song,d)});
       fxc.save();fxc.fillStyle=lk?"rgba(40,44,70,0.5)":(hov?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.05)");fxc.fillRect(chX,chipY,chipW,chipH);
       fxc.lineWidth=hov?3.5:2.5;fxc.strokeStyle=lk?"#3a3f5c":col;if(hov){fxc.shadowColor=col;fxc.shadowBlur=10;}fxc.strokeRect(chX,chipY,chipW,chipH);fxc.restore();
-      const stR=chipH*0.34, stx=chX+chipH*0.52, sty=chipY+chipH/2;
+      const stR=chipH*0.46, stx=chX+chipH*0.55, sty=chipY+chipH/2;
       if(rank)_ssStamp(fxc,stx,sty,stR,rank);
       else{fxc.save();fxc.fillStyle="rgba(255,255,255,0.05)";fxc.beginPath();fxc.arc(stx,sty,stR,0,6.2832);fxc.fill();fxc.restore();
         fxc.save();fxc.font=Math.round(stR*1.1)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="center";fxc.textBaseline="middle";fxc.fillStyle="#5a6190";fxc.fillText(lk?"🔒":"—",stx,sty+1);fxc.restore();}
-      const txX=chX+chipH*1.02, txR=chX+chipW-pad*0.5;
+      const txX=chX+chipH*1.12, txR=chX+chipW-pad*0.5;
       fxc.save();fxc.shadowColor="#0a1030";fxc.shadowBlur=2;
       fxPixText(d.name,txX,chipY+chipH*0.36,fxPixFit(d.name,txR-txX,chipH*0.3),lk?"#7b82a8":col,"left");
       fxPixText(lk?"잠김":(cnt+" notes"),txX,chipY+chipH*0.72,fxPixFit(lk?"잠김":(cnt+" notes"),txR-txX,chipH*0.2),"#9fa7cc","left");fxc.restore();
