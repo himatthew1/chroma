@@ -1524,6 +1524,15 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
     try{const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(_){}
     if(c.state==="running")EVS.forEach(ev=>window.removeEventListener(ev,kick,true));}
   EVS.forEach(ev=>window.addEventListener(ev,kick,true));})();
+// ★iOS 저지연: 곡(HTMLAudio)을 같은 AudioContext 그래프로 통과시킴 → HTML5 오디오 세션의 고지연이 Web Audio 효과음에 옮지 않게(노트 타격음 즉답). createMediaElementSource는 요소당 1회만 가능.
+let _mesEl=null,_mesNode=null;
+function routeAudioToCtx(el){
+  if(!el||el===_mesEl||typeof HTMLMediaElement==="undefined"||!(el instanceof HTMLMediaElement))return;
+  try{const ctx=getCtx();if(ctx.state==="suspended")ctx.resume();
+    if(_mesNode){try{_mesNode.disconnect();}catch(_){}_mesNode=null;}
+    _mesNode=ctx.createMediaElementSource(el);_mesNode.connect(ctx.destination);_mesEl=el;
+  }catch(_){_mesEl=null;_mesNode=null;}   // 실패 시 요소가 직접 재생되므로 무음 위험 없음
+}
 // 경쾌한 탬버린 징글 효과음 (합성, 파일 없음)
 let _noiseBuf=null;
 function noiseBuf(ctx){
@@ -2964,7 +2973,7 @@ function loop(){
   // 리드인 종료 시 오디오 시작
   if(state.started&&!state.audioStarted&&!state.noAudio){   // ★프리뷰(noAudio)는 오디오 없이 성능시계로만
     const el=(performance.now()/1000)-state.t0;
-    if(el>=state.leadIn){try{playAudio.currentTime=state.startAt||0;playAudio.play().catch(()=>{});}catch(e){}state.audioStarted=true;state._lastCt=undefined;}
+    if(el>=state.leadIn){try{routeAudioToCtx(playAudio);playAudio.currentTime=state.startAt||0;playAudio.play().catch(()=>{});}catch(e){}state.audioStarted=true;state._lastCt=undefined;}
   }
   const now=gameNow();
   const AR=state.ar,r=noteR();
