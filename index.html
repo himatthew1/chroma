@@ -237,7 +237,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   html.retro .nm{font-size:15px;}
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
   /* 레트로 전체화면 픽셀 필터 오버레이 캔버스 */
-  #fx{position:fixed;inset:0;z-index:60;display:none;image-rendering:pixelated;background:#04050c;touch-action:none;object-fit:contain;}
+  #fx{position:fixed;top:0;left:0;width:100%;height:100%;z-index:60;display:none;image-rendering:pixelated;background:#04050c;touch-action:none;object-fit:contain;}   /* ★width/height 명시 — 캔버스(치환요소)가 고유 960×540이 아닌 풀뷰포트를 덮어야 contain 레터박스(불투명 배경)가 뒤 DOM 비침을 완전히 가림 */
   #playCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;object-fit:contain;background:#05060d;}   /* ★object-fit:contain=고정 16:9 비율 유지 레터박스(기기 무관 동일 비율) · touch-action:none=터치 스크롤/줌 방지 */
   html.retro.fxon #fx{display:block;}
   /* 레트로: 인게임 HUD는 캔버스에 직접 그리므로 HTML HUD(글자)는 숨김 (✕ 종료 버튼 클릭영역은 유지) */
