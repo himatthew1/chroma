@@ -550,7 +550,6 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
         <span class="field">Offset <input type="number" id="edBpmOff" step="0.001" value="0" style="width:64px"></span>
         <label class="field" title="Snap notes to the beat grid"><input type="checkbox" id="edSnap"> 🧲 Snap</label>
         <select id="edSnapSub" title="Snap subdivision"><option value="1">1/1</option><option value="2">1/2</option><option value="4" selected>1/4</option><option value="8">1/8</option></select>
-        <button class="tb-btn" id="edDragPrev" title="드래그 노트 간격 프리뷰 — 테스트 채보 자동 재생(플레이 중 G=RAW/FIX · [ / ]=간격px)">🔍 드래그 프리뷰</button>
         <div class="spacer"></div>
         <div id="zonePanel" class="hidden">
           <span style="color:#c89bff">Zone:</span>
@@ -576,6 +575,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <button class="tb-btn" id="selPosGroup" title="Cluster selected notes near one spawn spot">📍 Position</button>
           <span class="field" id="selSpreadWrap" style="display:none"><span id="selSpreadLbl">Cohesion</span> <input type="range" id="selSpread" min="0" max="0.35" step="0.01" value="0.12" title="0 = exactly the same spot (same direction & speed). Saved per position group" style="width:96px;vertical-align:middle"><span id="selSpreadVal" style="font-size:11px">0.12</span><canvas id="pgPreview" width="58" height="58" title="Preview of this group's tightness (dots = notes, circle = spread)" style="vertical-align:middle;margin-left:6px;border:1px solid #2a3158;border-radius:6px;background:#0a0d1c"></canvas><button class="tb-btn" id="pgPlaceBtn" title="실제 인게임 필드에서 이 위치군의 자리를 직접 배치(고정). 안 하면 완전 랜덤" style="margin-left:6px;vertical-align:middle">🔍 위치 직접설정</button></span>
           <button class="tb-btn" id="selUngroup">Ungroup</button>
+          <button class="tb-btn" id="selToSlide" title="한 레일(같은 레인)의 노트들을 드래그(슬라이드) 노트로 변환 — 맨 앞 노트=헤드, 나머지는 각자 자리에서 노트포인트(타이밍도 그대로 유지)" style="display:none;color:var(--green)">↗ 슬라이드로 변환</button>
           <button class="tb-btn" id="selDel">Delete (Del)</button>
         </div>
         <div id="grpPanel" class="hidden">
@@ -3312,6 +3312,26 @@ function selSetTo(n){edSel=n;edSelSet=n?[n]:[];}
 function selToggle(n){const i=edSelSet.indexOf(n);if(i>=0){edSelSet.splice(i,1);edSel=edSelSet[edSelSet.length-1]||null;}else{edSelSet.push(n);edSel=n;}}
 function selList(){return edSelSet.length?edSelSet:(edSel?[edSel]:[]);}
 function deleteSelection(){const set=selList();if(!set.length)return;pushUndo();const s=new Set(set);edNotes=edNotes.filter(n=>!s.has(n));selClear();updateSelPanel();updateGrpPanel();}
+// ★한 레일의 연속 노트 → 드래그(슬라이드) 노트로 변환. 맨 앞=헤드, 나머지=각 자리 노트포인트(원래 타이밍·위치 그대로 유지, sShape=custom)
+function slideFromSelection(){
+  const set=selList().filter(n=>n.type!=="space"&&n.type!=="slide");
+  if(set.length<2){toast("한 레일에서 노트 2개 이상을 박스로 선택하세요");return;}
+  const lane=set[0].lane||0;
+  if(!set.every(n=>(n.lane||0)===lane)){toast("같은 레일(레인)의 노트만 변환할 수 있어요");return;}
+  layoutPositions(edNotes,'x','y',true);   // x,y 좌표 채우기(누락분)
+  const seq=set.slice().sort((a,b)=>a.time-b.time);
+  const head=seq[0], last=seq[seq.length-1], dur=+(last.time-head.time).toFixed(3);
+  if(dur<=0){toast("노트 시간이 같아 변환할 수 없어요");return;}
+  pushUndo();
+  const pts=seq.map(n=>[+(+n.x).toFixed(4),+(+n.y).toFixed(4)]);
+  const ptt=seq.map(n=>+((n.time-head.time)/dur).toFixed(3));   // 각 포인트 타이밍 = 원래 노트 타이밍 유지
+  const slide={time:+head.time.toFixed(3),type:"slide",duration:dur,lane:lane,
+    pts:pts,ptt:ptt,sShape:"custom",
+    x:pts[0][0],y:pts[0][1],x2:pts[pts.length-1][0],y2:pts[pts.length-1][1]};
+  const s=new Set(seq);edNotes=edNotes.filter(n=>!s.has(n));edNotes.push(slide);
+  selSetTo(slide);updateSelPanel();updateGrpPanel();
+  toast("↗ 슬라이드로 변환 — 헤드 + 노트포인트 "+pts.length+"개 (custom)");
+}
 function copySel(){const set=selList();if(!set.length){toast("복사할 노트를 선택하세요");return;}
   const t0=Math.min.apply(null,set.map(n=>n.time));
   edClip=set.map(n=>{const c={type:n.type,duration:n.duration,lane:n.lane||0,x:n.x,y:n.y,g:n.g,fc:n.fc,dt:+(n.time-t0).toFixed(3)};
@@ -3759,7 +3779,6 @@ $("#edBpmVal").oninput=function(){const v=parseFloat(this.value);edBpm=isFinite(
 $("#edBpmOff").oninput=function(){const v=parseFloat(this.value);edBeatOff=isFinite(v)?v:0;};
 $("#edSnap").onchange=function(){edSnapOn=this.checked;toast(edSnapOn?"🧲 스냅 켜짐":"스냅 꺼짐");};
 $("#edSnapSub").onchange=function(){edSnapSub=parseInt(this.value)||4;};
-$("#edDragPrev").onclick=()=>{try{if(typeof edStopSrc==="function")edStopSrc();}catch(_){}; startPreview({fix:true,px:_dragGapPx,fromEditor:true});toast("드래그 프리뷰 — G=RAW/FIX · [ / ]=간격 · Esc/← 로 에디터 복귀");};
 // ★편집기 재생 중 노트 타격음 — 재생헤드가 노트를 지날 때 효과음 (비트 맞춤 확인)
 function edBeatSounds(prev,cur){
   if(!edBeat||cur<=prev||edSfxVol<=0)return;
@@ -3854,6 +3873,7 @@ $("#grpClear").onclick=ungroupSel;
 $("#selGroup").onclick=makeGroupFromSel;
 $("#selPosGroup").onclick=makePosGroupFromSel;
 $("#selUngroup").onclick=ungroupSel;
+$("#selToSlide").onclick=slideFromSelection;
 // ★색 고정: 선택 노트를 항상 지정 색으로 (스페이스 제외). 미지정이면 매판 랜덤.
 function setFixedColor(fc){const set=selList().filter(n=>n.type!=="space");if(!set.length){toast("색을 고정할 노트를 선택하세요");return;}pushUndo();set.forEach(n=>{n.fc=fc;});updateSelPanel();toast(set.length+"개 색 고정: "+["핑크","블루","그린","옐로"][fc]);}
 function clearFixedColor(){const set=selList();if(!set.length)return;pushUndo();set.forEach(n=>{delete n.fc;});updateSelPanel();toast("색 고정 해제 — 매판 랜덤");}
@@ -4076,6 +4096,10 @@ function updateSelPanel(){
     const gids=[...new Set(pgSel.map(n=>n.pg))];
     if($("#selSpreadLbl"))$("#selSpreadLbl").textContent=gids.length===1?("📍P"+gids[0]+" 응집도"):(gids.length+"개 군 응집도");
     const cnt=edNotes.filter(n=>n.pg===pgSel[0].pg).length;drawPgPreview(v,cnt);}
+  // ★슬라이드로 변환 버튼: 한 레일(같은 레인)의 노트 2개+ 선택 시 (스페이스/기존 슬라이드 제외)
+  if($("#selToSlide")){const cvt=selList().filter(n=>n.type!=="space"&&n.type!=="slide");
+    const okSlide=cvt.length>=2&&cvt.every(n=>(n.lane||0)===(cvt[0].lane||0));
+    $("#selToSlide").style.display=okSlide?"":"none";}
   // ★슬라이드 경로 편집 패널 (단일 슬라이드 선택 시)
   const slideSel=single&&edSel.type==="slide";
   $("#slideDock").classList.toggle("hidden",!slideSel);   // ★드래그 모양 편집 = 타임라인 우측 상단 고정 카드(레이아웃 안 밀림)
