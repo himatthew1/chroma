@@ -1383,6 +1383,16 @@ function pickChart(songId,diffName,builtinChart,localSong){
   if(localSong){const d=localSong.difficulties.find(x=>x.name===diffName);if(d&&d.chart&&d.chart.notes&&d.chart.notes.length)return d.chart;}
   return builtinChart;
 }
+// ★에디터(저자 편집) 로드 전용: 방금 저장한 로컬 편집을 최우선으로 이어서 연다. 단 다른 기기에서 더 최신 Gist가 있으면 그것(mtime 비교) → 저장 유실 방지 + 멀티기기 안전.
+//   재생/배포는 pickChart(Gist 권위) 그대로. 에디터만 로컬 우선.
+function pickChartForEdit(songId,diffName,builtinChart,localSong){
+  const ld=localSong&&localSong.difficulties&&localSong.difficulties.find(x=>x.name===diffName);
+  const lc=ld&&ld.chart;
+  let gistM=-1;   // Gist 항목 없으면 -1 → 로컬이 무조건 우선
+  if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o)gistM=(o.chart&&o.chart.mtime)||o.mtime||0;}
+  if(lc&&lc.notes&&lc.notes.length&&(lc.mtime||0)>=gistM)return lc;   // 로컬이 Gist와 같거나 최신 → 내 저장본으로 이어서 편집
+  return pickChart(songId,diffName,builtinChart,localSong);           // 아니면 기존(Gist>로컬>내장)
+}
 async function allSongsForPlay(){
   let userRaw=[];try{userRaw=await dbAll();}catch{}
   const SONGS=((typeof window.SONGS!=="undefined"&&Array.isArray(window.SONGS))?window.SONGS:[]);
@@ -1512,8 +1522,8 @@ function db(){return new Promise((res,rej)=>{if(_db)return res(_db);
   r.onsuccess=()=>{_db=r.result;res(_db);};r.onerror=()=>rej(r.error);});}
 function dbAll(){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs").objectStore("songs").getAll();t.onsuccess=()=>res(t.result||[]);t.onerror=()=>rej(t.error);}));}
 function dbGet(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs").objectStore("songs").get(id);t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error);}));}
-function dbPut(s){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite").objectStore("songs").put(s);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));}
-function dbDel(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite").objectStore("songs").delete(id);t.onsuccess=()=>res();t.onerror=()=>rej(t.error);}));}
+function dbPut(s){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite");t.objectStore("songs").put(s);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error("tx abort"));}));}   // ★oncomplete(커밋 완료)에서 성공 처리 — 요청 onsuccess는 커밋 전이라 유실 위험
+function dbDel(id){return db().then(d=>new Promise((res,rej)=>{const t=d.transaction("songs","readwrite");t.objectStore("songs").delete(id);t.oncomplete=()=>res();t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error("tx abort"));}));}
 let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:"interactive"}));}   // ★latencyHint:"interactive"=출력 버퍼 최소화(모바일 효과음 지연 대폭 감소)
 // ★모바일 오디오 unlock — 첫 사용자 제스처(탭/키)에서 즉시 컨텍스트 resume + 무음 버퍼 1샘플 재생.
 //   iOS/모바일은 제스처 안에서 깨워야 저지연으로 동작하므로, 메뉴 효과음·첫 노트 타격음까지 지연 없이 나오게 미리 unlock.
@@ -3488,7 +3498,7 @@ async function editorEditBuiltin(id,diffName){
   resetEditorState();edSongId=song.id;edSeedDiffs=song.difficulties.map(x=>({name:x.name,chart:x.chart}));
   $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ 채보 수정";
   let _lib=null;try{_lib=await dbGet(song.id);}catch(e){}
-  const _ch=pickChart(song.id,d.name,d.chart,_lib);
+  const _ch=pickChartForEdit(song.id,d.name,d.chart,_lib);   // ★로컬 저장본 최우선(저장 유실 방지) — 더 최신 Gist 있을 때만 그걸
   edNotes=(_ch.notes||[]).map(n=>({...n}));   // ★내 편집본>Gist>내장 (편집 이어서)
   edZones=(_ch.zones||[]).map(z=>({...z}));
   show("editor");edInit();updateSelPanel();
@@ -3513,7 +3523,9 @@ async function editorEdit(songId,diffName){
   const d=song.difficulties.find(x=>x.name===diffName);if(!d){toast("난이도를 찾을 수 없음");return;}
   resetEditorState();edSongId=song.id;
   $("#edSongTitle").value=song.title;$("#edDiffName").value=d.name;$("#edModeTitle").textContent="✏️ Edit existing songs";
-  edNotes=(gistNotesFor(song.id,d.name,d.chart.notes)||[]).map(n=>({...n}));   // ★온라인 최신본 우선
+  const _ch=pickChartForEdit(song.id,d.name,d.chart,song);   // ★로컬 저장본 최우선(저장 유실 방지) — 더 최신 Gist 있을 때만 그걸
+  edNotes=(_ch.notes||[]).map(n=>({...n}));
+  edZones=(_ch.zones||[]).map(z=>({...z}));   // ★스피드 구간도 복원(기존엔 누락되어 재진입 시 사라짐)
   show("editor");edInit();updateSelPanel();
   await loadEditorAudioBlob(song.audio);
 }
