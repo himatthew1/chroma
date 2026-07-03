@@ -3097,7 +3097,14 @@ function loop(){
         const ahead=clamp(prog,0,1),h0=PP(0);
         pctx.save();pctx.beginPath();pctx.rect(0,0,W,H);pctx.arc(h0[0],h0[1],r*1.05,0,6.2832,true);pctx.clip();   // ★헤드 원 제외 클립 → 경로/포인트가 노트 내부에 안 비침
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(5);pctx.globalAlpha=a*0.55;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=14;i++){const q=SP(ahead*i/14);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        // ★고밀도 폴리라인 캐시를 ahead까지 그대로 그림(15점 재샘플 제거) → 접근 중 자라나는 경로가 매 프레임 출렁이던 문제 해결
+        pctx.beginPath();
+        {const K=n._polyK||0,xs=n._polyX,ys=n._polyY;
+         if(xs&&K>1){const kMax=clamp(Math.floor(ahead*(K-1)),0,K-1);pctx.moveTo(xs[0],ys[0]);
+           for(let k=1;k<=kMax;k++)pctx.lineTo(xs[k],ys[k]);
+           const q=SP(ahead);pctx.lineTo(q[0],q[1]);}   // ahead 지점 정확한 끝점
+         else{for(let i=0;i<=14;i++){const q=SP(ahead*i/14);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}}}
+        pctx.stroke();
         for(let j=1;j<NP;j++){ if(frac[j]<=ahead+0.001){ const rv=clamp((ahead-frac[j])/0.22,0,1),psc=(0.55+0.5*rv)*(0.82+0.32*ease); drawPt(PP(j),psc, a*0.85, j, true); } }   // ★헤드 가까워질수록 순차적으로 살짝씩 커짐
         pctx.restore();
       }else{
