@@ -2704,7 +2704,7 @@ function pressSpace(){
   best.headJudged=true;
   if((best.duration||0)>0){                       // 홀드: 헤드 판정 후 잡기 시작 (점수는 완료 시)
     if(kind==="bad"){best.spState="bad";best.spT0=now;applySpaceScore("bad");spawnJudge("bad",G.cx,G.cy);badThud();spaceBurst(true);}
-    else{best.holding=true;best.spHead=kind;}
+    else{best.holding=true;best.spHead=kind;best._catchT0=now;}   // ★캐치 순간 시각 → drawSpaceNote 인워드 범핑
   }else{                                          // 일반: 즉시 해결
     best.spState=kind;best.spT0=now;applySpaceScore(kind);spawnJudge(kind,G.cx,G.cy);
     if(kind==="bad"){badThud();spaceBurst(true);}else{beatKill();spaceBurst(false);}
@@ -2813,7 +2813,9 @@ function drawSpaceNote(n,now,AR){
   if(hold&&n.holding&&!n.spState){
     const ch=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);
     if(!n._em)n._em=[];
-    NoteFX_spaceCharge(pctx,cx,cy,R,ch,now,n._em);   // ★공유 에셋(How-to와 동일)
+    let _bR=R;   // ★캐치 순간 인워드 범핑(안쪽으로 쑥 수축→감쇠 리바운드) — 어프로치 링 진입과 이어지는 "잡힌" 촉감. 스케일만 순간 적용, 충전/판정 불변
+    if(n._catchT0!=null){const u=(now-n._catchT0)/0.36; if(u>=0&&u<1){const env=Math.exp(-5.5*u);_bR=R*(1-0.105*env*Math.cos(u*Math.PI*2*1.9));}}
+    NoteFX_spaceCharge(pctx,cx,cy,_bR,ch,now,n._em);   // ★공유 에셋(How-to와 동일)
     return;
   }
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
