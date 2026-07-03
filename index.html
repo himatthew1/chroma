@@ -852,7 +852,7 @@ function drawFxSongsel(t){
       fxc.save();fxc.fillStyle=lk?"rgba(40,44,70,0.5)":(hov?"rgba(255,255,255,0.1)":"rgba(255,255,255,0.05)");fxc.fillRect(chX,chipY,chipW,chipH);
       fxc.lineWidth=hov?3.5:2.5;fxc.strokeStyle=lk?"#3a3f5c":col;if(hov){fxc.shadowColor=col;fxc.shadowBlur=10;}fxc.strokeRect(chX,chipY,chipW,chipH);fxc.restore();
       const stR=chipH*0.46, stx=chX+chipH*0.55, sty=chipY+chipH/2;
-      if(rank)_ssStamp(fxc,stx,sty,stR,rank);
+      if(rank)drawRankStamp(fxc,stx,sty,stR,rank,t,1);   // ★캐시(정지) 대신 매 프레임 t로 라이브 렌더 → 결과창처럼 금속 스윕 애니메이션
       else{fxc.save();fxc.fillStyle="rgba(255,255,255,0.05)";fxc.beginPath();fxc.arc(stx,sty,stR,0,6.2832);fxc.fill();fxc.restore();
         fxc.save();fxc.font=Math.round(stR*1.1)+"px 'Segoe UI Emoji','Segoe UI',sans-serif";fxc.textAlign="center";fxc.textBaseline="middle";fxc.fillStyle="#5a6190";fxc.fillText(lk?"🔒":"—",stx,sty+1);fxc.restore();}
       const txX=chX+chipH*1.12, txR=chX+chipW-pad*0.5;
@@ -1449,7 +1449,7 @@ function diffLocked(songId,name){const k=songId+"::"+name; if(k in _lockMap)retu
 function songAllLocked(song){return song.difficulties.length>0&&song.difficulties.every(d=>diffLocked(song.id,d.name));}   // ★난이도가 전부 잠긴 곡만 리스트에서 숨김(하나라도 풀려 있으면 표시)
 async function toggleDiffLock(songId,name){const k=songId+"::"+name,nv=!diffLocked(songId,name);   // ★토큰 있으면 Gist로 전역 반영(모두에게), 없으면 이 브라우저만
   const s=(typeof builtinById==="function")?builtinById(songId):null; if(s){const d=s.difficulties.find(x=>x.name===name); if(d)d.locked=nv;}   // 라이브 UI 즉시 반영
-  if(ghToken()){ const ok=await uploadLockToGist(songId,name,nv); if(ok){delete _lockMap[k];saveLocks();return {nv,global:true};} }   // 업로드 성공=전역, 로컬 오버레이 제거
+  if(ghToken()){ const ok=await uploadLockToGist(songId,name,nv); if(ok){_lockMap[k]=nv;saveLocks();return {nv,global:true};} }   // ★업로드 성공해도 로컬 오버레이 유지 — Gist raw CDN이 몇 분간 stale이라, 삭제하면 새로고침 시 옛 상태로 되돌아감(로컬 우선으로 즉시·영구 지속)
   _lockMap[k]=nv;saveLocks();return {nv,global:false};}
 function openDiffs(song){
   $("#songListView").classList.add("hidden");
