@@ -2813,8 +2813,10 @@ function drawSpaceNote(n,now,AR){
   if(hold&&n.holding&&!n.spState){
     const ch=clamp((now-n.time)/Math.max(n.duration,0.001),0,1);
     if(!n._em)n._em=[];
-    let _bR=R;   // ★캐치 순간 인워드 범핑(안쪽으로 쑥 수축→감쇠 리바운드) — 어프로치 링 진입과 이어지는 "잡힌" 촉감. 스케일만 순간 적용, 충전/판정 불변
-    if(n._catchT0!=null){const u=(now-n._catchT0)/0.36; if(u>=0&&u<1){const env=Math.exp(-5.5*u);_bR=R*(1-0.105*env*Math.cos(u*Math.PI*2*1.9));}}
+    let _bR=R;   // ★캐치 스케일: 잡는 순간 살짝 수축(움켜쥠) → 폭발 직전까지 매끄럽게 스웰. 바운스 없이 smoothstep 연속. 스케일만 적용, 충전/판정 불변
+    if(n._catchT0!=null){const chT=now-n._catchT0, HOLD=Math.max(n.duration,0.001), SPD=0.15, DIP=0.12, SW=0.24, C=1-DIP,
+      sm=(x)=>{x=x<0?0:x>1?1:x;return x*x*(3-2*x);};
+      _bR=R*(chT<SPD ? 1+(C-1)*sm(chT/SPD) : C+(1+SW-C)*sm((chT-SPD)/(HOLD-SPD)));}   // 1.0→0.88(수축) then 0.88→1.24(스웰)
     NoteFX_spaceCharge(pctx,cx,cy,_bR,ch,now,n._em);   // ★공유 에셋(How-to와 동일)
     return;
   }
