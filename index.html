@@ -3139,9 +3139,13 @@ function loop(){
             }
           }
         }
-        // 앞쪽(아직 안 지난) 어두운 패스 — 별이 지나가면 사라짐
+        // 앞쪽(아직 안 지난) 어두운 패스 — 별이 지나가면 사라짐. ★고밀도 폴리라인(별 위치 s→꼬리)로 그림 → 역행 중 13점 재샘플이 매 프레임 출렁이던 문제 해결
         pctx.strokeStyle="#454c6e";pctx.shadowColor="#454c6e";pctx.shadowBlur=gB(4);pctx.globalAlpha=0.42*a;pctx.lineWidth=3;
-        pctx.beginPath();for(let i=0;i<=12;i++){const q=SP(s+(1-s)*i/12);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}pctx.stroke();
+        pctx.beginPath();
+        {const K=n._polyK||0,xs=n._polyX,ys=n._polyY;
+         if(xs&&K>1){const q0=SP(s);pctx.moveTo(q0[0],q0[1]);for(let k=clamp(Math.ceil(s*(K-1)),0,K-1);k<K;k++)pctx.lineTo(xs[k],ys[k]);}
+         else{for(let i=0;i<=12;i++){const q=SP(s+(1-s)*i/12);i?pctx.lineTo(q[0],q[1]):pctx.moveTo(q[0],q[1]);}}}
+        pctx.stroke();
         // 뒤쪽 자취 — 유성 꼬리처럼 소비(컬러)
         {const tailL=0.42,fa=Math.max(0,s-tailL),NSEG=14;
          for(let i=0;i<NSEG;i++){const f1=fa+(s-fa)*i/NSEG,f2=fa+(s-fa)*(i+1)/NSEG,ag=i/NSEG,A=SP(f1),B=SP(f2);
