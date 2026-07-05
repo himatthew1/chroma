@@ -412,7 +412,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <div style="flex:1">
             <div id="calibLive" style="font-weight:700;margin-bottom:8px">Tap to the beat</div>
             <div style="display:flex;align-items:center;gap:10px">
-              <input type="range" id="setOffset" min="-300" max="300" step="5" style="flex:1">
+              <input type="range" id="setOffset" min="-500" max="500" step="5" style="flex:1">
               <span id="offsetVal" style="width:66px;text-align:right;font-weight:700">0 ms</span>
             </div>
             <div style="margin-top:10px;display:flex;gap:8px">
@@ -1047,9 +1047,9 @@ $("#setGlowToggle").onclick=()=>{GLOW_MODE=GLOW_MODE==="lite"?"off":GLOW_MODE===
   const gl={full:"Full",lite:"Lite",off:"Off"};$("#setGlowToggle").textContent=gl[GLOW_MODE];$("#setGlowToggle").classList.toggle("primary",GLOW_MODE!=="off");
   if(typeof fxUpdate==="function"&&screens.settings&&!screens.settings.classList.contains("hidden"))fxUpdate("settings");};
 $("#setSfxVol").onchange=()=>{if(settings.sfxOn)playSfx(settings.sfx,"perfect",1);};
-$("#setOffset").oninput=()=>{settings.offset=parseInt($("#setOffset").value)||0;playOffset=settings.offset/1000;
+$("#setOffset").oninput=()=>{_syncManual=true;settings.offset=parseInt($("#setOffset").value)||0;playOffset=settings.offset/1000;   // ★직접 조정=수동 잠금(탭이 덮지 않음)
   $("#offsetVal").textContent=(settings.offset>0?"+":"")+settings.offset+" ms";saveSettings();};
-$("#offsetReset").onclick=()=>{settings.offset=0;playOffset=0;$("#setOffset").value=0;$("#offsetVal").textContent="0 ms";saveSettings();};
+$("#offsetReset").onclick=()=>{_syncManual=true;settings.offset=0;playOffset=0;$("#setOffset").value=0;$("#offsetVal").textContent="0 ms";saveSettings();};
 // ----- 버튼 키 커스텀 -----
 let rebindIdx=null;
 function renderKeyButtons(){
@@ -1085,6 +1085,7 @@ document.addEventListener("keydown",e=>{
 
 // ---------- 라이브 싱크 메트로놈 (설정 켜진 동안 계속 진행) ----------
 let calib=null;
+let _syncManual=false;   // ★슬라이더로 직접 조정하면 true → 탭 자동보정이 수동값을 덮지 않음(Reset taps로 다시 자동보정 허용)
 function playKick(ctx,time){
   const o=ctx.createOscillator(),g=ctx.createGain();
   o.type="sine";o.frequency.setValueAtTime(155,time);o.frequency.exponentialRampToValueAtTime(48,time+0.12);
@@ -1124,12 +1125,15 @@ function recordTap(col){
   if(Math.abs(d)>gap*0.5)return;
   calib.taps.push(d);if(calib.taps.length>8)calib.taps.shift();
   const avg=calib.taps.reduce((a,b)=>a+b,0)/calib.taps.length;
-  const ms=clamp(Math.round(-avg*1000),-300,300);
+  const ms=clamp(Math.round(-avg*1000),-500,500);
+  const el=$("#calibLive");   // ★ASCII(픽셀폰트 렌더 가능 — 한글 두부현상 제거)
+  if(_syncManual){ if(el)el.textContent=calib.taps.length+" TAPS - SUGGEST "+(ms>0?"+":"")+ms+"ms (manual lock)"; return; }   // ★수동 조정 중 → 탭이 값을 덮지 않음(추천만)
+  if(calib.taps.length<3){ if(el)el.textContent=calib.taps.length+" TAPS - keep tapping"; return; }   // ★탭 3회 미만은 적용 안 함(오탭으로 값 튐 방지)
   settings.offset=ms;playOffset=ms/1000;saveSettings();
   if($("#setOffset")){$("#setOffset").value=ms;$("#offsetVal").textContent=(ms>0?"+":"")+ms+" ms";}
-  const el=$("#calibLive");if(el)el.textContent=calib.taps.length+" TAPS · AUTO "+(ms>0?"+":"")+ms+" ms";   // ★ASCII(픽셀폰트 렌더 가능 — 한글 두부현상 제거)
+  if(el)el.textContent=calib.taps.length+" TAPS - AUTO "+(ms>0?"+":"")+ms+"ms";
 }
-$("#calibReset").onclick=()=>{if(calib)calib.taps=[];const el=$("#calibLive");if(el)el.textContent="Tap to the beat";};
+$("#calibReset").onclick=()=>{if(calib)calib.taps=[];_syncManual=false;const el=$("#calibLive");if(el)el.textContent="Tap to the beat";};   // ★Reset taps = 자동보정 다시 허용
 $("#calibStage").onclick=()=>recordTap(0);
 $("#hubNew").onclick=()=>{editorNew();};
 $("#edBackHub").onclick=()=>{stopEditor();openEdHub();};
