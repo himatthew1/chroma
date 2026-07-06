@@ -1574,12 +1574,15 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
 // ★배경음악(BGM) — 비플레이 화면 전체에서 연속 재생. Web Audio 버퍼로 인트로→루프, 루프↔루프 모두 샘플 정확 끊김없이(loop=true).
 //   최초 1회만 인트로 재생 후 루프로 이어짐(_bgmIntroDone). 이후(곡 플레이 복귀 등)엔 루프만.
 let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false;
-let _bgmLP=null,_bgmMaster=null,_bgmWet=null,_bgmConv=null;   // ★덕킹/리버브 체인: 시동 대기=먹먹+리버브, 시동 중=무음 페이드
+let _bgmLP=null,_bgmMaster=null,_bgmWet=null,_bgmConv=null,_bgmTargetMaster=1,_bgmIT=null,_bgmLT=null;   // ★덕킹/리버브 체인 + 페이드인 타깃 + 무음패딩 트림 캐시
+function _bgmTrim(buf){ const ch=buf.getChannelData(0),n=ch.length,thr=0.004; let s=0,e=n-1;   // MP3 디코드 앞뒤 무음 패딩 잘라 이음새 붙임
+  while(s<n&&Math.abs(ch[s])<thr)s++; while(e>s&&Math.abs(ch[e])<thr)e--;
+  return {start:Math.max(0,s/buf.sampleRate-0.002), end:Math.min(buf.duration,(e+1)/buf.sampleRate+0.002)}; }
 function _bgmMakeIR(a,dur,decay){const n=(a.sampleRate*dur)|0,b=a.createBuffer(2,n,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,decay);}return b;}
 function bgmDuck(mode,tau){ if(!_bgmMaster)return; const t=getCtx().currentTime,D=(tau||0.3);   // normal | standby | silent, tau=페이드 시간상수
-  if(mode==="standby"){_bgmLP.frequency.setTargetAtTime(720,t,D);_bgmWet.gain.setTargetAtTime(0.5,t,D);_bgmMaster.gain.setTargetAtTime(0.5,t,D);}          // 대기음: 볼륨↓+먹먹+리버브
-  else if(mode==="silent"){_bgmLP.frequency.setTargetAtTime(300,t,(tau||0.45));_bgmMaster.gain.setTargetAtTime(0.0001,t,(tau||0.45));}                      // 시동 1.5s: 먹먹→무음
-  else{_bgmLP.frequency.setTargetAtTime(16000,t,D);_bgmWet.gain.setTargetAtTime(0.06,t,D);_bgmMaster.gain.setTargetAtTime(1,t,D);} }                        // normal 복귀
+  if(mode==="standby"){_bgmTargetMaster=0.5;_bgmLP.frequency.setTargetAtTime(720,t,D);_bgmWet.gain.setTargetAtTime(0.5,t,D);_bgmMaster.gain.setTargetAtTime(0.5,t,D);}          // 대기음: 볼륨↓+먹먹+리버브
+  else if(mode==="silent"){_bgmTargetMaster=0.0001;_bgmLP.frequency.setTargetAtTime(300,t,(tau||0.45));_bgmMaster.gain.setTargetAtTime(0.0001,t,(tau||0.45));}                  // 시동 1.5s: 먹먹→무음
+  else{_bgmTargetMaster=1;_bgmLP.frequency.setTargetAtTime(16000,t,D);_bgmWet.gain.setTargetAtTime(0.06,t,D);_bgmMaster.gain.setTargetAtTime(1,t,D);} }                          // normal 복귀
 const BGM_SCREENS={menu:1,songsel:1,settings:1,howto:1,result:1};
 function _bgmLoad(){ if(_bgmLoopBuf||_bgmLoading)return; _bgmLoading=true; const ctx=getCtx();
   Promise.all([
@@ -1600,14 +1603,17 @@ function _bgmPlay(){
     _bgmMaster.connect(_bgmConv);_bgmConv.connect(_bgmWet);_bgmWet.connect(ctx.destination);   // wet(리버브)
   }
   _bgmGain.gain.value=(settings.musicVol!=null?settings.musicVol:0.55);
+  { const nc=ctx.currentTime; _bgmMaster.gain.cancelScheduledValues(nc); _bgmMaster.gain.setValueAtTime(0.0001,nc); _bgmMaster.gain.setTargetAtTime(_bgmTargetMaster,nc,0.9); }   // ★새로 시작할 때마다 무음→타깃으로 페이드 인(곡 플레이 후 복귀도 서서히 등장)
   _bgmStopSrcs();
   const t0=ctx.currentTime+0.04;
+  if(!_bgmLT)_bgmLT=_bgmTrim(_bgmLoopBuf); const lt=_bgmLT;   // 루프 무음패딩 트림 → 루프↔루프 이음새 붙임
   if(!_bgmIntroDone&&_bgmIntroBuf){ _bgmIntroDone=true;
-    const intro=ctx.createBufferSource();intro.buffer=_bgmIntroBuf;intro.connect(_bgmGain);intro.start(t0);
-    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loop=true;loop.connect(_bgmGain);loop.start(t0+_bgmIntroBuf.duration);   // 인트로 끝에 정확히 이어 루프(끊김없이)
+    if(!_bgmIT)_bgmIT=_bgmTrim(_bgmIntroBuf); const it=_bgmIT, iLen=Math.max(0.05,it.end-it.start);
+    const intro=ctx.createBufferSource();intro.buffer=_bgmIntroBuf;intro.connect(_bgmGain);intro.start(t0,it.start);intro.stop(t0+iLen+0.03);
+    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loopStart=lt.start;loop.loopEnd=lt.end;loop.loop=true;loop.connect(_bgmGain);loop.start(t0+iLen,lt.start);   // 인트로 실제 끝(패딩 제외)에 이어 루프 시작
     _bgmSrcs.push(intro,loop);
   } else {
-    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loop=true;loop.connect(_bgmGain);loop.start(t0);
+    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loopStart=lt.start;loop.loopEnd=lt.end;loop.loop=true;loop.connect(_bgmGain);loop.start(t0,lt.start);
     _bgmSrcs.push(loop);
   }
   _bgmOn=true;
