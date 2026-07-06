@@ -24,7 +24,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   input,textarea{user-select:text;-webkit-user-select:text;}   /* 에디터 입력칸은 선택 가능 */
   button{font-family:inherit;cursor:pointer;}
   .hidden{display:none!important;}
-  #app{position:relative;width:100vw;height:100vh;}
+  #app{position:relative;width:100vw;height:100vh;height:100dvh;}   /* ★dvh=동적 뷰포트: 모바일 툴바 영역만큼 하단이 잘리던 문제 방지(미지원 브라우저는 vh) */
 
   /* Menu */
   #menu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
@@ -237,7 +237,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   html.retro .nm{font-size:15px;}
   html.retro .res-grid .k,html.retro .res-grid .v{font-family:'VT323',monospace;font-size:20px;}
   /* 레트로 전체화면 픽셀 필터 오버레이 캔버스 */
-  #fx{position:fixed;top:0;left:0;width:100%;height:100%;z-index:60;display:none;image-rendering:pixelated;background:#04050c;touch-action:none;object-fit:contain;}   /* ★width/height 명시 — 캔버스(치환요소)가 고유 960×540이 아닌 풀뷰포트를 덮어야 contain 레터박스(불투명 배경)가 뒤 DOM 비침을 완전히 가림 */
+  #fx{position:fixed;top:0;left:0;width:100%;height:100%;height:100dvh;z-index:60;display:none;image-rendering:pixelated;background:#04050c;touch-action:none;object-fit:contain;}   /* ★width/height 명시 — 캔버스(치환요소)가 고유 960×540이 아닌 풀뷰포트를 덮어야 contain 레터박스(불투명 배경)가 뒤 DOM 비침을 완전히 가림 */
   #playCanvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;object-fit:contain;background:#05060d;}   /* ★object-fit:contain=고정 16:9 비율 유지 레터박스(기기 무관 동일 비율) · touch-action:none=터치 스크롤/줌 방지 */
   html.retro.fxon #fx{display:block;}
   /* 레트로: 인게임 HUD는 캔버스에 직접 그리므로 HTML HUD(글자)는 숨김 (✕ 종료 버튼 클릭영역은 유지) */
@@ -246,7 +246,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
 </head>
 <body>
 <!-- 부팅 오버레이: 로드 즉시 검정으로 덮어 필터 변환 깜빡임 가림 → 로고 페이드인 → 검정 페이드아웃(최초 1회) -->
-<div id="boot" style="position:fixed;inset:0;background:#05060d;z-index:99999;display:block;transition:opacity 1s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></canvas></div>
+<div id="boot" style="position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;background:#05060d;z-index:99999;display:block;transition:opacity 1s ease;"><canvas id="bootCv" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;"></canvas></div>
 <!-- 화면 전환용 검정 페이드(게임 진입/곡 시작 첫 프레임 플래시 가림) -->
 <div id="scrFade" style="position:fixed;inset:0;background:#05060d;z-index:9000;opacity:0;pointer-events:none;transition:opacity .45s ease;"></div>
 <div id="slideZoom" class="hidden" style="position:fixed;inset:0;z-index:200;background:#04050c;">
@@ -1189,18 +1189,31 @@ function _htFx(){
   htD.floats=htD.floats.filter(f=>f.life>0);
   for(const f of htD.floats){fxc.save();fxc.shadowColor="#000";fxc.shadowBlur=0;fxPixText(f.kind.toUpperCase(),f.x,f.y,Math.max(13,fx.height*0.03),{perfect:"#39e36b",great:"#22a7ff",good:"#ffd23f",bad:"#ff9a3c",miss:"#ff2e97"}[f.kind],"center");fxc.restore();}
 }
-let _htKeyDown=function(e){if(fxScreen!=="howto"||e.repeat)return;const lane=KEYS.indexOf((e.key||"").toLowerCase()),sp=(e.code==="Space");if(lane<0&&!sp)return;e.preventDefault();
+function _htPress(lane,sp){   // ★키보드·터치 공용 입력 처리(레인 0~3 또는 sp=스페이스)
   if(lane>=0)htD.down[lane]=1;if(sp)htD.space=1;const n=htD.note;if(!n||n.judged)return;const now=(performance.now()-(fxT0||performance.now()))/1000,prog=(now-n.t0)/n.dur,d=Math.abs(prog-1);
   if(_htMode==="tap"&&lane===n.col){if(d<0.4)_htBurst(d<0.06?"perfect":d<0.14?"great":d<0.26?"good":"bad",n.x,n.y,n.col);}
   else if(_htMode==="drag"&&lane===n.col&&!n.caught){const k=judgeOf((prog-1)*n.dur);if(k){n.caught=1;n.catchT=now;n.ck=k;}}   // ★인게임과 동일한 판정 윈도우(JW: perfect 0.06/great 0.12/good 0.17s)
-  else if(_htMode==="space"&&n.variant!=="hold"&&sp){if(d<0.45)_htBurstAur(d<0.08?"perfect":d<0.18?"great":d<0.3?"good":"bad",n.x,n.y);}   // ★스페이스바 전용 (4키 동시 불가)
+  else if(_htMode==="space"&&n.variant!=="hold"&&sp){if(d<0.45)_htBurstAur(d<0.08?"perfect":d<0.18?"great":d<0.3?"good":"bad",n.x,n.y);}   // ★스페이스바 전용
   // 스페이스 홀드는 누르는 동안 충전(draw에서 처리) — 떼서 판정 안 함, 다 차면 자동 완성
-};
-let _htKeyUp=function(e){const lane=KEYS.indexOf((e.key||"").toLowerCase());if(lane>=0)htD.down[lane]=0;if(e.code==="Space")htD.space=0;
-  if(fxScreen!=="howto")return;const n=htD.note;if(!n||n.judged||!n.charging)return;
+}
+function _htRelease(lane,sp){
+  if(lane>=0)htD.down[lane]=0;if(sp)htD.space=0;const n=htD.note;if(!n||n.judged||!n.charging)return;
   if(_htMode==="hold"&&n.col===lane)_htBurst(n.charge>0.92?"perfect":n.charge>0.6?"great":n.charge>0.3?"good":"bad",n.x,n.y,n.col);   // 일반 홀드만 떼서 판정
-};
+}
+let _htKeyDown=function(e){if(fxScreen!=="howto"||e.repeat)return;const lane=KEYS.indexOf((e.key||"").toLowerCase()),sp=(e.code==="Space");if(lane<0&&!sp)return;e.preventDefault();_htPress(lane,sp);};
+let _htKeyUp=function(e){const lane=KEYS.indexOf((e.key||"").toLowerCase()),sp=(e.code==="Space");if(lane<0&&!sp)return;if(fxScreen!=="howto"){if(lane>=0)htD.down[lane]=0;if(sp)htD.space=0;return;}_htRelease(lane,sp);};
 document.addEventListener("keydown",_htKeyDown);document.addEventListener("keyup",_htKeyUp);
+// ★모바일/태블릿: 하우투 패드 터치 지원(멀티터치) — fx 좌표를 레인/스페이스로 매핑해 키 입력과 동일 처리
+function _htPtrTarget(px,py){const g=padGeomFor(fx.width,fx.height);
+  for(let c=0;c<4;c++){if(Math.hypot(px-g.xs[c],py-g.ys[c])<=g.r*1.15)return c;}
+  if(py>=g.topEdge-g.r*0.6)return 'space'; return null;}
+const _htPtrs=new Map();
+fx.addEventListener("pointerdown",e=>{if(fxScreen!=="howto")return;const xy=fxXY(e),tg=_htPtrTarget(xy[0],xy[1]);if(tg==null)return;   // 패드/스페이스 아니면 기존 fx 버튼 핸들러가 처리
+  e.preventDefault();_htPtrs.set(e.pointerId,tg);try{fx.setPointerCapture(e.pointerId);}catch(_){}
+  if(tg==='space')_htPress(-1,true);else _htPress(tg,false);});
+function _htPtrEnd(e){const tg=_htPtrs.get(e.pointerId);if(tg==null)return;_htPtrs.delete(e.pointerId);
+  if(tg==='space')_htRelease(-1,true);else _htRelease(tg,false);}
+fx.addEventListener("pointerup",_htPtrEnd);fx.addEventListener("pointercancel",_htPtrEnd);
 function drawFxHowto(t){
   const W=fx.width,H=fx.height,cx=W/2,cyc=H*0.50,now=t,r=Math.max(26,H*0.075);   // ★노트를 약간 위로 — 하단 패드 공간 확보
   fxBgDraw();fxBtns=[];
