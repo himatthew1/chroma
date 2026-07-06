@@ -1576,9 +1576,9 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
 let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false;
 let _bgmLP=null,_bgmMaster=null,_bgmWet=null,_bgmConv=null;   // ★덕킹/리버브 체인: 시동 대기=먹먹+리버브, 시동 중=무음 페이드
 function _bgmMakeIR(a,dur,decay){const n=(a.sampleRate*dur)|0,b=a.createBuffer(2,n,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,decay);}return b;}
-function bgmDuck(mode){ if(!_bgmMaster)return; const t=getCtx().currentTime,D=0.3;   // normal | standby | silent
+function bgmDuck(mode,tau){ if(!_bgmMaster)return; const t=getCtx().currentTime,D=(tau||0.3);   // normal | standby | silent, tau=페이드 시간상수
   if(mode==="standby"){_bgmLP.frequency.setTargetAtTime(720,t,D);_bgmWet.gain.setTargetAtTime(0.5,t,D);_bgmMaster.gain.setTargetAtTime(0.5,t,D);}          // 대기음: 볼륨↓+먹먹+리버브
-  else if(mode==="silent"){_bgmLP.frequency.setTargetAtTime(300,t,0.45);_bgmMaster.gain.setTargetAtTime(0.0001,t,0.45);}                                    // 시동 1.5s: 먹먹→무음
+  else if(mode==="silent"){_bgmLP.frequency.setTargetAtTime(300,t,(tau||0.45));_bgmMaster.gain.setTargetAtTime(0.0001,t,(tau||0.45));}                      // 시동 1.5s: 먹먹→무음
   else{_bgmLP.frequency.setTargetAtTime(16000,t,D);_bgmWet.gain.setTargetAtTime(0.06,t,D);_bgmMaster.gain.setTargetAtTime(1,t,D);} }                        // normal 복귀
 const BGM_SCREENS={menu:1,songsel:1,settings:1,howto:1,result:1};
 function _bgmLoad(){ if(_bgmLoopBuf||_bgmLoading)return; _bgmLoading=true; const ctx=getCtx();
@@ -1619,7 +1619,7 @@ function _bgmForScreen(name){
   if(settings.musicOn===false){stopBgm();return;}
   if(name==="editor"||name==="edhub"){stopBgm();return;}                 // 에디터는 자체 곡 재생
   if(name==="play"){ startBgm(); bgmDuck("standby"); return; }            // ★시동 대기 = 정지 아니라 대기음(덕킹+리버브). 시동 홀드/완료는 게임 루프가 처리
-  if(BGM_SCREENS[name]){ startBgm(); bgmDuck("normal"); return; }
+  if(BGM_SCREENS[name]){ startBgm(); bgmDuck("normal",0.9); return; }   // ★대기화면→곡선택 등 복귀는 천천히 페이드로 되살아나게
   stopBgm();
 }
 try{_bgmLoad();}catch(_){}   // ★탭 순간 즉시 재생되도록 버퍼 미리 디코드(정지 컨텍스트에서도 decode 가능)
@@ -3088,7 +3088,7 @@ function loop(){
       if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();try{bgmDuck("silent");}catch(_){}}   // ★시동 걸기 시작 = BGM 1.5s 먹먹→무음
       const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el/1.5,0,1);
       if(el>=1.5){state.readyGate=false;state.holdStart=0;ignitionStop();playStartSound();runIntro();}  // ★충전 끝=개시음 즉시
-    }else{if(state.holdStart){ignitionStop();try{bgmDuck("standby");}catch(_){}}state.holdStart=0;state.readyProg=0;}   // ★시동 놓음(중단) = 대기음으로 페이드 복귀
+    }else{if(state.holdStart){ignitionStop();try{bgmDuck("standby",0.9);}catch(_){}}state.holdStart=0;state.readyProg=0;}   // ★시동 놓음(중단) = 대기음으로 천천히 페이드 복귀(무음→대기음)
   }
   const W=pcanvas.width,H=pcanvas.height;
   // background
