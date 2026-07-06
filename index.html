@@ -1574,6 +1574,12 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
 // ★배경음악(BGM) — 비플레이 화면 전체에서 연속 재생. Web Audio 버퍼로 인트로→루프, 루프↔루프 모두 샘플 정확 끊김없이(loop=true).
 //   최초 1회만 인트로 재생 후 루프로 이어짐(_bgmIntroDone). 이후(곡 플레이 복귀 등)엔 루프만.
 let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false;
+let _bgmLP=null,_bgmMaster=null,_bgmWet=null,_bgmConv=null;   // ★덕킹/리버브 체인: 시동 대기=먹먹+리버브, 시동 중=무음 페이드
+function _bgmMakeIR(a,dur,decay){const n=(a.sampleRate*dur)|0,b=a.createBuffer(2,n,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,decay);}return b;}
+function bgmDuck(mode){ if(!_bgmMaster)return; const t=getCtx().currentTime,D=0.3;   // normal | standby | silent
+  if(mode==="standby"){_bgmLP.frequency.setTargetAtTime(720,t,D);_bgmWet.gain.setTargetAtTime(0.5,t,D);_bgmMaster.gain.setTargetAtTime(0.5,t,D);}          // 대기음: 볼륨↓+먹먹+리버브
+  else if(mode==="silent"){_bgmLP.frequency.setTargetAtTime(300,t,0.45);_bgmMaster.gain.setTargetAtTime(0.0001,t,0.45);}                                    // 시동 1.5s: 먹먹→무음
+  else{_bgmLP.frequency.setTargetAtTime(16000,t,D);_bgmWet.gain.setTargetAtTime(0.06,t,D);_bgmMaster.gain.setTargetAtTime(1,t,D);} }                        // normal 복귀
 const BGM_SCREENS={menu:1,songsel:1,settings:1,howto:1,result:1};
 function _bgmLoad(){ if(_bgmLoopBuf||_bgmLoading)return; _bgmLoading=true; const ctx=getCtx();
   Promise.all([
@@ -1585,7 +1591,14 @@ function _bgmPlay(){
   if(!_bgmWant||_bgmOn||settings.musicOn===false)return;
   const ctx=getCtx(); if(ctx.state!=="running"){try{ctx.resume();}catch(_){} return;}   // 제스처로 unlock되어 running일 때만 실제 재생
   if(!_bgmLoopBuf){_bgmLoad();return;}
-  if(!_bgmGain){_bgmGain=ctx.createGain();_bgmGain.connect(ctx.destination);}
+  if(!_bgmGain){_bgmGain=ctx.createGain();
+    _bgmLP=ctx.createBiquadFilter();_bgmLP.type="lowpass";_bgmLP.frequency.value=16000;_bgmLP.Q.value=0.6;
+    _bgmMaster=ctx.createGain();_bgmMaster.gain.value=1;   // 덕킹(musicVol과 분리)
+    _bgmWet=ctx.createGain();_bgmWet.gain.value=0.06;_bgmConv=ctx.createConvolver();_bgmConv.buffer=_bgmMakeIR(ctx,2.4,2.6);
+    _bgmGain.connect(_bgmLP);_bgmLP.connect(_bgmMaster);
+    _bgmMaster.connect(ctx.destination);                                  // dry
+    _bgmMaster.connect(_bgmConv);_bgmConv.connect(_bgmWet);_bgmWet.connect(ctx.destination);   // wet(리버브)
+  }
   _bgmGain.gain.value=(settings.musicVol!=null?settings.musicVol:0.55);
   _bgmStopSrcs();
   const t0=ctx.currentTime+0.04;
@@ -1602,7 +1615,13 @@ function _bgmPlay(){
 function startBgm(){ _bgmWant=true; _bgmPlay(); }
 function stopBgm(){ _bgmWant=false; _bgmOn=false; _bgmStopSrcs(); }
 function bgmSetVol(v){ if(_bgmGain)_bgmGain.gain.value=v; }
-function _bgmForScreen(name){ if(settings.musicOn===false){stopBgm();return;} if(BGM_SCREENS[name])startBgm(); else stopBgm(); }
+function _bgmForScreen(name){
+  if(settings.musicOn===false){stopBgm();return;}
+  if(name==="editor"||name==="edhub"){stopBgm();return;}                 // 에디터는 자체 곡 재생
+  if(name==="play"){ startBgm(); bgmDuck("standby"); return; }            // ★시동 대기 = 정지 아니라 대기음(덕킹+리버브). 시동 홀드/완료는 게임 루프가 처리
+  if(BGM_SCREENS[name]){ startBgm(); bgmDuck("normal"); return; }
+  stopBgm();
+}
 try{_bgmLoad();}catch(_){}   // ★탭 순간 즉시 재생되도록 버퍼 미리 디코드(정지 컨텍스트에서도 decode 가능)
 // ★iOS 저지연: 곡(HTMLAudio)을 같은 AudioContext 그래프로 통과시킴 → HTML5 오디오 세션의 고지연이 Web Audio 효과음에 옮지 않게(노트 타격음 즉답). createMediaElementSource는 요소당 1회만 가능.
 let _mesEl=null,_mesNode=null;
@@ -2553,6 +2572,7 @@ function runIntro(){
 // 리드인: 노트가 생성 지점부터 어프로치 → 그만큼 노래 재생을 늦춤
 function beginPlay(){
   if(!state)return;
+  try{stopBgm();}catch(_){}             // ★곡 재생 시작 = BGM 완전 정지(무음으로 이미 페이드됨)
   state.leadIn=state.ar+0.3;          // 첫 노트가 화면 밖에서부터 다가옴
   state.t0=performance.now()/1000;
   state.audioStarted=false;
@@ -3065,10 +3085,10 @@ function loop(){
   if(state.readyGate){
     const allHeld=state.held.every(Boolean);
     if(allHeld){
-      if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();}
+      if(!state.holdStart){state.holdStart=performance.now()/1000;ignitionStart();try{bgmDuck("silent");}catch(_){}}   // ★시동 걸기 시작 = BGM 1.5s 먹먹→무음
       const el=performance.now()/1000-state.holdStart;state.readyProg=clamp(el/1.5,0,1);
       if(el>=1.5){state.readyGate=false;state.holdStart=0;ignitionStop();playStartSound();runIntro();}  // ★충전 끝=개시음 즉시
-    }else{if(state.holdStart)ignitionStop();state.holdStart=0;state.readyProg=0;}
+    }else{if(state.holdStart){ignitionStop();try{bgmDuck("standby");}catch(_){}}state.holdStart=0;state.readyProg=0;}   // ★시동 놓음(중단) = 대기음으로 페이드 복귀
   }
   const W=pcanvas.width,H=pcanvas.height;
   // background
