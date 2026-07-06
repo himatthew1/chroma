@@ -1573,7 +1573,7 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
   EVS.forEach(ev=>window.addEventListener(ev,kick,true));})();
 // ★배경음악(BGM) — 비플레이 화면 전체에서 연속 재생. Web Audio 버퍼로 인트로→루프, 루프↔루프 모두 샘플 정확 끊김없이(loop=true).
 //   최초 1회만 인트로 재생 후 루프로 이어짐(_bgmIntroDone). 이후(곡 플레이 복귀 등)엔 루프만.
-let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false;
+let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false,_bgmFromPlay=false;
 let _bgmLP=null,_bgmMaster=null,_bgmWet=null,_bgmConv=null,_bgmTargetMaster=1,_bgmIT=null,_bgmLT=null;   // ★덕킹/리버브 체인 + 페이드인 타깃 + 무음패딩 트림 캐시
 function _bgmTrim(buf){ const ch=buf.getChannelData(0),n=ch.length,thr=0.004; let s=0,e=n-1;   // MP3 디코드 앞뒤 무음 패딩 잘라 이음새 붙임
   while(s<n&&Math.abs(ch[s])<thr)s++; while(e>s&&Math.abs(ch[e])<thr)e--;
@@ -1624,8 +1624,8 @@ function bgmSetVol(v){ if(_bgmGain)_bgmGain.gain.value=v; }
 function _bgmForScreen(name){
   if(settings.musicOn===false){stopBgm();return;}
   if(name==="editor"||name==="edhub"){stopBgm();return;}                 // 에디터는 자체 곡 재생
-  if(name==="play"){ startBgm(); bgmDuck("standby"); return; }            // ★시동 대기 = 정지 아니라 대기음(덕킹+리버브). 시동 홀드/완료는 게임 루프가 처리
-  if(BGM_SCREENS[name]){ startBgm(); bgmDuck("normal",0.9); return; }   // ★대기화면→곡선택 등 복귀는 천천히 페이드로 되살아나게
+  if(name==="play"){ _bgmFromPlay=true; _bgmIntroDone=false; startBgm(); bgmDuck("standby"); return; }   // ★시동 대기=대기음. 복귀 시 인트로부터 다시 시작하도록 예약
+  if(BGM_SCREENS[name]){ if(_bgmFromPlay){_bgmFromPlay=false;stopBgm();} startBgm(); bgmDuck("normal",0.9); return; }   // ★플레이/캔슬 후 복귀 = 인트로부터 다시(정지→새 시작) + 페이드 인
   stopBgm();
 }
 try{_bgmLoad();}catch(_){}   // ★탭 순간 즉시 재생되도록 버퍼 미리 디코드(정지 컨텍스트에서도 decode 가능)
