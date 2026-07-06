@@ -395,6 +395,13 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
         <input type="range" id="setSfxVol" min="0" max="1" step="0.05" style="width:140px">
       </div>
       <div class="set-row">
+        <div class="set-label">Music</div>
+        <button class="tb-btn" id="setMusicToggle">On</button>
+        <div class="spacer"></div>
+        <span class="muted" style="font-size:13px">Volume</span>
+        <input type="range" id="setMusicVol" min="0" max="1" step="0.05" style="width:140px">
+      </div>
+      <div class="set-row">
         <div class="set-label">Glow / FX <span class="muted" style="font-weight:400;font-size:12px">— 가볍게: Full → Lite → Off (약한 기기는 Off)</span></div>
         <button class="tb-btn" id="setGlowToggle">Lite</button>
       </div>
@@ -640,7 +647,7 @@ let KEYS=["a","d","j","l"];   // 설정에서 커스텀 가능
 const NCOL=4;
 
 const screens={menu:$("#menu"),songsel:$("#songsel"),play:$("#play"),result:$("#result"),howto:$("#howto"),settings:$("#settings"),edhub:$("#edhub"),editor:$("#editor")};
-function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);}
+function show(name){for(const k in screens)screens[k].classList.toggle("hidden",k!==name);if(typeof fxUpdate==="function")fxUpdate(name);if(typeof _bgmForScreen==="function")_bgmForScreen(name);}   // ★BGM: 비플레이 화면=재생, play/editor=정지
 // ★retro 클래스는 화면전환마다 토글하지 않음(픽셀폰트 reflow→렌더 지연→검은화면 유발). 항상 ON 유지. 에디터 캔버스 선명함은 RT=false+도트필터 제거로 처리.
 // ===== 레트로 전체화면 픽셀 필터 캔버스 (HTML 화면을 캔버스로 다시 그려 인게임과 동일한 256 필터 적용) =====
 const fx=document.getElementById("fx"),fxc=fx.getContext("2d");window.__fxc=fxc;   // 부팅 로고가 참조
@@ -892,6 +899,12 @@ function drawFxSettings(t){
   small("VOL",px+pw*0.31,y+rowH/2);
   fxSlider(px+pw*0.43,y+rowH/2,pw*0.52,document.getElementById("setSfxVol"));
   y+=adv;
+  // Music(BGM) 토글 + 볼륨
+  lab("MUSIC",y+rowH/2);
+  fxButton(px+pw*0.14,y+rowH*0.12,pw*0.13,rowH*0.76,settings.musicOn!==false?"ON":"OFF",()=>document.getElementById("setMusicToggle").click(),902,settings.musicOn!==false?"#39e36b":"#3a4a86");
+  small("VOL",px+pw*0.31,y+rowH/2);
+  fxSlider(px+pw*0.43,y+rowH/2,pw*0.52,document.getElementById("setMusicVol"));
+  y+=adv;
   // 발광 품질 토글 (가볍게 — OFF = 최경량)
   lab("GLOW / FX",y+rowH/2);
   fxButton(px+pw*0.55,y+rowH*0.12,pw*0.18,rowH*0.76,({full:"FULL",lite:"LITE",off:"OFF"})[GLOW_MODE]||"LITE",()=>{document.getElementById("setGlowToggle").click();fxUpdate("settings");},903,GLOW_MODE!=="off"?"#39e36b":"#3a4a86");
@@ -1022,6 +1035,9 @@ function openSettings(){
   $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";
   $("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   $("#setSfxVol").value=settings.sfxVol;
+  $("#setMusicToggle").textContent=settings.musicOn!==false?"On":"Off";
+  $("#setMusicToggle").classList.toggle("primary",settings.musicOn!==false);
+  $("#setMusicVol").value=(settings.musicVol!=null?settings.musicVol:0.55);
   {const gl={full:"Full",lite:"Lite",off:"Off"};$("#setGlowToggle").textContent=gl[GLOW_MODE]||"Lite";$("#setGlowToggle").classList.toggle("primary",GLOW_MODE!=="off");}
   $("#setOffset").value=settings.offset;$("#offsetVal").textContent=(settings.offset>0?"+":"")+settings.offset+" ms";
   $("#calibLive").textContent="Tap to the beat";
@@ -1043,6 +1059,10 @@ $("#setSfxToggle").onclick=()=>{settings.sfxOn=!settings.sfxOn;saveSettings();
   $("#setSfxToggle").textContent=settings.sfxOn?"On":"Off";$("#setSfxToggle").classList.toggle("primary",settings.sfxOn);
   if(settings.sfxOn)playSfx(settings.sfx,"perfect",0);};
 $("#setSfxVol").oninput=()=>{settings.sfxVol=parseFloat($("#setSfxVol").value);saveSettings();};
+$("#setMusicToggle").onclick=()=>{settings.musicOn=!(settings.musicOn!==false);saveSettings();
+  $("#setMusicToggle").textContent=settings.musicOn?"On":"Off";$("#setMusicToggle").classList.toggle("primary",settings.musicOn);
+  if(settings.musicOn)startBgm();else stopBgm();};
+$("#setMusicVol").oninput=()=>{settings.musicVol=parseFloat($("#setMusicVol").value);bgmSetVol(settings.musicVol);saveSettings();};
 $("#setGlowToggle").onclick=()=>{GLOW_MODE=GLOW_MODE==="lite"?"off":GLOW_MODE==="off"?"full":"lite";settings.glow=GLOW_MODE;PARTICLE_DENSITY=GLOW_MODE==="full"?0.55:0.40;saveSettings();   // ★발광 품질 토글: Lite→Off→Full 순환 (+입자밀도)
   const gl={full:"Full",lite:"Lite",off:"Off"};$("#setGlowToggle").textContent=gl[GLOW_MODE];$("#setGlowToggle").classList.toggle("primary",GLOW_MODE!=="off");
   if(typeof fxUpdate==="function"&&screens.settings&&!screens.settings.classList.contains("hidden"))fxUpdate("settings");};
@@ -1514,7 +1534,7 @@ function saveStore(o){localStorage.setItem(STORE_KEY,JSON.stringify(o));}
 
 // ---------- 설정 (효과음 / 싱크) ----------
 const SET_KEY="chroma_settings";
-let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,offset:0,keys:["a","d","j","l"],retro:true};
+let settings={sfx:"percussion",sfxOn:true,sfxVol:0.8,musicOn:true,musicVol:0.55,offset:0,keys:["a","d","j","l"],retro:true};
 try{Object.assign(settings,JSON.parse(localStorage.getItem(SET_KEY))||{});}catch{}
 settings.retro=true;   // ★레트로 화면은 게임 정체성 — 항상 ON (끄기 불가, 설정 제거됨)
 function applyRetroClass(){document.documentElement.classList.toggle("retro",!!settings.retro);}
@@ -1551,6 +1571,38 @@ let audioCtx=null; function getCtx(){return audioCtx||(audioCtx=new (window.Audi
     try{const b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(_){}
     if(c.state==="running")EVS.forEach(ev=>window.removeEventListener(ev,kick,true));}
   EVS.forEach(ev=>window.addEventListener(ev,kick,true));})();
+// ★배경음악(BGM) — 비플레이 화면 전체에서 연속 재생. Web Audio 버퍼로 인트로→루프, 루프↔루프 모두 샘플 정확 끊김없이(loop=true).
+//   최초 1회만 인트로 재생 후 루프로 이어짐(_bgmIntroDone). 이후(곡 플레이 복귀 등)엔 루프만.
+let _bgmIntroBuf=null,_bgmLoopBuf=null,_bgmGain=null,_bgmSrcs=[],_bgmIntroDone=false,_bgmWant=false,_bgmOn=false,_bgmLoading=false;
+const BGM_SCREENS={menu:1,songsel:1,settings:1,howto:1,result:1};
+function _bgmLoad(){ if(_bgmLoopBuf||_bgmLoading)return; _bgmLoading=true; const ctx=getCtx();
+  Promise.all([
+    fetch("audio/bgm_intro.mp3").then(r=>r.arrayBuffer()).then(a=>ctx.decodeAudioData(a)),
+    fetch("audio/bgm_loop.mp3").then(r=>r.arrayBuffer()).then(a=>ctx.decodeAudioData(a))
+  ]).then(bufs=>{_bgmIntroBuf=bufs[0];_bgmLoopBuf=bufs[1];_bgmLoading=false;_bgmPlay();}).catch(()=>{_bgmLoading=false;}); }
+function _bgmStopSrcs(){ for(const s of _bgmSrcs){try{s.onended=null;s.stop();}catch(_){}} _bgmSrcs.length=0; }
+function _bgmPlay(){
+  if(!_bgmWant||_bgmOn||settings.musicOn===false)return;
+  const ctx=getCtx(); if(ctx.state!=="running"){try{ctx.resume();}catch(_){} return;}   // 제스처로 unlock되어 running일 때만 실제 재생
+  if(!_bgmLoopBuf){_bgmLoad();return;}
+  if(!_bgmGain){_bgmGain=ctx.createGain();_bgmGain.connect(ctx.destination);}
+  _bgmGain.gain.value=(settings.musicVol!=null?settings.musicVol:0.55);
+  _bgmStopSrcs();
+  const t0=ctx.currentTime+0.04;
+  if(!_bgmIntroDone&&_bgmIntroBuf){ _bgmIntroDone=true;
+    const intro=ctx.createBufferSource();intro.buffer=_bgmIntroBuf;intro.connect(_bgmGain);intro.start(t0);
+    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loop=true;loop.connect(_bgmGain);loop.start(t0+_bgmIntroBuf.duration);   // 인트로 끝에 정확히 이어 루프(끊김없이)
+    _bgmSrcs.push(intro,loop);
+  } else {
+    const loop=ctx.createBufferSource();loop.buffer=_bgmLoopBuf;loop.loop=true;loop.connect(_bgmGain);loop.start(t0);
+    _bgmSrcs.push(loop);
+  }
+  _bgmOn=true;
+}
+function startBgm(){ _bgmWant=true; _bgmPlay(); }
+function stopBgm(){ _bgmWant=false; _bgmOn=false; _bgmStopSrcs(); }
+function bgmSetVol(v){ if(_bgmGain)_bgmGain.gain.value=v; }
+function _bgmForScreen(name){ if(settings.musicOn===false){stopBgm();return;} if(BGM_SCREENS[name])startBgm(); else stopBgm(); }
 // ★iOS 저지연: 곡(HTMLAudio)을 같은 AudioContext 그래프로 통과시킴 → HTML5 오디오 세션의 고지연이 Web Audio 효과음에 옮지 않게(노트 타격음 즉답). createMediaElementSource는 요소당 1회만 가능.
 let _mesEl=null,_mesNode=null;
 function routeAudioToCtx(el){
@@ -4596,7 +4648,7 @@ window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidde
     const t0=performance.now();
     function frame(now){const el=(now-t0)/1000;drawIntro(fctx,el);blit();
       if(el<INTRO+HOLD)requestAnimationFrame(frame);
-      else{bo.style.opacity="0";setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},1050);}}
+      else{bo.style.opacity="0";try{startBgm();}catch(_){}setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},1050);}}   // ★부트 페이드(메뉴 등장)=BGM 인트로 시작(제스처로 오디오 unlock된 뒤)
     requestAnimationFrame(frame);
   }
   window.addEventListener("pointerdown",begin);window.addEventListener("keydown",begin);
