@@ -1603,6 +1603,7 @@ function startBgm(){ _bgmWant=true; _bgmPlay(); }
 function stopBgm(){ _bgmWant=false; _bgmOn=false; _bgmStopSrcs(); }
 function bgmSetVol(v){ if(_bgmGain)_bgmGain.gain.value=v; }
 function _bgmForScreen(name){ if(settings.musicOn===false){stopBgm();return;} if(BGM_SCREENS[name])startBgm(); else stopBgm(); }
+try{_bgmLoad();}catch(_){}   // ★탭 순간 즉시 재생되도록 버퍼 미리 디코드(정지 컨텍스트에서도 decode 가능)
 // ★iOS 저지연: 곡(HTMLAudio)을 같은 AudioContext 그래프로 통과시킴 → HTML5 오디오 세션의 고지연이 Web Audio 효과음에 옮지 않게(노트 타격음 즉답). createMediaElementSource는 요소당 1회만 가능.
 let _mesEl=null,_mesNode=null;
 function routeAudioToCtx(el){
@@ -4643,12 +4644,12 @@ window.addEventListener("resize",()=>{if(!screens.play.classList.contains("hidde
   function waitFrame(now){if(started)return;drawPrompt(fctx,(now-tp)/1000);blitText();requestAnimationFrame(waitFrame);}   // 탭 전: 텍스트 필터로 깜빡 안내
   function begin(){if(started)return;started=true;window.removeEventListener("pointerdown",begin);window.removeEventListener("keydown",begin);
     // ★별 반짝임 효과음(T5) — iOS는 resume이 끝나야 클록이 돌므로, running이면 즉시·아니면 resume 완료 후 울려서 곡선택창까지 밀리지 않게
-    try{const c=getCtx();const fire=()=>{try{if(typeof startStarSfx==="function")startStarSfx();}catch(e){}};
+    try{const c=getCtx();const fire=()=>{try{if(typeof startStarSfx==="function")startStarSfx();}catch(e){}try{startBgm();}catch(_){}};   // ★별 효과음 + BGM 인트로를 탭 순간 동시에(resume 완료 후 같은 시점)
       if(c.state==="running")fire(); else {const p=c.resume();if(p&&p.then)p.then(fire);else fire();}}catch(e){}
     const t0=performance.now();
     function frame(now){const el=(now-t0)/1000;drawIntro(fctx,el);blit();
       if(el<INTRO+HOLD)requestAnimationFrame(frame);
-      else{bo.style.opacity="0";try{startBgm();}catch(_){}setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},1050);}}   // ★부트 페이드(메뉴 등장)=BGM 인트로 시작(제스처로 오디오 unlock된 뒤)
+      else{bo.style.opacity="0";setTimeout(()=>{if(bo.parentNode)bo.parentNode.removeChild(bo);},1050);}}
     requestAnimationFrame(frame);
   }
   window.addEventListener("pointerdown",begin);window.addEventListener("keydown",begin);
