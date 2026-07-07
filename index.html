@@ -1624,7 +1624,7 @@ function bgmSetVol(v){ if(_bgmGain)_bgmGain.gain.value=v; }
 function _bgmForScreen(name){
   if(settings.musicOn===false){stopBgm();return;}
   if(name==="editor"||name==="edhub"){stopBgm();return;}                 // 에디터는 자체 곡 재생
-  if(name==="play"){ _bgmFromPlay=true; _bgmIntroDone=false; startBgm(); bgmDuck("standby"); return; }   // ★시동 대기=대기음. 복귀 시 인트로부터 다시 시작하도록 예약
+  if(name==="play"){ startBgm(); bgmDuck("standby"); return; }   // ★시동 대기=대기음(덕킹). 백아웃하면 언덕킹 페이드인(인트로 재시작 아님). 실제 곡 재생(beginPlay)만 인트로 재시작 예약
   if(BGM_SCREENS[name]){ if(_bgmFromPlay){_bgmFromPlay=false;stopBgm();} startBgm(); bgmDuck("normal",0.9); return; }   // ★플레이/캔슬 후 복귀 = 인트로부터 다시(정지→새 시작) + 페이드 인
   stopBgm();
 }
@@ -2578,7 +2578,7 @@ function runIntro(){
 // 리드인: 노트가 생성 지점부터 어프로치 → 그만큼 노래 재생을 늦춤
 function beginPlay(){
   if(!state)return;
-  try{stopBgm();}catch(_){}             // ★곡 재생 시작 = BGM 완전 정지(무음으로 이미 페이드됨)
+  _bgmFromPlay=true;_bgmIntroDone=false;try{stopBgm();}catch(_){}   // ★실제 곡 재생 시작 = BGM 정지 + 복귀(중간 종료/결과 후)엔 인트로부터 재시작 예약
   state.leadIn=state.ar+0.3;          // 첫 노트가 화면 밖에서부터 다가옴
   state.t0=performance.now()/1000;
   state.audioStarted=false;
