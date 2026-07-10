@@ -573,6 +573,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <span class="field">Rate ×<input type="number" id="zoneFactor" step="0.05" value="2" style="width:62px"><span id="zoneFacVal" style="font-size:11px;color:var(--muted)"></span></span>
           <span class="field">In <input type="number" id="zoneRin" value="0.4" step="0.1" min="0" style="width:54px">s</span>
           <span class="field">Out <input type="number" id="zoneRout" value="0.4" step="0.1" min="0" style="width:54px">s</span>
+          <span class="field" title="이 구간 노트를 얼마나 미리(넓게) 보여줄지. 1=기본, ↓=적게/가까이, ↑=많이/멀리">공개 <input type="number" id="zoneReveal" value="1" step="0.1" min="0.3" max="3" style="width:54px">×</span>
           <button class="tb-btn" id="zoneDel" style="color:var(--pink)">Delete zone</button>
         </div>
         <div id="flickerPanel" class="hidden">
@@ -2035,6 +2036,11 @@ function zoneFactorAt(t,zones){   // 그 시점의 시각 배속 (1=정상). 진
   }
   return f;
 }
+function zoneRevealAt(t,zones){   // 그 시점 구간의 노트 공개범위 배율(1=기본). 구간별로 조절 → 슬로우/가속에서 앞서 보이는 노트 수 튜닝
+  if(!zones||!zones.length)return 1; let rv=1;
+  for(const z of zones){ if(t<z.t0||t>z.t1)continue; rv*=(typeof z.reveal==="number"&&z.reveal>0?z.reveal:1); }
+  return rv;
+}
 function buildWarp(zones,tEnd){   // 누적 워프 W(t)=∫배속 dt 미리 계산 (룩업)
   const step=0.03,start=-2,count=Math.max(2,Math.ceil((tEnd+3-start)/step)),W=new Float64Array(count+1);
   W[0]=start; let acc=start;
@@ -2558,11 +2564,11 @@ function startPlay(startAt){try{
   const notes=buildPlayNotes(playChart);
   const lastT=notes.length?Math.max(...notes.map(n=>n.time+(n.duration||0))):0;
   if(startAt>0)notes.forEach(n=>{if(n.time<startAt-0.001){n.done=true;n.headJudged=true;}});  // 구간 앞 노트는 건너뜀
-  const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0,factor:(typeof z.factor==="number"?z.factor:undefined)}));   // 스피드 구간(배속 포함)
+  const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0,factor:(typeof z.factor==="number"?z.factor:undefined),reveal:(typeof z.reveal==="number"?z.reveal:1)}));   // 스피드 구간(배속 + 공개범위)
   const flickers=(playChart.flickers||[]).map(f=>({t0:f.t0,t1:f.t1,speed:(f.speed>0?f.speed:7),range:(f.range!=null?f.range:20),op:(f.op!=null?f.op:1),style:f.style||"random",full:!!f.full,cycle:!!f.cycle,col:(Array.isArray(f.col)?f.col.slice(0,3):null)}));   // ★네온 플리커 구간
   const warp=buildWarp(zones,lastT);
   const AR0=approachSec();
-  notes.forEach(n=>{n._fArr=zoneFactorAt(n.time,zones)||1;n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);n._arEff=AR0*Math.pow(n._fArr,0.65);n._wCap=warpAt(warp,n.time-AR0/Math.min(n._fArr,1));});   // 워프상수 + 도착배속 + ★접근창 + 실시간 상한 등장점(_wCap: 슬로우 도착만 창 확대)
+  notes.forEach(n=>{n._fArr=zoneFactorAt(n.time,zones)||1;n._reveal=zoneRevealAt(n.time,zones);n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);n._arEff=AR0*Math.pow(n._fArr,0.65)*n._reveal;n._wCap=warpAt(warp,n.time-n._reveal*AR0/Math.min(n._fArr,1));});   // 워프상수 + 도착배속 + ★접근창·등장점(구간 공개범위 _reveal 반영)
   state={notes,score:0,combo:0,maxCombo:0,counts:{perfect:0,great:0,good:0,bad:0,miss:0},
     held:[false,false,false,false],spaceDown:false,padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,flickers,warp,
     started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:AR0,startAt:startAt,
@@ -2981,7 +2987,7 @@ function drawSpaceNote(n,now,AR){
   let al,ringAl,ap=-1,gl=1.2,rs,spin=now*0.35,lwm=1,charge=0,flash=0;
   if(!n.spState){
     const wp=(typeof state!=="undefined"&&state&&state.warp)?state.warp:null;   // ★스피드 구간 워프 (없으면 실시간)
-    const pr=clamp(noteProg(n,now,warpAt(wp,now),AR),0,1),gp=Math.pow(pr,1.9); // 작게 시작→임박할수록 가속 + 접근창 + 실시간 상한(슬로우존 밖 조기 로드 차단)
+    const pr=clamp(noteProg(n,now,warpAt(wp,now),AR),0,1),gp=Math.pow(pr,1.25); // ★뒤몰림 완화(1.9→1.25): 슬로우존 등 워프를 실시간으로 꾸준히 반영(초반 얼어붙음 해소)
     const aq=clamp(pr/0.65,0,1); al=aq*aq*(3-2*aq);            // ★투명도: 부드럽게 차오름(smoothstep)
     rs=0.08+0.92*gp; ringAl=al; gl=1.2*al; ap=pr;
   }else{
@@ -4055,7 +4061,7 @@ function setTool(t){edTool=t;
 function updateZonePanel(){const p=$("#zonePanel");if(!p)return;
   if(edTool==="speed"&&edZoneSel){p.classList.remove("hidden");_posPanel(p);const z=edZoneSel,up=z.type!=="down";
     $("#zoneType").textContent=up?"⏩ 스피드업":"🐢 슬로우";
-    $("#zoneRin").value=z.rampIn||0;$("#zoneRout").value=z.rampOut||0;
+    $("#zoneRin").value=z.rampIn||0;$("#zoneRout").value=z.rampOut||0;$("#zoneReveal").value=(typeof z.reveal==="number"?z.reveal:1);
     const sl=$("#zoneFactor");sl.min=up?ZUP_MIN:ZDN_MIN;sl.max=up?ZUP_MAX:ZDN_MAX;sl.step=up?0.1:0.02;
     const f=typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF);sl.value=f;
     $("#zoneFacVal").textContent=up?("빠름 ("+ZUP_MIN+"~"+ZUP_MAX+")"):(f<=0.12?"거의 정지 ("+ZDN_MIN+"~"+ZDN_MAX+")":"느림 ("+ZDN_MIN+"~"+ZDN_MAX+")");
@@ -4065,6 +4071,7 @@ $("#zoneFactor").addEventListener("focus",()=>{if(edZoneSel)pushUndo();});
 $("#zoneFactor").oninput=()=>{if(!edZoneSel)return;const up=edZoneSel.type!=="down";let v=parseFloat($("#zoneFactor").value);if(isNaN(v))return;v=clamp(v,up?ZUP_MIN:ZDN_MIN,up?ZUP_MAX:ZDN_MAX);edZoneSel.factor=v;$("#zoneFacVal").textContent=up?("빠름 ("+ZUP_MIN+"~"+ZUP_MAX+")"):(v<=0.12?"거의 정지":"느림 ("+ZDN_MIN+"~"+ZDN_MAX+")");};
 $("#zoneRin").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampIn=Math.max(0,parseFloat($("#zoneRin").value)||0);};
 $("#zoneRout").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampOut=Math.max(0,parseFloat($("#zoneRout").value)||0);};
+$("#zoneReveal").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.reveal=clamp(parseFloat($("#zoneReveal").value)||1,0.3,3);};
 $("#zoneDel").onclick=()=>{if(!edZoneSel)return;pushUndo();const i=edZones.indexOf(edZoneSel);if(i>=0)edZones.splice(i,1);edZoneSel=null;updateZonePanel();toast("구간 삭제됨");};
 // ===== 플리커 구간 패널 =====
 function _fkColBtns(){const box=$("#fkColors");if(!box||box._built)return;box._built=1;
@@ -4741,7 +4748,7 @@ function fitTimelineIfNeeded(){const r=tl.getBoundingClientRect();if(Math.abs(r.
 function currentChart(){
   layoutPositions(edNotes,'x','y',true); // 좌표 없는 노트 채움
   const t=($("#edSongTitle").value||"무제")+($("#edDiffName").value?" ["+$("#edDiffName").value+"]":"");
-  const zones=(edZones||[]).slice().sort((a,b)=>a.t0-b.t0).map(z=>{const up=z.type!=="down";const f=clamp(typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF),up?ZUP_MIN:ZDN_MIN,up?ZUP_MAX:ZDN_MAX);return {t0:+z.t0.toFixed(3),t1:+z.t1.toFixed(3),type:z.type||"up",rampIn:+(z.rampIn||0).toFixed(2),rampOut:+(z.rampOut||0).toFixed(2),factor:+f.toFixed(2)};});
+  const zones=(edZones||[]).slice().sort((a,b)=>a.t0-b.t0).map(z=>{const up=z.type!=="down";const f=clamp(typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF),up?ZUP_MIN:ZDN_MIN,up?ZUP_MAX:ZDN_MAX);return {t0:+z.t0.toFixed(3),t1:+z.t1.toFixed(3),type:z.type||"up",rampIn:+(z.rampIn||0).toFixed(2),rampOut:+(z.rampOut||0).toFixed(2),factor:+f.toFixed(2),reveal:+clamp(typeof z.reveal==="number"?z.reveal:1,0.3,3).toFixed(2)};});
   const flickers=(edFlickers||[]).slice().sort((a,b)=>a.t0-b.t0).map(f=>{const o={t0:+f.t0.toFixed(3),t1:+f.t1.toFixed(3),speed:+(f.speed||7),range:+(f.range!=null?f.range:20),op:+(+(f.op!=null?f.op:1)).toFixed(2),style:f.style||"random"};if(f.full)o.full=1;if(f.cycle)o.cycle=1;else if(Array.isArray(f.col))o.col=f.col.map(v=>v|0);return o;});   // ★네온 플리커 구간
   return{title:t,zones,flickers,notes:edNotes.slice().sort((a,b)=>a.time-b.time)
     .map(n=>{
