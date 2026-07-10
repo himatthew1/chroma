@@ -3209,8 +3209,12 @@ function loop(){
     drawList.push(n);
   }
   drawList.sort((a,b)=>b.time-a.time);
-  // ★네온 플리커 — 노트 뒤·콘솔 뒤. 노트 몸체 구멍으로 무오염 (클립 밖: 전체 화면 연출)
-  drawFlicker(now, drawList.map(n=>({x:n.x,y:n.y,r:r*1.5})));
+  // ★네온 플리커 — 노트 뒤·콘솔 뒤. 구멍은 노트의 실제 현재 위치·크기에 딱 맞춤(고정 종착지의 과대 검은 원 제거)
+  drawFlicker(now, drawList.map(n=>{
+    const pg=1-(n._wT-wpNow)/n._arEff, nr=clamp(pg,0,1), ez=nr*nr, di=nr*nr*(3-2*nr);
+    let bb=r*(0.86+0.22*ez); if(n.type==="press")bb*=1.18;
+    return {x:n.x+(n._ox||0)*(1-di), y:n.y+(n._oy||0)*(1-di), r:bb*1.02};
+  }));
   pctx.save();pctx.beginPath();pctx.moveTo(0,0);pctx.lineTo(W,0);for(let x=W;x>=0;x-=4)pctx.lineTo(x,divY(x));pctx.closePath();pctx.clip();  // ★분리선 곡선 위 = 플레이존(패드/분리선 위로는 안 잘림)
   // ★스와이프 체인 리본 — 멤버를 ci 순서로 잇는 발광 띠 (노드 밑에 깔림). 타격된 노드는 빠져 띠가 '소모'됨
   {
