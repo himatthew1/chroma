@@ -259,7 +259,8 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:2;display:flex;gap:8px">
     <button id="szMove" style="background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="점을 끌어 이동 · 빈 곳 드래그=여러 점 선택">✋ 이동</button>
     <button id="szAdd" style="background:#141a32;color:#dfe6ff;border:1px solid #2a3158;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="빈 곳 클릭 = 노트포인트 추가">＋ 점 추가</button>
-    <button id="szMirror" style="background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="선택한 점(없으면 전체)을 화면 중앙점 기준 반대편으로 대칭 이동">⇄ 대칭 놓기</button>
+    <button id="szMirrorH" style="background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="선택한 점(없으면 전체)을 화면 좌우 중심선 기준 반전 (x→반대)">⇄ 좌우반전</button>
+    <button id="szMirrorV" style="background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="선택한 점(없으면 전체)을 화면 상하 중심선 기준 반전 (y→반대)">⇅ 상하반전</button>
   </div>
 </div>
 <div id="pgZoom" class="hidden" style="position:fixed;inset:0;z-index:200;background:#04050c;">
@@ -268,7 +269,8 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   <button id="pgZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
   <button id="pgZoomReset" style="position:absolute;right:120px;top:12px;z-index:2;background:#141a32;color:#ff9a9a;border:1px solid #ff7a7a;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="직접설정 해제 → 다시 완전 랜덤 배치">↺ 초기화(랜덤)</button>
   <button id="pgZoomOnion" style="position:absolute;right:280px;top:12px;z-index:2;background:#141a32;color:#9fb6ff;border:1px solid #2a3158;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="이 위치군 전후 시간대의 다른 노트를 흐리게 겹쳐 보기">🧅 어니언 스킨: 끄기</button>
-  <button id="pgZoomMirror" style="position:absolute;right:440px;top:12px;z-index:2;background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="앵커(형성점)와 이동방향을 화면 중앙점 기준 반대편으로 대칭 이동">⇄ 대칭 놓기</button>
+  <button id="pgZoomMirrorH" style="position:absolute;right:440px;top:12px;z-index:2;background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="앵커(형성점)와 이동방향을 좌우 중심선 기준 반전">⇄ 좌우반전</button>
+  <button id="pgZoomMirrorV" style="position:absolute;right:588px;top:12px;z-index:2;background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="앵커(형성점)와 이동방향을 상하 중심선 기준 반전">⇅ 상하반전</button>
 </div>
 <div id="errBanner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:100000;background:rgba(40,8,18,0.97);color:#ffeef4;border-top:3px solid #ff2e97;padding:10px 14px 12px;font:12px/1.45 monospace;max-height:42vh;overflow:auto;white-space:pre-wrap;">
   <button id="errCopy" style="position:absolute;right:70px;top:8px;font:11px monospace;padding:4px 9px;background:#22a7ff;color:#fff;border:none;border-radius:6px;cursor:pointer;">복사</button>
@@ -4441,11 +4443,12 @@ if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!==
   const n={time:2.2,type:"slide",duration:edSel.duration||0.9,lane:edSel.lane||0,sShape:"custom",pts:edSel.pts.map(p=>p.slice())};if(edSel.ptt)n.ptt=edSel.ptt.slice();
   closeSlideZoom();startPreview({fix:_dragGapFix,px:_dragGapPx,notes:[n],fromEditor:true});toast("실제 테스트 — 키로 타격 · Esc/← 로 에디터 복귀(편집 유지)");};
 function _szCommit(){edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}
-function _szMirror(){if(!edSel||edSel.type!=="slide"||!edSel.pts)return;pushUndo();   // ⇄ 중앙점 기준 점대칭(1-x,1-y). 선택 없으면 전체
+function _szMirror(axis){if(!edSel||edSel.type!=="slide"||!edSel.pts)return;pushUndo();   // axis='h' 좌우(x→1-x) · 'v' 상하(y→1-y). 선택 없으면 전체
   const idx=_szSel.length?_szSel:edSel.pts.map((_,i)=>i);
-  idx.forEach(i=>{edSel.pts[i]=[1-edSel.pts[i][0],1-edSel.pts[i][1]];});
-  _szCommit();toast(_szSel.length?("선택한 "+idx.length+"개 점 대칭 이동"):"전체 대칭 이동 (중앙점 기준)");}
-if($("#szMirror"))$("#szMirror").onclick=_szMirror;
+  idx.forEach(i=>{const p=edSel.pts[i];if(axis==="v")p[1]=1-p[1];else p[0]=1-p[0];});
+  _szCommit();toast((_szSel.length?("선택한 "+idx.length+"개 점 "):"전체 ")+(axis==="v"?"상하반전":"좌우반전"));}
+if($("#szMirrorH"))$("#szMirrorH").onclick=()=>_szMirror("h");
+if($("#szMirrorV"))$("#szMirrorV").onclick=()=>_szMirror("v");
 (function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1,grp=null,box=null;
   const open=()=>!$("#slideZoom").classList.contains("hidden");
   z.addEventListener("contextmenu",e=>e.preventDefault());
@@ -4538,11 +4541,13 @@ if($("#pgPlaceBtn"))$("#pgPlaceBtn").onclick=openPgZoom;
 if($("#pgZoomClose"))$("#pgZoomClose").onclick=closePgZoom;
 if($("#pgZoomReset"))$("#pgZoomReset").onclick=pgResetGroup;
 if($("#pgZoomOnion"))$("#pgZoomOnion").onclick=function(){_pgOnion=!_pgOnion;this.textContent="🧅 어니언 스킨: "+(_pgOnion?"켜기":"끄기");this.style.color=_pgOnion?"#ffd23f":"#9fb6ff";this.style.borderColor=_pgOnion?"#ffd23f":"#2a3158";};
-function _pgMirror(){if(!_pgMem)return;pushUndo();   // ⇄ 앵커+방향을 중앙점 기준 점대칭
+function _pgMirror(axis){if(!_pgMem)return;pushUndo();   // axis='h' 좌우(x축) · 'v' 상하(y축). 앵커+이동방향 함께 반전
   const ax=_pgGet("pgAx",0.5),ay=_pgGet("pgAy",0.42),dir=_pgGet("pgDir",-Math.PI/2);
-  _pgSet({pgAx:clamp(1-ax,0,1),pgAy:clamp(1-ay,0,1),pgDir:dir+Math.PI});
-  toast("위치군 대칭 이동 (중앙점 기준 · 이동방향도 반전)");}
-if($("#pgZoomMirror"))$("#pgZoomMirror").onclick=_pgMirror;
+  if(axis==="v")_pgSet({pgAy:clamp(1-ay,0,1),pgDir:-dir});           // 상하: y반전, 방향 (dx,dy)→(dx,-dy) = -θ
+  else _pgSet({pgAx:clamp(1-ax,0,1),pgDir:Math.PI-dir});             // 좌우: x반전, 방향 (dx,dy)→(-dx,dy) = π-θ
+  toast("위치군 "+(axis==="v"?"상하반전":"좌우반전")+" (앵커·이동방향 함께)");}
+if($("#pgZoomMirrorH"))$("#pgZoomMirrorH").onclick=()=>_pgMirror("h");
+if($("#pgZoomMirrorV"))$("#pgZoomMirrorV").onclick=()=>_pgMirror("v");
 (function(){const z=$("#pgZoomCv");if(!z)return;
   const open=()=>!$("#pgZoom").classList.contains("hidden");
   function pick(px,py){const h=_pgHandles;if(!h)return null;const near=(x,y,r)=>Math.hypot(x-px,y-py)<r;
