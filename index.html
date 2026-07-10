@@ -1435,7 +1435,7 @@ async function fetchRemoteOverrides(){
 // 한 (곡,난이도)의 적용 채보: 발행된 Gist(온라인)가 "무조건" 권위. Gist 없을 때만 로컬(미발행 편집), 그것도 없으면 내장.
 //   → 내장곡은 온라인이 진실. 스테일 로컬은 발행본을 절대 못 이김(mtime 경쟁 제거).
 function pickChart(songId,diffName,builtinChart,localSong){
-  if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o){if(o.chart)return o.chart;if(o.notes)return Object.assign({},builtinChart,{notes:o.notes,zones:o.zones||[],mtime:o.mtime||0});}}
+  if(_remoteOv&&_remoteOv.length){const o=_remoteOv.find(x=>x.song===songId&&x.diff===diffName);if(o){if(o.chart)return o.chart;if(o.notes)return Object.assign({},builtinChart,{notes:o.notes,zones:o.zones||[],flickers:o.flickers||[],mtime:o.mtime||0});}}   // ★flickers 포함(빠지면 재로드 때 플리커 유실)
   if(localSong){const d=localSong.difficulties.find(x=>x.name===diffName);if(d&&d.chart&&d.chart.notes&&d.chart.notes.length)return d.chart;}
   return builtinChart;
 }
@@ -1460,7 +1460,7 @@ async function allSongsForPlay(){
     for(const d of s.difficulties){ const ld=lib.difficulties.find(x=>x.name===d.name); if(!ld||!ld.chart)continue;
       const o=_remoteOv&&_remoteOv.find(x=>x.song===s.id&&x.diff===d.name); if(!o||!o.notes)continue;
       if((o.mtime||0)>=(ld.chart.mtime||0) && (ld.chart.notes||[]).length!==o.notes.length){
-        ld.chart={notes:o.notes,zones:o.zones||ld.chart.zones||[],mtime:o.mtime||0,title:ld.chart.title||((s.title||"")+" ["+d.name+"]")}; ch=true; }
+        ld.chart={notes:o.notes,zones:o.zones||ld.chart.zones||[],flickers:o.flickers||ld.chart.flickers||[],mtime:o.mtime||0,title:ld.chart.title||((s.title||"")+" ["+d.name+"]")}; ch=true; }   // ★flickers 보존
     } if(ch)dbPut(lib); }
   }catch(e){}
   // 내장곡: 난이도 목록=내장(NORMAL 삭제 유지), 노트=내 편집본>Gist>내장
@@ -3737,7 +3737,7 @@ async function editorSave(silent){
   try{await dbPut(song);edSeedDiffs=null;
     // ★내장곡 편집 = 그 채보만 콕 집어 온라인(Gist) 반영. 스테일 로컬이 절대 안 섞임.
     {const _bi=new Set(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).map(s=>s.id));
-     if(ghToken()&&_bi.has(song.id))uploadChartToGist(song.id,diff,chart.notes,false,chart.zones,chart.flickers);}
+     if(ghToken()&&_bi.has(song.id))uploadChartToGist(song.id,diff,chart.notes,false,chart.zones,chart.flickers,chart.mtime);}
     if(!silent)toast(ghToken()? ("✅ 저장 + 온라인 자동반영: "+title+" ["+diff+"]") : ("💾 이 브라우저에만 저장됨 — 온라인/모두에게 반영하려면 상단에 토큰을 한 번 설정하세요: "+title+" ["+diff+"]"));return true;}
   catch(e){toast("저장 실패: "+e.message);return false;}
 }
@@ -3873,14 +3873,14 @@ async function uploadOverridesToGist(silent){
   }catch(e){toast("업로드 오류: "+(e.message||e));return false;}
 }
 // 편집한 그 채보 하나만 콕 집어 Gist에 반영 (스테일 로컬이 안 섞임). 항상 최신 Gist에 머지 후 PATCH.
-async function uploadChartToGist(songId,diff,notes,silent,zones,flickers){
+async function uploadChartToGist(songId,diff,notes,silent,zones,flickers,mtime){
   const tok=ghToken(); if(!tok){if(!silent)toast("💾 이 브라우저에만 저장됨 — 온라인 반영하려면 토큰 설정");return false;}
   if(!GIST_ID)return false;
   try{
     await refetchRemote();
     const _prev=(_remoteOv||[]).find(o=>o.song===songId&&o.diff===diff);   // 기존 잠금 보존
     let ov=(_remoteOv||[]).filter(o=>!(o.song===songId&&o.diff===diff));
-    const _e={song:songId,diff:diff,notes:notes,zones:zones||[],flickers:flickers||[],mtime:Date.now()}; if(_prev&&typeof _prev.locked==="boolean")_e.locked=_prev.locked; ov.push(_e);
+    const _e={song:songId,diff:diff,notes:notes,zones:zones||[],flickers:flickers||[],mtime:mtime||Date.now()}; if(_prev&&typeof _prev.locked==="boolean")_e.locked=_prev.locked; ov.push(_e);   // ★로컬 저장본과 같은 mtime → 로컬 우선 유지(gist가 인위적으로 최신되어 flickers 덮는 것 방지)
     const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
       headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
       body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
