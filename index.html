@@ -201,7 +201,8 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   #edBar2>*{flex:0 0 auto;}
   #edBar2 .spacer{flex:0 0 100%;height:0;}   /* 줄바꿈 구분: 도구 다음 줄로 선택패널/도움말 */
   /* ★상황별 패널은 흐름에서 빼서 absolute 오버레이로 — 표시/숨김에 툴바·타임라인이 안 들썩이게 (edBar2 바로 위에 띄움) */
-  #selPanel,#grpPanel,#zonePanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:72px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
+  #selPanel,#grpPanel,#zonePanel,#flickerPanel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px;background:var(--panel);border-radius:10px;position:absolute;left:14px;right:14px;bottom:72px;z-index:40;box-shadow:0 8px 24px rgba(0,0,0,.55);border:1px solid #2a3158;}
+  #flickerPanel #fkColors button{width:18px;height:18px;border-radius:50%;padding:0;border:2px solid #2a3158;cursor:pointer;}
   #slideDock{position:absolute;top:96px;right:14px;width:264px;z-index:55;background:var(--panel);border:1px solid #39e36b;border-radius:12px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.6);}
   #slideDock .sd-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--green);margin-bottom:8px;}
   #slideDock .sd-head button{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;padding:0 2px;}
@@ -209,6 +210,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   #slideDock .sd-row label{min-width:34px;color:var(--muted);}
   #slideDock select{background:var(--panel2);color:var(--text);border:1px solid #2a3158;border-radius:6px;padding:3px 5px;flex:1;}
   #zonePanel.hidden{display:none;}
+  #flickerPanel.hidden{display:none;}
   #ed-help{color:var(--muted);font-size:12px;flex:1 1 100%;white-space:normal;line-height:1.5;}
   #genStatus{font-size:13px;color:var(--yellow);}
 
@@ -549,6 +551,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
         <button class="tb-btn" id="toolSpace" title="Spacebar note (giant center ring)">+Space</button>
         <button class="tb-btn" id="toolGroup">🎨 Color group</button>
         <button class="tb-btn" id="toolSpeed" title="Speed-up / slow zone (drag to create)">⏩ Speed zone</button>
+        <button class="tb-btn" id="toolFlicker" title="네온 플리커 구간 (드래그로 생성)">✨ Flicker</button>
         <button class="tb-btn" id="edClearNotes" title="이 채보의 모든 노트를 삭제(비우기) — 되돌리기(Undo) 가능" style="color:var(--pink)">🗑 노트 비우기</button>
         <span style="width:18px"></span>
         <b style="color:#5cc8ff">Beat</b>
@@ -565,6 +568,16 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <span class="field">In <input type="number" id="zoneRin" value="0.4" step="0.1" min="0" style="width:54px">s</span>
           <span class="field">Out <input type="number" id="zoneRout" value="0.4" step="0.1" min="0" style="width:54px">s</span>
           <button class="tb-btn" id="zoneDel" style="color:var(--pink)">Delete zone</button>
+        </div>
+        <div id="flickerPanel" class="hidden">
+          <span style="color:#ff6ec7">✨ Flicker:</span>
+          <span class="field">속도 <input type="number" id="fkSpeed" step="0.5" min="1" max="18" value="7" style="width:56px">Hz</span>
+          <span class="field">범위 <input type="number" id="fkRange" step="1" min="4" max="42" value="20" style="width:52px">%</span>
+          <span class="field">세기 <input type="number" id="fkOp" step="0.05" min="0.2" max="1.3" value="1" style="width:56px"></span>
+          <select id="fkStyle" title="플리커 스타일"><option value="random">랜덤</option><option value="strobe">스트로브</option><option value="pulse">펄스</option></select>
+          <label class="field" title="배경 전체 플리커"><input type="checkbox" id="fkFull"> 풀스크린</label>
+          <span class="field" id="fkColors" style="gap:4px"></span>
+          <button class="tb-btn" id="fkDel" style="color:var(--pink)">Delete</button>
         </div>
         <div id="selPanel" class="hidden">
           <span id="selCount">Selected:</span>
@@ -2058,6 +2071,43 @@ function padGeomFor(W,H){
   return {r,y,xs,ys,bottomY,topEdge,conH,bowl,margin,bevel,nr,sx,ex,ebx0,ebx2,padY};
 }
 function padGeom(){return padGeomFor(pcanvas.width,pcanvas.height);}
+// ===== 네온 엣지 플리커 (에디터 구간 데이터 기반, 클럽 조명 연출) =====
+const FK_NEON=[[255,46,151],[34,167,255],[57,227,107],[255,210,63],[168,85,247],[34,238,238],[255,255,255]];
+let _fkc=null,_fkg=null;
+function _fkRGBA(c,a){a=a<0?0:a>1?1:a;return "rgba("+(c[0]|0)+","+(c[1]|0)+","+(c[2]|0)+","+a+")";}
+function _fkHash(n){const x=Math.sin(n*127.1+13.7)*43758.5453;return x-Math.floor(x);}
+function fkActive(now){const F=state&&state.flickers;if(!F||!F.length)return null;for(const f of F){if(now>=f.t0&&now<=f.t1)return f;}return null;}
+function fkIntensity(f,now){const rel=now-f.t0,sp=f.speed||7;
+  if(f.style==="pulse")return 0.22+0.78*(0.5+0.5*Math.sin(rel*sp*2*Math.PI));
+  if(f.style==="strobe"){const ph=(rel*sp)%1;return ph<0.45?1:0.05;}
+  const seg=Math.floor(rel*sp);return _fkHash(seg)<0.72?(0.55+_fkHash(seg+0.37)*0.45):0.05;}   // random(결정적 해시)
+// pcanvas에 플리커 합성. holes=[{x,y,r}] 노트 몸체 → destination-out으로 제외(다운샘플 번짐까지 차단, 노트 무오염)
+function drawFlicker(now,holes){
+  const f=fkActive(now); if(!f)return;
+  const W=pcanvas.width,H=pcanvas.height;
+  let env=1; const RI=0.15; if(now<f.t0+RI)env=(now-f.t0)/RI; if(now>f.t1-RI)env=Math.min(env,(f.t1-now)/RI); if(env<0)env=0;
+  const intv=fkIntensity(f,now)*env, op=(f.op!=null?f.op:1), rng=(f.range!=null?f.range:20);
+  const col=f.cycle?FK_NEON[Math.floor((now-f.t0)*(f.speed||7))%FK_NEON.length]:(f.col||FK_NEON[0]);
+  if(!_fkc){_fkc=document.createElement("canvas");_fkg=document.createElement("canvas");}
+  if(_fkc.width!==W||_fkc.height!==H){_fkc.width=_fkg.width=W;_fkc.height=_fkg.height=H;}
+  const fx=_fkc.getContext("2d"), gx=_fkg.getContext("2d");
+  fx.clearRect(0,0,W,H);
+  if(f.full){fx.globalCompositeOperation="source-over";fx.globalAlpha=0.34*intv;fx.fillStyle=_fkRGBA(col,1);fx.fillRect(0,0,W,H);fx.globalAlpha=1;}   // 풀스크린 워시
+  const rr=rng/100*H, rrB=rr*1.7;   // 엣지 프레임(아래=플레이존으로 더 침투)
+  gx.clearRect(0,0,W,H);
+  function mk(x0,y0,x1,y1){const gr=gx.createLinearGradient(x0,y0,x1,y1);gr.addColorStop(0,_fkRGBA(col,0.92*intv*op));gr.addColorStop(0.3,_fkRGBA(col,0.4*intv*op));gr.addColorStop(0.62,_fkRGBA(col,0.12*intv*op));gr.addColorStop(1,_fkRGBA(col,0));return gr;}
+  gx.globalCompositeOperation="source-over";gx.fillStyle=mk(0,H,0,H-rrB);gx.fillRect(0,H-rrB,W,rrB);
+  gx.globalCompositeOperation="lighten";
+  gx.fillStyle=mk(0,0,0,rr);gx.fillRect(0,0,W,rr);
+  gx.fillStyle=mk(0,0,rr,0);gx.fillRect(0,0,rr,H);
+  gx.fillStyle=mk(W,0,W-rr,0);gx.fillRect(W-rr,0,rr,H);
+  fx.globalCompositeOperation="lighter";fx.drawImage(_fkg,0,0);
+  if(!f.full&&intv>0.62){fx.globalAlpha=(intv-0.62)*0.16*op;fx.fillStyle=_fkRGBA(col,1);fx.fillRect(0,0,W,H);fx.globalAlpha=1;}
+  if(holes&&holes.length){fx.globalCompositeOperation="destination-out";fx.fillStyle="#000";
+    for(const h of holes){fx.beginPath();fx.arc(h.x,h.y,h.r,0,6.2832);fx.fill();}}
+  fx.globalCompositeOperation="source-over";
+  pctx.save();pctx.globalCompositeOperation="lighter";pctx.drawImage(_fkc,0,0);pctx.restore();
+}
 // SHARED 분리선(원근 수평선) — 인게임·How-to 동일. divY 반환(클립 경계로도 사용)
 function NoteFX_divider(ctx,g,W,H){
   const offY=g.r*0.5;
@@ -2498,11 +2548,12 @@ function startPlay(startAt){try{
   const lastT=notes.length?Math.max(...notes.map(n=>n.time+(n.duration||0))):0;
   if(startAt>0)notes.forEach(n=>{if(n.time<startAt-0.001){n.done=true;n.headJudged=true;}});  // 구간 앞 노트는 건너뜀
   const zones=(playChart.zones||[]).map(z=>({t0:z.t0,t1:z.t1,type:z.type||"up",rampIn:z.rampIn||0,rampOut:z.rampOut||0,factor:(typeof z.factor==="number"?z.factor:undefined)}));   // 스피드 구간(배속 포함)
+  const flickers=(playChart.flickers||[]).map(f=>({t0:f.t0,t1:f.t1,speed:(f.speed>0?f.speed:7),range:(f.range!=null?f.range:20),op:(f.op!=null?f.op:1),style:f.style||"random",full:!!f.full,cycle:!!f.cycle,col:(Array.isArray(f.col)?f.col.slice(0,3):null)}));   // ★네온 플리커 구간
   const warp=buildWarp(zones,lastT);
   const AR0=approachSec();
   notes.forEach(n=>{n._wA=warpAt(warp,n.time-AR0);n._wT=warpAt(warp,n.time);n._arEff=AR0*Math.pow(zoneFactorAt(n.time,zones)||1,0.65);});   // 노트별 워프 상수 + ★접근창(슬로우 구간 쌓임 완화: 노트 도착 배속으로 고정 → 경계 연속, 사라짐/갑툭튀 없음)
   state={notes,score:0,combo:0,maxCombo:0,counts:{perfect:0,great:0,good:0,bad:0,miss:0},
-    held:[false,false,false,false],spaceDown:false,padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,warp,
+    held:[false,false,false,false],spaceDown:false,padFx:[null,null,null,null],particles:[],spaceParts:[],floats:[],bg,lastT,zones,flickers,warp,
     started:false,ended:false,audioStarted:false,leadIn:0,t0:0,ar:AR0,startAt:startAt,
     readyGate:false,holdStart:0,readyProg:0};
   updateHUD();
@@ -3154,6 +3205,8 @@ function loop(){
     drawList.push(n);
   }
   drawList.sort((a,b)=>b.time-a.time);
+  // ★네온 플리커 — 노트 뒤·콘솔 뒤. 노트 몸체 구멍으로 무오염 (클립 밖: 전체 화면 연출)
+  drawFlicker(now, drawList.map(n=>({x:n.x,y:n.y,r:r*1.5})));
   pctx.save();pctx.beginPath();pctx.moveTo(0,0);pctx.lineTo(W,0);for(let x=W;x>=0;x-=4)pctx.lineTo(x,divY(x));pctx.closePath();pctx.clip();  // ★분리선 곡선 위 = 플레이존(패드/분리선 위로는 안 잘림)
   // ★스와이프 체인 리본 — 멤버를 ci 순서로 잇는 발광 띠 (노드 밑에 깔림). 타격된 노드는 빠져 띠가 '소모'됨
   {
@@ -3419,15 +3472,15 @@ function edStartSrc(off){            // off(초)부터 BufferSource 재생 — �
   _edStartOff=clamp(off,0,edDur());_edStartCtx=ctx.currentTime;
   try{edSrc.start(0,_edStartOff);}catch(e){}
 }
-let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null;
+let edTool="select",edSel=null,edDrag=null,edSelSet=[],grpDrag=null,edZones=[],edZoneSel=null,edFlickers=[],edFlickerSel=null;
 let edClip=null, undoStack=[], redoStack=[], spaceHeld=false;   // 클립보드·실행취소·팬
 function uniq(a){return a.filter((v,i)=>a.indexOf(v)===i);}
-function snapshotNotes(){return {notes:edNotes.map(n=>{const c={...n};if(Array.isArray(n.pts))c.pts=n.pts.map(p=>p.slice());if(Array.isArray(n.ptt))c.ptt=n.ptt.slice();return c;}),zones:edZones.map(z=>({...z}))};}   // 노트+속도구간 함께 스냅샷(경로·시간 깊은복사)
-function restoreSnap(s){if(Array.isArray(s)){edNotes=s;}else{edNotes=s.notes||[];edZones=s.zones||[];}edZoneSel=null;}
+function snapshotNotes(){return {notes:edNotes.map(n=>{const c={...n};if(Array.isArray(n.pts))c.pts=n.pts.map(p=>p.slice());if(Array.isArray(n.ptt))c.ptt=n.ptt.slice();return c;}),zones:edZones.map(z=>({...z})),flickers:edFlickers.map(f=>({...f,col:f.col?f.col.slice():null}))};}   // 노트+속도+플리커 스냅샷
+function restoreSnap(s){if(Array.isArray(s)){edNotes=s;}else{edNotes=s.notes||[];edZones=s.zones||[];edFlickers=s.flickers||[];}edZoneSel=null;edFlickerSel=null;}
 function commitUndo(pre){undoStack.push(pre);if(undoStack.length>120)undoStack.shift();redoStack.length=0;}
 function pushUndo(){commitUndo(snapshotNotes());}
-function doUndo(){if(!undoStack.length){toast("취소할 작업 없음");return;}redoStack.push(snapshotNotes());restoreSnap(undoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();toast("↩ 실행취소");}
-function doRedo(){if(!redoStack.length){toast("복구할 작업 없음");return;}undoStack.push(snapshotNotes());restoreSnap(redoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();toast("↪ 다시 실행");}
+function doUndo(){if(!undoStack.length){toast("취소할 작업 없음");return;}redoStack.push(snapshotNotes());restoreSnap(undoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();updateFlickerPanel();toast("↩ 실행취소");}
+function doRedo(){if(!redoStack.length){toast("복구할 작업 없음");return;}undoStack.push(snapshotNotes());restoreSnap(redoStack.pop());selClear();updateSelPanel();updateGrpPanel();updateZonePanel();updateFlickerPanel();toast("↪ 다시 실행");}
 function selClear(){edSelSet=[];edSel=null;}
 function selSetTo(n){edSel=n;edSelSet=n?[n]:[];}
 function selToggle(n){const i=edSelSet.indexOf(n);if(i>=0){edSelSet.splice(i,1);edSel=edSelSet[edSelSet.length-1]||null;}else{edSelSet.push(n);edSel=n;}}
@@ -3605,6 +3658,7 @@ async function editorEditBuiltin(id,diffName){
   const _ch=pickChartForEdit(song.id,d.name,d.chart,_lib);   // ★로컬 저장본 최우선(저장 유실 방지) — 더 최신 Gist 있을 때만 그걸
   edNotes=(_ch.notes||[]).map(n=>({...n}));   // ★내 편집본>Gist>내장 (편집 이어서)
   edZones=(_ch.zones||[]).map(z=>({...z}));
+  edFlickers=(_ch.flickers||[]).map(f=>({...f,col:Array.isArray(f.col)?f.col.slice():null}));
   show("editor");edInit();updateSelPanel();
   try{const blob=await (await fetch(song.audio)).blob();edAudioFile=blob;await loadEditorAudioBlob(blob);}catch(e){toast("음원 로드 실패");}
 }
@@ -3615,7 +3669,7 @@ async function editorAddDiffBuiltin(id){
   show("editor");edInit();updateSelPanel();
   try{const blob=await (await fetch(song.audio)).blob();edAudioFile=blob;await loadEditorAudioBlob(blob);}catch(e){toast("음원 로드 실패");}
 }
-function resetEditorState(){edNotes=[];edSel=null;edSelSet=[];edTime=0;edPlaying=false;edBuffer=null;edPeaks=null;edAudio=null;edAudioFile=null;edSeedDiffs=null;view={pps:120,scroll:0};undoStack=[];redoStack=[];edClip=null;spaceHeld=false;edDrag=null;grpDrag=null;edZones=[];edZoneSel=null;}
+function resetEditorState(){edNotes=[];edSel=null;edSelSet=[];edTime=0;edPlaying=false;edBuffer=null;edPeaks=null;edAudio=null;edAudioFile=null;edSeedDiffs=null;view={pps:120,scroll:0};undoStack=[];redoStack=[];edClip=null;spaceHeld=false;edDrag=null;grpDrag=null;edZones=[];edZoneSel=null;edFlickers=[];edFlickerSel=null;}
 function editorNew(){
   resetEditorState();edSongId=null;
   $("#edSongTitle").value="";$("#edDiffName").value="NORMAL";
@@ -3630,6 +3684,7 @@ async function editorEdit(songId,diffName){
   const _ch=pickChartForEdit(song.id,d.name,d.chart,song);   // ★로컬 저장본 최우선(저장 유실 방지) — 더 최신 Gist 있을 때만 그걸
   edNotes=(_ch.notes||[]).map(n=>({...n}));
   edZones=(_ch.zones||[]).map(z=>({...z}));   // ★스피드 구간도 복원(기존엔 누락되어 재진입 시 사라짐)
+  edFlickers=(_ch.flickers||[]).map(f=>({...f,col:Array.isArray(f.col)?f.col.slice():null}));   // ★플리커 구간 복원
   show("editor");edInit();updateSelPanel();
   await loadEditorAudioBlob(song.audio);
 }
@@ -3646,7 +3701,7 @@ async function editorSave(silent){
   if(!diff){if(!silent)toast("난이도 이름을 입력하세요 (예: EASY)");return false;}
   if(!edNotes.length){if(!silent)toast("노트가 없습니다 — 자동생성하거나 추가하세요");return false;}
   const _cc=currentChart();
-  const chart={title:title+" ["+diff+"]",notes:_cc.notes,zones:_cc.zones||[],mtime:Date.now()};  // ★수정시각 + 스피드 구간
+  const chart={title:title+" ["+diff+"]",notes:_cc.notes,zones:_cc.zones||[],flickers:_cc.flickers||[],mtime:Date.now()};  // ★수정시각 + 스피드 구간 + 플리커
   let song = edSongId? await dbGet(edSongId) : null;
   if(!song){
     // DB에 없음 = 신규 곡이거나 내장곡 첫 수정. 내장곡이면 형제 난이도들을 보존(edSeedDiffs).
@@ -3664,7 +3719,7 @@ async function editorSave(silent){
   try{await dbPut(song);edSeedDiffs=null;
     // ★내장곡 편집 = 그 채보만 콕 집어 온라인(Gist) 반영. 스테일 로컬이 절대 안 섞임.
     {const _bi=new Set(((typeof window.SONGS!=="undefined"&&window.SONGS)||[]).map(s=>s.id));
-     if(ghToken()&&_bi.has(song.id))uploadChartToGist(song.id,diff,chart.notes,false,chart.zones);}
+     if(ghToken()&&_bi.has(song.id))uploadChartToGist(song.id,diff,chart.notes,false,chart.zones,chart.flickers);}
     if(!silent)toast(ghToken()? ("✅ 저장 + 온라인 자동반영: "+title+" ["+diff+"]") : ("💾 이 브라우저에만 저장됨 — 온라인/모두에게 반영하려면 상단에 토큰을 한 번 설정하세요: "+title+" ["+diff+"]"));return true;}
   catch(e){toast("저장 실패: "+e.message);return false;}
 }
@@ -3765,7 +3820,7 @@ async function buildRemoteOverrides(){
       const hasGist=_remoteOv&&_remoteOv.find(x=>x.song===s.id&&x.diff===d.name);
       if(!hasLocal&&!hasGist)continue;          // 편집/오버라이드 있는 난이도만
       const ch=pickChart(s.id,d.name,d.chart,lib);
-      out.push({song:s.id,diff:d.name,notes:ch.notes,zones:ch.zones||[],mtime:ch.mtime||0});
+      out.push({song:s.id,diff:d.name,notes:ch.notes,zones:ch.zones||[],flickers:ch.flickers||[],mtime:ch.mtime||0});
     }
   }
   return out;
@@ -3800,14 +3855,14 @@ async function uploadOverridesToGist(silent){
   }catch(e){toast("업로드 오류: "+(e.message||e));return false;}
 }
 // 편집한 그 채보 하나만 콕 집어 Gist에 반영 (스테일 로컬이 안 섞임). 항상 최신 Gist에 머지 후 PATCH.
-async function uploadChartToGist(songId,diff,notes,silent,zones){
+async function uploadChartToGist(songId,diff,notes,silent,zones,flickers){
   const tok=ghToken(); if(!tok){if(!silent)toast("💾 이 브라우저에만 저장됨 — 온라인 반영하려면 토큰 설정");return false;}
   if(!GIST_ID)return false;
   try{
     await refetchRemote();
     const _prev=(_remoteOv||[]).find(o=>o.song===songId&&o.diff===diff);   // 기존 잠금 보존
     let ov=(_remoteOv||[]).filter(o=>!(o.song===songId&&o.diff===diff));
-    const _e={song:songId,diff:diff,notes:notes,zones:zones||[],mtime:Date.now()}; if(_prev&&typeof _prev.locked==="boolean")_e.locked=_prev.locked; ov.push(_e);
+    const _e={song:songId,diff:diff,notes:notes,zones:zones||[],flickers:flickers||[],mtime:Date.now()}; if(_prev&&typeof _prev.locked==="boolean")_e.locked=_prev.locked; ov.push(_e);
     const res=await fetch("https://api.github.com/gists/"+GIST_ID,{method:"PATCH",
       headers:{"Authorization":"token "+tok,"Accept":"application/vnd.github+json"},
       body:JSON.stringify({files:{"charts.json":{content:JSON.stringify(ov)}}})});
@@ -3956,6 +4011,7 @@ $("#toolChain").onclick=()=>setTool("chain");
 $("#toolSpace").onclick=()=>setTool("space");
 $("#toolGroup").onclick=()=>setTool("group");
 $("#toolSpeed").onclick=()=>setTool("speed");
+$("#toolFlicker").onclick=()=>setTool("flicker");
 function setTool(t){edTool=t;
   $("#toolSelect").classList.toggle("on",t==="select");
   $("#toolAdd").classList.toggle("on",t==="add");
@@ -3965,10 +4021,13 @@ function setTool(t){edTool=t;
   $("#toolSpace").classList.toggle("on",t==="space");
   $("#toolGroup").classList.toggle("on",t==="group");
   $("#toolSpeed").classList.toggle("on",t==="speed");
+  $("#toolFlicker").classList.toggle("on",t==="flicker");
   $("#grpPanel").classList.toggle("hidden",t!=="group");
   if(t!=="group"){edSelSet=[];}
   if(t!=="speed"){edZoneSel=null;}
+  if(t!=="flicker"){edFlickerSel=null;}
   updateZonePanel();
+  updateFlickerPanel();
   updateGrpPanel();
 }
 function updateZonePanel(){const p=$("#zonePanel");if(!p)return;
@@ -3985,11 +4044,27 @@ $("#zoneFactor").oninput=()=>{if(!edZoneSel)return;const up=edZoneSel.type!=="do
 $("#zoneRin").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampIn=Math.max(0,parseFloat($("#zoneRin").value)||0);};
 $("#zoneRout").onchange=()=>{if(!edZoneSel)return;pushUndo();edZoneSel.rampOut=Math.max(0,parseFloat($("#zoneRout").value)||0);};
 $("#zoneDel").onclick=()=>{if(!edZoneSel)return;pushUndo();const i=edZones.indexOf(edZoneSel);if(i>=0)edZones.splice(i,1);edZoneSel=null;updateZonePanel();toast("구간 삭제됨");};
+// ===== 플리커 구간 패널 =====
+function _fkColBtns(){const box=$("#fkColors");if(!box||box._built)return;box._built=1;
+  FK_NEON.forEach((c)=>{const b=document.createElement("button");b.style.background="rgb("+c[0]+","+c[1]+","+c[2]+")";b.title="색";b.onclick=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.cycle=false;edFlickerSel.col=c.slice();updateFlickerPanel();};box.appendChild(b);});
+  const cyc=document.createElement("button");cyc.textContent="🌈";cyc.style.cssText="width:auto;height:18px;border-radius:9px;padding:0 6px;font-size:12px;border:2px solid #2a3158;cursor:pointer;background:var(--panel2);color:var(--text);";cyc.title="클럽(색 순환)";cyc.onclick=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.cycle=!edFlickerSel.cycle;updateFlickerPanel();};box.appendChild(cyc);box._cyc=cyc;}
+function updateFlickerPanel(){const p=$("#flickerPanel");if(!p)return;_fkColBtns();
+  if(edTool==="flicker"&&edFlickerSel){p.classList.remove("hidden");_posPanel(p);const f=edFlickerSel;
+    $("#fkSpeed").value=f.speed||7;$("#fkRange").value=(f.range!=null?f.range:20);$("#fkOp").value=(f.op!=null?f.op:1);$("#fkStyle").value=f.style||"random";$("#fkFull").checked=!!f.full;
+    const box=$("#fkColors");[].forEach.call(box.children,(b,i)=>{if(i<FK_NEON.length)b.style.outline=(!f.cycle&&f.col&&f.col[0]===FK_NEON[i][0]&&f.col[1]===FK_NEON[i][1]&&f.col[2]===FK_NEON[i][2])?"2px solid #fff":"none";});
+    if(box._cyc)box._cyc.style.outline=f.cycle?"2px solid #39e36b":"none";
+  }else p.classList.add("hidden");}
+$("#fkSpeed").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.speed=clamp(parseFloat($("#fkSpeed").value)||7,1,18);};
+$("#fkRange").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.range=clamp(parseFloat($("#fkRange").value)||20,4,42);};
+$("#fkOp").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.op=clamp(parseFloat($("#fkOp").value)||1,0.2,1.3);};
+$("#fkStyle").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.style=$("#fkStyle").value;};
+$("#fkFull").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.full=$("#fkFull").checked;};
+$("#fkDel").onclick=()=>{if(!edFlickerSel)return;pushUndo();const i=edFlickers.indexOf(edFlickerSel);if(i>=0)edFlickers.splice(i,1);edFlickerSel=null;updateFlickerPanel();toast("플리커 구간 삭제됨");};
 function updateGrpPanel(){const el=$("#grpCount");if(el)el.textContent=edSelSet.length?(edSelSet.length+"개 노트 선택됨 (드래그는 라인별로 가능)"):"라인 위를 가로로 드래그해 묶을 노트를 선택";
   const p=$("#grpPanel");if(p&&!p.classList.contains("hidden"))_posPanel(p);}
 // ★팝업 패널은 edBar2(overflow:auto)에 잘리므로 edWrap으로 옮기고 위치를 동적으로(=edBar2 바로 위)
 function _posPanel(el){if(!el)return;const b=$("#edBar2");el.style.bottom=((b?b.offsetHeight:64)+6)+"px";}
-(function(){const wrap=$("#edWrap");if(!wrap)return;["selPanel","grpPanel","zonePanel"].forEach(id=>{const el=$("#"+id);if(el&&el.parentNode!==wrap)wrap.appendChild(el);});})();
+(function(){const wrap=$("#edWrap");if(!wrap)return;["selPanel","grpPanel","zonePanel","flickerPanel"].forEach(id=>{const el=$("#"+id);if(el&&el.parentNode!==wrap)wrap.appendChild(el);});})();
 $("#grpMake").onclick=makeGroupFromSel;
 $("#grpMakePos").onclick=makePosGroupFromSel;
 $("#grpClear").onclick=ungroupSel;
@@ -4108,6 +4183,14 @@ tl.addEventListener("mousedown",e=>{
       edDrag={mode:"zoneedit",z:hit,sub,startT:t};return;}
     pushUndo();const z={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),type:"up",rampIn:0.4,rampOut:0.4,factor:ZUP_DEF};edZones.push(z);edZoneSel=z;updateZonePanel();edDrag={mode:"zoneedit",z,sub:"R",startT:t};return;
   }
+  if(edTool==="flicker"){
+    const hit=edFlickers.find(f=>t>=f.t0-0.25&&t<=f.t1+0.25);   // 기존 구간 잡기
+    if(hit){pushUndo();edFlickerSel=hit;updateFlickerPanel();
+      const TH=8,dL=Math.abs(x-xOf(hit.t0)),dR=Math.abs(x-xOf(hit.t1));
+      let sub="move",best=TH;[["L",dL],["R",dR]].forEach(c=>{if(c[1]<best){best=c[1];sub=c[0];}});
+      edDrag={mode:"flkedit",z:hit,sub,startT:t};return;}
+    pushUndo();const f={t0:+t.toFixed(3),t1:+(t+0.05).toFixed(3),speed:7,range:20,op:1,style:"random",full:false,cycle:false,col:FK_NEON[0].slice()};edFlickers.push(f);edFlickerSel=f;updateFlickerPanel();edDrag={mode:"flkedit",z:f,sub:"R",startT:t};return;
+  }
   // ── 선택/이동 도구 ──
   // ★슬라이드 노트포인트 시간 이동 (선택된 슬라이드의 중간 점)
   if(!(e.shiftKey||e.ctrlKey||e.metaKey)){const sp=slidePtAt(x,y);
@@ -4174,6 +4257,11 @@ window.addEventListener("mousemove",e=>{   // ★window에서 받아 커서가 �
     else if(sub==="Ro")z.rampOut=+clamp(z.t1-t,0,z.t1-z.t0).toFixed(2);
     else{const dur=z.t1-z.t0,d=t-edDrag.startT;z.t0=+clamp(z.t0+d,0,edDur()-dur).toFixed(3);z.t1=+(z.t0+dur).toFixed(3);edDrag.startT=t;}
     updateZonePanel();}
+  else if(edDrag.mode==="flkedit"){const z=edDrag.z,sub=edDrag.sub;
+    if(sub==="L")z.t0=+clamp(t,0,z.t1-0.1).toFixed(3);
+    else if(sub==="R")z.t1=+Math.max(z.t0+0.1,t).toFixed(3);
+    else{const dur=z.t1-z.t0,d=t-edDrag.startT;z.t0=+clamp(z.t0+d,0,edDur()-dur).toFixed(3);z.t1=+(z.t0+dur).toFixed(3);edDrag.startT=t;}
+    updateFlickerPanel();}
 });
 window.addEventListener("mouseup",()=>{
   if(edDrag){
@@ -4517,6 +4605,12 @@ function edLoop(){
     if(z.rampOut>0){const rx=xOf(z.t1-z.rampOut);tctx.beginPath();tctx.moveTo(rx,0);tctx.lineTo(rx,H);tctx.stroke();}
     tctx.setLineDash([]);
     tctx.fillStyle="rgba("+base+",1)";tctx.font=(RT?"bold 15px":"11px")+" Segoe UI";tctx.textAlign="left";tctx.fillText((up?"⏩ SPEED UP":"🐢 SLOW"),a+4,H-22);}
+  // ★플리커 구간 밴드 (상단 라벨)
+  for(const f of edFlickers){const a=xOf(f.t0),b=xOf(f.t1);if(b<-20||a>W2+20)continue;
+    const c=f.cycle?[255,110,199]:(f.col||FK_NEON[0]), base=c[0]+","+c[1]+","+c[2], sel=(f===edFlickerSel);
+    tctx.fillStyle="rgba("+base+","+(sel?0.30:0.15)+")";tctx.fillRect(a,0,b-a,H);
+    tctx.strokeStyle="rgba("+base+","+(sel?1:0.6)+")";tctx.lineWidth=sel?2:1;tctx.strokeRect(a,0,Math.max(2,b-a),H);
+    tctx.fillStyle="rgba("+base+",1)";tctx.font=(RT?"bold 15px":"11px")+" Segoe UI";tctx.textAlign="left";tctx.fillText("✨ FLICKER"+(f.full?" FULL":"")+(f.cycle?" 🌈":""),a+4,RT?18:12);}
   // 드래그 박스 (2D: 시간 x 라인) — 컬러군 선택 / 박스 선택
   const boxDrag=grpDrag||(edDrag&&edDrag.mode==="box"?edDrag:null);
   if(boxDrag){const a=Math.min(boxDrag.x0,boxDrag.x1),b=Math.max(boxDrag.x0,boxDrag.x1),
@@ -4599,7 +4693,8 @@ function currentChart(){
   layoutPositions(edNotes,'x','y',true); // 좌표 없는 노트 채움
   const t=($("#edSongTitle").value||"무제")+($("#edDiffName").value?" ["+$("#edDiffName").value+"]":"");
   const zones=(edZones||[]).slice().sort((a,b)=>a.t0-b.t0).map(z=>{const up=z.type!=="down";const f=clamp(typeof z.factor==="number"?z.factor:(up?ZUP_DEF:ZDN_DEF),up?ZUP_MIN:ZDN_MIN,up?ZUP_MAX:ZDN_MAX);return {t0:+z.t0.toFixed(3),t1:+z.t1.toFixed(3),type:z.type||"up",rampIn:+(z.rampIn||0).toFixed(2),rampOut:+(z.rampOut||0).toFixed(2),factor:+f.toFixed(2)};});
-  return{title:t,zones,notes:edNotes.slice().sort((a,b)=>a.time-b.time)
+  const flickers=(edFlickers||[]).slice().sort((a,b)=>a.t0-b.t0).map(f=>{const o={t0:+f.t0.toFixed(3),t1:+f.t1.toFixed(3),speed:+(f.speed||7),range:+(f.range!=null?f.range:20),op:+(+(f.op!=null?f.op:1)).toFixed(2),style:f.style||"random"};if(f.full)o.full=1;if(f.cycle)o.cycle=1;else if(Array.isArray(f.col))o.col=f.col.map(v=>v|0);return o;});   // ★네온 플리커 구간
+  return{title:t,zones,flickers,notes:edNotes.slice().sort((a,b)=>a.time-b.time)
     .map(n=>{
       if(n.type==="space")return n.duration?{time:n.time,type:"space",duration:n.duration}:{time:n.time,type:"space"};   // 스페이스(+홀드 길이)
       const o=(n.type==="press"||n.type==="slide")?{time:n.time,type:n.type,duration:n.duration||0.3}:{time:n.time,type:"normal"};
