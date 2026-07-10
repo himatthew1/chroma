@@ -253,12 +253,13 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
 <div id="scrFade" style="position:fixed;inset:0;background:#05060d;z-index:9000;opacity:0;pointer-events:none;transition:opacity .45s ease;"></div>
 <div id="slideZoom" class="hidden" style="position:fixed;inset:0;z-index:200;background:#04050c;">
   <canvas id="slideZoomCv" style="position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair"></canvas>
-  <div style="position:absolute;left:12px;top:12px;z-index:2;font:12px/1.6 ui-monospace,monospace;color:#9fb6ff;background:rgba(5,8,20,.72);padding:8px 11px;border-radius:8px;pointer-events:none">🔍 자세히 보기 — 실제 인게임 필드<br>점 끌어 이동 · 빈 곳 클릭=추가 · 우클릭=삭제 · 여기서 잡은 모양·위치가 그대로 적용</div>
+  <div style="position:absolute;left:12px;top:12px;z-index:2;font:12px/1.6 ui-monospace,monospace;color:#9fb6ff;background:rgba(5,8,20,.72);padding:8px 11px;border-radius:8px;pointer-events:none">🔍 자세히 보기 — 실제 인게임 필드<br>점 끌어 이동 · 빈 곳 드래그=여러 점 선택 · 선택한 점 끌어 함께 이동 · 빈 곳 클릭=추가 · 우클릭=삭제</div>
   <button id="slideZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
   <button id="slideZoomTest" style="position:absolute;right:120px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #22a7ff;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="이 드래그만 실제 인게임 속도로 재생(키로 타격해 역행까지 확인)">▶ 실제 테스트</button>
   <div style="position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:2;display:flex;gap:8px">
-    <button id="szMove" style="background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="점을 끌어 이동/모양만">✋ 이동</button>
+    <button id="szMove" style="background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="점을 끌어 이동 · 빈 곳 드래그=여러 점 선택">✋ 이동</button>
     <button id="szAdd" style="background:#141a32;color:#dfe6ff;border:1px solid #2a3158;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="빈 곳 클릭 = 노트포인트 추가">＋ 점 추가</button>
+    <button id="szMirror" style="background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="선택한 점(없으면 전체)을 화면 중앙점 기준 반대편으로 대칭 이동">⇄ 대칭 놓기</button>
   </div>
 </div>
 <div id="pgZoom" class="hidden" style="position:fixed;inset:0;z-index:200;background:#04050c;">
@@ -267,6 +268,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
   <button id="pgZoomClose" style="position:absolute;right:14px;top:12px;z-index:2;background:#141a32;color:#dfe6ff;border:1px solid #39e36b;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px">✓ 닫기</button>
   <button id="pgZoomReset" style="position:absolute;right:120px;top:12px;z-index:2;background:#141a32;color:#ff9a9a;border:1px solid #ff7a7a;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="직접설정 해제 → 다시 완전 랜덤 배치">↺ 초기화(랜덤)</button>
   <button id="pgZoomOnion" style="position:absolute;right:280px;top:12px;z-index:2;background:#141a32;color:#9fb6ff;border:1px solid #2a3158;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="이 위치군 전후 시간대의 다른 노트를 흐리게 겹쳐 보기">🧅 어니언 스킨: 끄기</button>
+  <button id="pgZoomMirror" style="position:absolute;right:440px;top:12px;z-index:2;background:#141a32;color:#ffd6f2;border:1px solid #ff6ec7;border-radius:8px;padding:9px 16px;cursor:pointer;font:inherit;font-size:13px" title="앵커(형성점)와 이동방향을 화면 중앙점 기준 반대편으로 대칭 이동">⇄ 대칭 놓기</button>
 </div>
 <div id="errBanner" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:100000;background:rgba(40,8,18,0.97);color:#ffeef4;border-top:3px solid #ff2e97;padding:10px 14px 12px;font:12px/1.45 monospace;max-height:42vh;overflow:auto;white-space:pre-wrap;">
   <button id="errCopy" style="position:absolute;right:70px;top:8px;font:11px monospace;padding:4px 9px;background:#22a7ff;color:#fff;border:none;border-radius:6px;cursor:pointer;">복사</button>
@@ -4397,7 +4399,7 @@ function drawSlidePath(n){const cv=$("#slidePathCv");if(!cv||!n.pts)return;const
   window.addEventListener("pointerup",()=>{drag=-1;});
 })();
 // ===== 자세히 보기 — 실제 인게임 필드 전체화면 + 이 드래그 직접 조정 =====
-let _szRaf=null,_szPP=[],_szM=null,_szMode="move";
+let _szRaf=null,_szPP=[],_szM=null,_szMode="move",_szSel=[],_szBox=null;
 function _szSetMode(mode){_szMode=mode;const mv=$("#szMove"),ad=$("#szAdd");if(mv)mv.style.borderColor=mode==="move"?"#39e36b":"#2a3158";if(ad)ad.style.borderColor=mode==="add"?"#39e36b":"#2a3158";}
 function _szHit(px,py){for(let i=0;i<_szPP.length;i++){if(Math.hypot(_szPP[i][0]-px,_szPP[i][1]-py)<18)return i;}return -1;}
 function _szToN(px,py){if(!_szM)return[0.5,0.5];return [clamp((px-_szM.mx)/_szM.pw,0,1),clamp((py-_szM.top)/_szM.ph,0,1)];}
@@ -4418,9 +4420,13 @@ function _szDraw(ts){const z=$("#slideZoomCv");if(!z||!edSel||edSel.type!=="slid
   c.save();NoteFX_approach(c,hd[0],hd[1],br2,r,prog,ez,1,col,false);NoteFX_noteBody(c,hd[0],hd[1],br2,col,{a:1,ease:ez,flash:fl,hold:false});c.restore();
   NoteFX_pads(c,g,W,H,[false,false,false,false],null,(t2,x,y,sz,cl)=>{c.save();c.fillStyle=cl;c.textAlign="center";c.textBaseline="middle";c.font="bold "+Math.round(sz)+"px monospace";c.fillText(t2,x,y);c.restore();},false);
   PP.forEach((P,j)=>{c.beginPath();c.arc(P[0],P[1],11,0,6.2832);c.fillStyle=j===0?"rgba(255,213,79,0.95)":"rgba(159,224,255,0.9)";c.fill();c.lineWidth=2;c.strokeStyle="#05070f";c.stroke();c.fillStyle="#05070f";c.font="bold 12px monospace";c.textAlign="center";c.textBaseline="middle";c.fillText(j===0?"H":String(j),P[0],P[1]);});
+  // ★다중선택 하이라이트 링
+  if(_szSel.length){c.save();c.strokeStyle="#ff6ec7";c.lineWidth=3;c.shadowColor="#ff6ec7";c.shadowBlur=8;_szSel.forEach(i=>{const P=PP[i];if(P){c.beginPath();c.arc(P[0],P[1],16,0,6.2832);c.stroke();}});c.restore();}
+  // ★선택 박스(빈 곳 드래그)
+  if(_szBox){c.save();const a=Math.min(_szBox.x0,_szBox.x1),b=Math.max(_szBox.x0,_szBox.x1),cc=Math.min(_szBox.y0,_szBox.y1),d=Math.max(_szBox.y0,_szBox.y1);c.fillStyle="rgba(255,110,199,0.12)";c.fillRect(a,cc,b-a,d-cc);c.strokeStyle="#ff6ec7";c.lineWidth=1.5;c.setLineDash([5,4]);c.strokeRect(a,cc,b-a,d-cc);c.setLineDash([]);c.restore();}
   _szRaf=requestAnimationFrame(_szDraw);
 }
-function openSlideZoom(){if(!edSel||edSel.type!=="slide"){toast("드래그 노트를 먼저 선택하세요");return;}slideEnsurePtt(edSel);_szSetMode("move");$("#slideZoom").classList.remove("hidden");if(_szRaf)cancelAnimationFrame(_szRaf);_szRaf=requestAnimationFrame(_szDraw);}
+function openSlideZoom(){if(!edSel||edSel.type!=="slide"){toast("드래그 노트를 먼저 선택하세요");return;}slideEnsurePtt(edSel);_szSetMode("move");_szSel=[];_szBox=null;$("#slideZoom").classList.remove("hidden");if(_szRaf)cancelAnimationFrame(_szRaf);_szRaf=requestAnimationFrame(_szDraw);}
 function closeSlideZoom(){$("#slideZoom").classList.add("hidden");if(_szRaf){cancelAnimationFrame(_szRaf);_szRaf=null;}if(edSel&&edSel.type==="slide")drawSlidePath(edSel);}
 if($("#slideZoomBtn"))$("#slideZoomBtn").onclick=openSlideZoom;
 if($("#slideDockClose"))$("#slideDockClose").onclick=()=>$("#slideDock").classList.add("hidden");
@@ -4430,15 +4436,30 @@ if($("#slideZoomClose"))$("#slideZoomClose").onclick=closeSlideZoom;
 if($("#slideZoomTest"))$("#slideZoomTest").onclick=()=>{if(!edSel||edSel.type!=="slide")return;   // ★이 드래그만 실제 인게임 속도로 재생
   const n={time:2.2,type:"slide",duration:edSel.duration||0.9,lane:edSel.lane||0,sShape:"custom",pts:edSel.pts.map(p=>p.slice())};if(edSel.ptt)n.ptt=edSel.ptt.slice();
   closeSlideZoom();startPreview({fix:_dragGapFix,px:_dragGapPx,notes:[n],fromEditor:true});toast("실제 테스트 — 키로 타격 · Esc/← 로 에디터 복귀(편집 유지)");};
-(function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1;
+function _szCommit(){edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}
+function _szMirror(){if(!edSel||edSel.type!=="slide"||!edSel.pts)return;pushUndo();   // ⇄ 중앙점 기준 점대칭(1-x,1-y). 선택 없으면 전체
+  const idx=_szSel.length?_szSel:edSel.pts.map((_,i)=>i);
+  idx.forEach(i=>{edSel.pts[i]=[1-edSel.pts[i][0],1-edSel.pts[i][1]];});
+  _szCommit();toast(_szSel.length?("선택한 "+idx.length+"개 점 대칭 이동"):"전체 대칭 이동 (중앙점 기준)");}
+if($("#szMirror"))$("#szMirror").onclick=_szMirror;
+(function(){const z=$("#slideZoomCv");if(!z)return;let drag=-1,grp=null,box=null;
   const open=()=>!$("#slideZoom").classList.contains("hidden");
   z.addEventListener("contextmenu",e=>e.preventDefault());
   z.addEventListener("pointerdown",e=>{if(!open()||!edSel||!edSel.pts)return;e.preventDefault();const r=z.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,hh=_szHit(px,py);
-    if(e.button===2){if(hh>0&&edSel.pts.length>2){pushUndo();edSel.pts.splice(hh,1);if(edSel.ptt)edSel.ptt.splice(hh,1);slideEnsurePtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}return;}
-    if(hh>=0){drag=hh;pushUndo();}
-    else if(_szMode==="add"){pushUndo();edSel.pts.push(_szToN(px,py));slideUniformPtt(edSel);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];}});   // ★점 추가는 '점 추가' 모드에서만 (이동 모드=빈 곳 클릭 무시)
-  window.addEventListener("pointermove",e=>{if(drag<0||!open()||!edSel||!edSel.pts)return;const r=z.getBoundingClientRect();edSel.pts[drag]=_szToN(e.clientX-r.left,e.clientY-r.top);edSel.sShape="custom";$("#slideShape").value="custom";edSel.x=edSel.pts[0][0];edSel.y=edSel.pts[0][1];});
-  window.addEventListener("pointerup",()=>{drag=-1;});
+    if(e.button===2){if(hh>0&&edSel.pts.length>2){pushUndo();edSel.pts.splice(hh,1);if(edSel.ptt)edSel.ptt.splice(hh,1);slideEnsurePtt(edSel);_szSel=_szSel.filter(i=>i!==hh).map(i=>i>hh?i-1:i);_szCommit();}return;}
+    if(hh>=0){
+      if(_szSel.length>1&&_szSel.indexOf(hh)>=0){pushUndo();grp={startN:_szToN(px,py),orig:_szSel.map(i=>[i,edSel.pts[i][0],edSel.pts[i][1]])};}   // 선택군 통째 이동
+      else{_szSel=[hh];drag=hh;pushUndo();}   // 단일 점: 그 점만 선택+이동
+    }
+    else if(_szMode==="add"){pushUndo();edSel.pts.push(_szToN(px,py));slideUniformPtt(edSel);_szSel=[];_szCommit();}   // 점 추가 모드
+    else{box={x0:px,y0:py,x1:px,y1:py};_szBox=box;if(!e.shiftKey)_szSel=[];}   // 이동 모드 빈 곳 = 박스 선택
+  });
+  window.addEventListener("pointermove",e=>{if(!open()||!edSel||!edSel.pts)return;const r=z.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
+    if(drag>=0){edSel.pts[drag]=_szToN(px,py);_szCommit();}
+    else if(grp){const cn=_szToN(px,py),dx=cn[0]-grp.startN[0],dy=cn[1]-grp.startN[1];grp.orig.forEach(o=>{edSel.pts[o[0]]=[clamp(o[1]+dx,0,1),clamp(o[2]+dy,0,1)];});_szCommit();}
+    else if(box){box.x1=px;box.y1=py;const a=Math.min(box.x0,box.x1),b=Math.max(box.x0,box.x1),cc=Math.min(box.y0,box.y1),d=Math.max(box.y0,box.y1);const sel=[];_szPP.forEach((P,i)=>{if(P[0]>=a&&P[0]<=b&&P[1]>=cc&&P[1]<=d)sel.push(i);});_szSel=sel;}
+  });
+  window.addEventListener("pointerup",()=>{drag=-1;grp=null;box=null;_szBox=null;});
   window.addEventListener("keydown",e=>{if(open()&&e.key==="Escape"){e.preventDefault();e.stopPropagation();closeSlideZoom();}},true);
 })();
 // ===== 위치군 자세히 보기 — 실제 인게임 필드에서 멤버를 끌어 직접 배치(고정). 안 하면 완전 랜덤 =====
@@ -4513,6 +4534,11 @@ if($("#pgPlaceBtn"))$("#pgPlaceBtn").onclick=openPgZoom;
 if($("#pgZoomClose"))$("#pgZoomClose").onclick=closePgZoom;
 if($("#pgZoomReset"))$("#pgZoomReset").onclick=pgResetGroup;
 if($("#pgZoomOnion"))$("#pgZoomOnion").onclick=function(){_pgOnion=!_pgOnion;this.textContent="🧅 어니언 스킨: "+(_pgOnion?"켜기":"끄기");this.style.color=_pgOnion?"#ffd23f":"#9fb6ff";this.style.borderColor=_pgOnion?"#ffd23f":"#2a3158";};
+function _pgMirror(){if(!_pgMem)return;pushUndo();   // ⇄ 앵커+방향을 중앙점 기준 점대칭
+  const ax=_pgGet("pgAx",0.5),ay=_pgGet("pgAy",0.42),dir=_pgGet("pgDir",-Math.PI/2);
+  _pgSet({pgAx:clamp(1-ax,0,1),pgAy:clamp(1-ay,0,1),pgDir:dir+Math.PI});
+  toast("위치군 대칭 이동 (중앙점 기준 · 이동방향도 반전)");}
+if($("#pgZoomMirror"))$("#pgZoomMirror").onclick=_pgMirror;
 (function(){const z=$("#pgZoomCv");if(!z)return;
   const open=()=>!$("#pgZoom").classList.contains("hidden");
   function pick(px,py){const h=_pgHandles;if(!h)return null;const near=(x,y,r)=>Math.hypot(x-px,y-py)<r;
