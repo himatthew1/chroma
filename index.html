@@ -579,7 +579,7 @@ window.addEventListener("click",function(e){var t=e.target;if(!t||!t.id)return;i
           <span style="color:#ff6ec7">✨ Flicker:</span>
           <span class="field">속도 <input type="number" id="fkSpeed" step="0.5" min="1" max="18" value="7" style="width:56px">Hz</span>
           <span class="field">범위 <input type="number" id="fkRange" step="1" min="4" max="42" value="20" style="width:52px">%</span>
-          <span class="field">세기 <input type="number" id="fkOp" step="0.05" min="0.2" max="1.3" value="1" style="width:56px"></span>
+          <span class="field">세기 <input type="number" id="fkOp" step="0.05" min="0.03" max="1.5" value="1" style="width:56px"></span>
           <select id="fkStyle" title="플리커 스타일"><option value="random">랜덤</option><option value="strobe">스트로브</option><option value="pulse">펄스</option></select>
           <label class="field" title="배경 전체 플리커"><input type="checkbox" id="fkFull"> 풀스크린</label>
           <span class="field" id="fkColors" style="gap:4px"></span>
@@ -2095,8 +2095,8 @@ function fkIntensity(f,now){const rel=now-f.t0,sp=f.speed||7;
   if(f.style==="pulse")return 0.22+0.78*(0.5+0.5*Math.sin(rel*sp*2*Math.PI));
   if(f.style==="strobe"){const ph=(rel*sp)%1;return ph<0.45?1:0.05;}
   const seg=Math.floor(rel*sp);return _fkHash(seg)<0.72?(0.55+_fkHash(seg+0.37)*0.45):0.05;}   // random(결정적 해시)
-// pcanvas에 플리커 합성. holes=[{x,y,r}] 노트 몸체 → destination-out으로 제외(다운샘플 번짐까지 차단, 노트 무오염)
-function drawFlicker(now,holes){
+// pcanvas에 플리커를 additive('lighter')로 합성 → 배경색 위에 얹힘(검은 베이스 없음). 노트는 이후 위에 그려져 자연스럽게 페이드인.
+function drawFlicker(now){
   const f=fkActive(now); if(!f)return;
   const W=pcanvas.width,H=pcanvas.height;
   let env=1; const RI=0.15; if(now<f.t0+RI)env=(now-f.t0)/RI; if(now>f.t1-RI)env=Math.min(env,(f.t1-now)/RI); if(env<0)env=0;
@@ -2106,7 +2106,7 @@ function drawFlicker(now,holes){
   if(_fkc.width!==W||_fkc.height!==H){_fkc.width=_fkg.width=W;_fkc.height=_fkg.height=H;}
   const fx=_fkc.getContext("2d"), gx=_fkg.getContext("2d");
   fx.clearRect(0,0,W,H);
-  if(f.full){fx.globalCompositeOperation="source-over";fx.globalAlpha=0.34*intv;fx.fillStyle=_fkRGBA(col,1);fx.fillRect(0,0,W,H);fx.globalAlpha=1;}   // 풀스크린 워시
+  if(f.full){fx.globalCompositeOperation="source-over";fx.globalAlpha=0.34*intv*op;fx.fillStyle=_fkRGBA(col,1);fx.fillRect(0,0,W,H);fx.globalAlpha=1;}   // 풀스크린 워시(세기 op 반영)
   const rr=rng/100*H, rrB=rr*1.7;   // 엣지 프레임(아래=플레이존으로 더 침투)
   gx.clearRect(0,0,W,H);
   function mk(x0,y0,x1,y1){const gr=gx.createLinearGradient(x0,y0,x1,y1);gr.addColorStop(0,_fkRGBA(col,0.92*intv*op));gr.addColorStop(0.3,_fkRGBA(col,0.4*intv*op));gr.addColorStop(0.62,_fkRGBA(col,0.12*intv*op));gr.addColorStop(1,_fkRGBA(col,0));return gr;}
@@ -2117,9 +2117,6 @@ function drawFlicker(now,holes){
   gx.fillStyle=mk(W,0,W-rr,0);gx.fillRect(W-rr,0,rr,H);
   fx.globalCompositeOperation="lighter";fx.drawImage(_fkg,0,0);
   if(!f.full&&intv>0.62){fx.globalAlpha=(intv-0.62)*0.16*op;fx.fillStyle=_fkRGBA(col,1);fx.fillRect(0,0,W,H);fx.globalAlpha=1;}
-  if(holes&&holes.length){fx.globalCompositeOperation="destination-out";fx.fillStyle="#000";
-    for(const h of holes){fx.beginPath();fx.arc(h.x,h.y,h.r,0,6.2832);fx.fill();}}
-  fx.globalCompositeOperation="source-over";
   pctx.save();pctx.globalCompositeOperation="lighter";pctx.drawImage(_fkc,0,0);pctx.restore();
 }
 // SHARED 분리선(원근 수평선) — 인게임·How-to 동일. divY 반환(클립 경계로도 사용)
@@ -3219,12 +3216,8 @@ function loop(){
     drawList.push(n);
   }
   drawList.sort((a,b)=>b.time-a.time);
-  // ★네온 플리커 — 노트 뒤·콘솔 뒤. 구멍은 노트의 실제 현재 위치·크기에 딱 맞춤(고정 종착지의 과대 검은 원 제거)
-  drawFlicker(now, drawList.map(n=>{
-    const pg=noteProg(n,now,wpNow,AR), nr=clamp(pg,0,1), ez=nr*nr, di=nr*nr*(3-2*nr);
-    let bb=r*(0.86+0.22*ez); if(n.type==="press")bb*=1.18;
-    return {x:n.x+(n._ox||0)*(1-di), y:n.y+(n._oy||0)*(1-di), r:bb*1.02};
-  }));
+  // ★네온 플리커 — 노트 뒤·콘솔 뒤(노트는 이 위에 그려짐). 구멍(검은 베이스) 없이 배경 위로 자연스럽게 합성 → 노트는 플리커된 배경 위로 그대로 페이드인
+  drawFlicker(now);
   pctx.save();pctx.beginPath();pctx.moveTo(0,0);pctx.lineTo(W,0);for(let x=W;x>=0;x-=4)pctx.lineTo(x,divY(x));pctx.closePath();pctx.clip();  // ★분리선 곡선 위 = 플레이존(패드/분리선 위로는 안 잘림)
   // ★스와이프 체인 리본 — 멤버를 ci 순서로 잇는 발광 띠 (노드 밑에 깔림). 타격된 노드는 빠져 띠가 '소모'됨
   {
@@ -4085,7 +4078,7 @@ function updateFlickerPanel(){const p=$("#flickerPanel");if(!p)return;_fkColBtns
   }else p.classList.add("hidden");}
 $("#fkSpeed").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.speed=clamp(parseFloat($("#fkSpeed").value)||7,1,18);};
 $("#fkRange").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.range=clamp(parseFloat($("#fkRange").value)||20,4,42);};
-$("#fkOp").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.op=clamp(parseFloat($("#fkOp").value)||1,0.2,1.3);};
+$("#fkOp").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.op=clamp(parseFloat($("#fkOp").value)||1,0.03,1.5);};
 $("#fkStyle").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.style=$("#fkStyle").value;};
 $("#fkFull").onchange=()=>{if(!edFlickerSel)return;pushUndo();edFlickerSel.full=$("#fkFull").checked;};
 $("#fkDel").onclick=()=>{if(!edFlickerSel)return;pushUndo();const i=edFlickers.indexOf(edFlickerSel);if(i>=0)edFlickers.splice(i,1);edFlickerSel=null;updateFlickerPanel();toast("플리커 구간 삭제됨");};
