@@ -1163,15 +1163,21 @@ function recordTap(col){
   if(now<t0-0.2)return;
   const nb=t0+gap*Math.round((now-t0)/gap),d=now-nb;
   if(Math.abs(d)>gap*0.5)return;
-  calib.taps.push(d);if(calib.taps.length>8)calib.taps.shift();
-  const avg=calib.taps.reduce((a,b)=>a+b,0)/calib.taps.length;
-  const ms=clamp(Math.round(-avg*1000),-500,500);
+  calib.taps.push(d);if(calib.taps.length>12)calib.taps.shift();
   const el=$("#calibLive");   // ★ASCII(픽셀폰트 렌더 가능 — 한글 두부현상 제거)
-  if(_syncManual){ if(el)el.textContent=calib.taps.length+" TAPS - SUGGEST "+(ms>0?"+":"")+ms+"ms (manual lock)"; return; }   // ★수동 조정 중 → 탭이 값을 덮지 않음(추천만)
-  if(calib.taps.length<3){ if(el)el.textContent=calib.taps.length+" TAPS - keep tapping"; return; }   // ★탭 3회 미만은 적용 안 함(오탭으로 값 튐 방지)
+  const n=calib.taps.length;
+  // ★중앙값 기준 이상치 제거 후 평균 → 오탭/아이패드 튐에 강함(평균 하나로 ±500 튀던 문제 해결)
+  const sorted=calib.taps.slice().sort((a,b)=>a-b), med=sorted[(sorted.length-1)>>1];
+  const kept=calib.taps.filter(x=>Math.abs(x-med)<=0.09);   // 중앙값 ±90ms 이내만 채택
+  const avg=kept.reduce((a,b)=>a+b,0)/kept.length;
+  const spreadMs=Math.round((sorted[sorted.length-1]-sorted[0])*1000);   // 탭 산포(일관성 지표)
+  const ms=clamp(Math.round(-avg*1000),-500,500);
+  if(_syncManual){ if(el)el.textContent=n+" TAPS - SUGGEST "+(ms>0?"+":"")+ms+"ms (manual lock)"; return; }   // ★수동 조정 중 → 탭이 값을 덮지 않음(추천만)
+  if(n<4){ if(el)el.textContent=n+" TAPS - keep tapping"; return; }   // ★4회 미만 적용 안 함
+  if(kept.length<4){ if(el)el.textContent=n+" TAPS - UNSTEADY ("+spreadMs+"ms) - tap on the beat"; return; }   // ★중앙값 근처 군집 4개 미만 = 흩어짐(아이패드 지터 등) → 자동 적용 안 함(기존값 유지, 오탭 1개엔 관대)
   settings.offset=ms;playOffset=ms/1000;saveSettings();
   if($("#setOffset")){$("#setOffset").value=ms;$("#offsetVal").textContent=(ms>0?"+":"")+ms+" ms";}
-  if(el)el.textContent=calib.taps.length+" TAPS - AUTO "+(ms>0?"+":"")+ms+"ms";
+  if(el)el.textContent=n+" TAPS - AUTO "+(ms>0?"+":"")+ms+"ms";
 }
 $("#calibReset").onclick=()=>{if(calib)calib.taps=[];_syncManual=false;const el=$("#calibLive");if(el)el.textContent="Tap to the beat";};   // ★Reset taps = 자동보정 다시 허용
 $("#calibStage").onclick=()=>recordTap(0);
